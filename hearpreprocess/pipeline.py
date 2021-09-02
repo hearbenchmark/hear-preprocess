@@ -6,6 +6,7 @@ import json
 import os
 import random
 import shutil
+import tarfile
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
@@ -13,6 +14,7 @@ from urllib.parse import urlparse
 import hearpreprocess.util.audio as audio_util
 import luigi
 import pandas as pd
+from hearpreprocess import __version__
 from hearpreprocess.util.luigi import WorkTask, download_file, new_basedir
 from slugify import slugify
 from tqdm import tqdm
@@ -761,13 +763,15 @@ class ResampleSubcorpuses(MetadataTask):
         self.mark_complete()
 
 
-class FinalizeCorpus(MetadataTask):
+class FinalCombine(MetadataTask):
     """
-    Create a final corpus, no longer in _workdir but in the top-level
-    at directory config.TASKNAME.
+    Create a final dataset, no longer in _workdir but in directory
+    tasks_dir.
+
     Parameters:
-        sample_rates (list(int)): The list of sampling rates in which the corpus
-            is required
+            sample_rates (list(int)): The list of sampling rates in
+                which the corpus is required.
+        tasks_dir str: Directory to put the combined dataset.
     Requires:
         resample (List(ResampleSubCorpus)): task which resamples
                 the entire subcorpus
@@ -796,7 +800,7 @@ class FinalizeCorpus(MetadataTask):
         }
 
     # We overwrite workdir here, because we want the output to be
-    # the finalized top-level task directory
+    # the finalized task directory
     @property
     def workdir(self):
         return Path(self.tasks_dir).joinpath(self.versioned_task_name)
@@ -833,6 +837,53 @@ class FinalizeCorpus(MetadataTask):
             json.dump(
                 self.task_config, fp, indent=True, cls=luigi.parameter._DictParamEncoder
             )
+
+        self.mark_complete()
+
+
+class FinalizeCorpus(MetadataTask):
+    """
+    Tar the final dataset.
+
+    TODO: Secret tasks should go into another directory,
+    so we don't accidentally copy them to the public bucket.
+
+    Parameters:
+            sample_rates (list(int)): The list of sampling rates in
+                which the corpus is required.
+        tasks_dir str: Directory to put the combined dataset.
+        tar_dir str: Directory to put the tar-files.
+    Requires:
+        final_combine (FinalCombine): Final combined dataset.
+    """
+
+    sample_rates = luigi.ListParameter()
+    tasks_dir = luigi.Parameter()
+    tar_dir = luigi.Parameter()
+
+    def requires(self):
+        return {
+            "combined": FinalCombine(
+                sample_rates=self.sample_rates,
+                tasks_dir=self.tasks_dir,
+                metadata_task=self.metadata_task,
+                task_config=self.task_config,
+            )
+        }
+
+    def create_tar(sample_rate: str):
+        tarname = f"hear-{__version__}-{self.versioned_task_name}-{sample_rate}.tar.gz"
+        source_dir = self.requires()["combined"].workdir
+        arcname = source_dir.replace(self.tasks_dir, "tasks").replace(
+            "tasks//", "tasks/"
+        )
+        assert arcname != source_dir, f"{arcname} == {source_dir}"
+        with tarfile.open(Path(self.tar_dir).joinpath(tarname)) as tar:
+            tar.add(source_dir, arcname)
+
+    def run(self):
+        for sample_rate in self.sample_rates:
+            self.create_tar(sample_rate)
 
         self.mark_complete()
 

@@ -100,7 +100,7 @@ the label metadata for them.
 * SubsampleSplit (subsample each split) => MonoWavTrimCorpus => SubsampledData (symlinks)
 * SubsampledData => {SubsampledMetadata, ResampleSubcorpus}
 * SubsampledMetadata => MetadataVocabulary
-* FinalizeCorpus
+* FinalCombine => FinalizeCorpus
 
 In terms of sampling:
 * We create a 60/20/20 split if train/valid/test does not exist.

@@ -135,6 +135,7 @@ def main(
     sample_rates: List[int],
     tmp_dir: str,
     tasks_dir: str,
+    tar_dir: str,
     small: bool = False,
 ):
     if small:
@@ -150,6 +151,7 @@ def main(
     final_task = pipeline.FinalizeCorpus(
         sample_rates=sample_rates,
         tasks_dir=tasks_dir,
+        tar_dir=tar_dir,
         metadata_task=extract_metadata,
         task_config=task_config,
     )
