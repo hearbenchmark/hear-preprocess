@@ -602,6 +602,20 @@ class SubsampleSplit(MetadataTask):
         else:
             max_split_duration = MAX_TASK_DURATION_BY_SPLIT[self.split]
         if max_split_duration is None:
+            max_files = num_files
+        else:
+            max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
+
+        if (
+            "max_task_duration_by_split" in self.task_config
+            and self.split in self.task_config["max_task_duration_by_split"]
+        ):
+            max_split_duration = self.task_config["max_task_duration_by_split"][
+                self.split
+            ]
+        else:
+            max_split_duration = MAX_TASK_DURATION_BY_SPLIT[self.split]
+        if max_split_duration is None:
             max_files = len(split_filestem_relpaths)
         else:
             max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
