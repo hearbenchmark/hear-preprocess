@@ -316,7 +316,6 @@ class ExtractMetadata(WorkTask):
         metadata = metadata.assign(
             slug=lambda df: df.relpath.apply(self.slugify_file_name),
             subsample_key=self.get_subsample_key,
-            split=lambda df: split,
             split_key=self.get_split_key,
         )
 
