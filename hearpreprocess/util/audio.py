@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
+import ffmpeg
 import soundfile as sf
 from tqdm import tqdm
 
@@ -19,43 +20,47 @@ def mono_wav_and_fix_duration(in_file: str, out_file: str, duration: float):
     """
     Convert to WAV file and trim to be equal to or less than a specific length
     """
-    ret = subprocess.call(
-        [
-            "ffmpeg",
-            "-y",
-            "-i",
-            str(in_file),
-            "-filter_complex",
-            f"apad=whole_dur={duration},atrim=end={duration}",
-            "-ac",
-            "1",
-            "-c:a",
-            "pcm_f32le",
-            str(out_file),
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    # Make sure the return code is 0 and the command was successful.
-    assert ret == 0, f"ret = {ret}"
+    # Get the audio stats for the audio file
+    audio_stats = get_audio_stats(in_file)
+    # Make the expected audio stats
+    expected_audio_stats = {"ext": ".wav", "duration": float(duration), "mono": True}
+    # Compare the audio stats with the expected audio stats
+    # to check if the file already is in the required format
+    filters_to_do = [
+        key
+        for key, value in expected_audio_stats.items()
+        # Default to none in case the stats couldnot be extracted
+        if audio_stats.get(key, None) != value
+    ]
+    # For each criterion, add the corresponding filter
+    if filters_to_do:
+        chain = ffmpeg.input(in_file).audio
+        if "duration" in filters_to_do:
+            chain = chain.filter("apad", whole_dur=duration).filter(
+                "atrim", end=duration
+            )
+        if "mono" in filters_to_do:
+            chain = chain.output(out_file, format="wav", acodec="pcm_f32le", ac=1)
+        else:
+            chain = chain.output(out_file, format="wav", acodec="pcm_f32le")
 
+        # Finally run all the command filter
+        # Overwrite ouput rewrites the output if it is already present
+        try:
+            _ = chain.overwrite_output().run(capture_stdout=False)
+        except ffmpeg.Error as e:
+            print("Please check the console output for ffmpeg to debug the error: ", e)
+            raise
 
-def convert_to_mono_wav(in_file: str, out_file: str):
-    devnull = open(os.devnull, "w")
-    # If we knew the sample rate, we could also pad/trim the audio file now, e.g.:
-    # ffmpeg -i test.webm -filter_complex \
-    #    apad=whole_len=44100,atrim=end_sample=44100 \
-    #    -ac 1 -c:a pcm_f32le ./test.wav
-    # print(" ".join(["ffmpeg", "-y", "-i", in_file,
-    #    "-ac", "1", "-c:a", "pcm_f32le", out_file]))
-    ret = subprocess.call(
-        ["ffmpeg", "-y", "-i", in_file, "-ac", "1", "-c:a", "pcm_f32le", out_file],
-        stdout=devnull,
-        stderr=devnull,
-    )
-    # Make sure the return code is 0 and the command was successful.
-    assert ret == 0
+    else:
+        # If all the expected audio stats already meet the criterion, do a symlink
+        # TODO The symlinked files are not working for speech commands yet
+        out_file = Path(out_file)
+        in_file = Path(in_file)
 
+        if out_file.exists():
+            out_file.unlink()
+        out_file.symlink_to(in_file.absolute())
 
 def resample_wav(in_file: str, out_file: str, out_sr: int):
     """
