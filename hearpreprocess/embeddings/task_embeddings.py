@@ -39,8 +39,8 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
 # import wandb
-import heareval.gpu_max_mem as gpu_max_mem
-from heareval.tasks.pipeline import SPLITS
+import hearpreprocess.gpu_max_mem as gpu_max_mem
+from hearpreprocess.tasks.pipeline import SPLITS
 
 TORCH = "torch"
 TENSORFLOW = "tf"
@@ -379,7 +379,7 @@ def task_embeddings(embedding: Embedding, task_path: Path, embed_task_dir: Path)
     metadata = json.load(metadata_path.open())
     label_vocab_path = task_path.joinpath("labelvocabulary.csv")
 
-    # wandb.init(project="heareval", tags=["embedding", task_name])
+    # wandb.init(project="hearpreprocess", tags=["embedding", task_name])
 
     # Copy these two files to the embeddings directory,
     # so we have everything we need in embeddings for doing downstream

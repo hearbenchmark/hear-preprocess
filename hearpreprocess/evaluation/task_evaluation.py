@@ -12,7 +12,11 @@ import numpy as np
 import pandas as pd
 import torch
 
-from heareval.score import available_scores, label_to_binary_vector, label_vocab_as_dict
+from hearpreprocess.score import (
+    available_scores,
+    label_to_binary_vector,
+    label_vocab_as_dict,
+)
 
 
 def get_scene_based_prediction_files(

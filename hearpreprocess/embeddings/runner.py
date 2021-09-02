@@ -14,8 +14,8 @@ import torch
 from slugify import slugify
 from tqdm import tqdm
 
-import heareval.gpu_max_mem as gpu_max_mem
-from heareval.embeddings.task_embeddings import Embedding, task_embeddings
+import hearpreprocess.gpu_max_mem as gpu_max_mem
+from hearpreprocess.embeddings.task_embeddings import Embedding, task_embeddings
 
 if torch.cuda.is_available() and not tf.test.is_gpu_available(
     cuda_only=False, min_cuda_compute_capability=None

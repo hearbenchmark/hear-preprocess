@@ -10,7 +10,7 @@ from pathlib import Path
 import click
 from tqdm import tqdm
 
-from heareval.evaluation.task_evaluation import task_evaluation
+from hearpreprocess.evaluation.task_evaluation import task_evaluation
 
 
 @click.command()

@@ -38,7 +38,7 @@ from sklearn.model_selection import ParameterGrid
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
-from heareval.score import (
+from hearpreprocess.score import (
     ScoreFunction,
     available_scores,
     label_to_binary_vector,
@@ -813,7 +813,7 @@ def task_predictions(
     metadata = json.load(embedding_path.joinpath("task_metadata.json").open())
     label_vocab, nlabels = label_vocab_nlabels(embedding_path)
 
-    # wandb.init(project="heareval", tags=["predictions", embedding_path.name])
+    # wandb.init(project="hearpreprocess", tags=["predictions", embedding_path.name])
 
     if metadata["embedding_type"] == "scene":
         embedding_size = scene_embedding_size

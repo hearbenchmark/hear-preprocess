@@ -1,5 +1,5 @@
 import click
-import heareval.tasks.util.audio as audio_util
+import hearpreprocess.tasks.util.audio as audio_util
 
 
 @click.command()

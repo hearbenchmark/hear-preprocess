@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 from typing import List
 
-import heareval.tasks.pipeline as pipeline
+import hearpreprocess.tasks.pipeline as pipeline
 import luigi
 import pandas as pd
 from slugify import slugify

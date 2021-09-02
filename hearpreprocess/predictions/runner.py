@@ -16,7 +16,7 @@ import torch
 from slugify import slugify
 from tqdm import tqdm
 
-from heareval.predictions.task_predictions import task_predictions
+from hearpreprocess.predictions.task_predictions import task_predictions
 
 
 @click.command()
