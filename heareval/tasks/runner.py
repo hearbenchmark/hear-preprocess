@@ -11,6 +11,7 @@ import click
 
 import heareval.tasks.dcase2016_task2 as dcase2016_task2
 import heareval.tasks.nsynth_pitch as nsynth_pitch
+import heareval.tasks.office_events as office_events
 import heareval.tasks.pipeline as pipeline
 import heareval.tasks.speech_commands as speech_commands
 
@@ -35,7 +36,8 @@ tasks = {
     "speech_commands": [speech_commands],
     "nsynth_pitch": [nsynth_pitch],
     "dcase2016_task2": [dcase2016_task2],
-    "all": [speech_commands, nsynth_pitch, dcase2016_task2]
+    "office_events": [office_events],
+    "all": [speech_commands, nsynth_pitch, dcase2016_task2, office_events]
     + secret_tasks.pop("all-secrets", []),
     # Add the task config for the secrets task if the secret task config was found.
     # Not available for participants
