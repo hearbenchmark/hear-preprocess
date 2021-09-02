@@ -1,7 +1,7 @@
 import pandas as pd
 from pandas.testing import assert_frame_equal
 import pytest
-from heareval.tasks.util.luigi import subsample_metadata
+from heareval.tasks.util.luigi import perform_metadata_subsampling
 
 
 @pytest.mark.skip(reason="Stratification is deactivated across tasks")
@@ -105,15 +105,15 @@ def test_subsampling(test_metadata, max_files, expected_subsampled_metadata):
         expected_subsampled_metadata,
         columns=["stratify_key", "split_key", "subsample_key"],
     )
-    subsampled_metadata = subsample_metadata(test_metadata, max_files).reset_index(
-        drop=True
-    )
+    subsampled_metadata = perform_metadata_subsampling(
+        test_metadata, max_files
+    ).reset_index(drop=True)
     # Test for correctness of subsampling
     assert_frame_equal(subsampled_metadata, expected_subsampled_metadata)
     # Test for stability of subsampling
     assert_frame_equal(
         subsampled_metadata,
-        subsample_metadata(test_metadata.sample(frac=1), max_files).reset_index(
-            drop=True
-        ),
+        perform_metadata_subsampling(
+            test_metadata.sample(frac=1), max_files
+        ).reset_index(drop=True),
     )
