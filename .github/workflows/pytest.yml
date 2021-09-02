@@ -34,5 +34,4 @@ jobs:
 #        pytest
     - name: Integration test
       run: |
-        pytest
         LUIGI_CONFIG_PATH=heareval/tasks/luigi.cfg python3 -m heareval.tasks.runner --small all
