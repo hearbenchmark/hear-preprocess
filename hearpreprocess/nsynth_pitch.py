@@ -20,6 +20,10 @@ task_config = {
     "version": "v2.2.3",
     "embedding_type": "scene",
     "prediction_type": "multiclass",
+    "sample_duration": 4.0,
+    "pitch_range_min": 21,
+    "pitch_range_max": 108,
+    "evaluation": ["pitch_acc", "chroma_acc"],
     "download_urls": [
         {
             "split": "train",
@@ -37,9 +41,6 @@ task_config = {
             "md5": "5e6f8719bf7e16ad0a00d518b78af77d",
         },
     ],
-    "sample_duration": 4.0,
-    "pitch_range_min": 21,
-    "pitch_range_max": 108,
     "small": {
         "download_urls": [
             {
@@ -60,7 +61,6 @@ task_config = {
         ],
         "version": "v2.2.3-small",
     },
-    "evaluation": ["pitch_acc", "chroma_acc"],
 }
 
 
