@@ -918,6 +918,8 @@ class FinalizeCorpus(MetadataTask):
         assert (
             self.tasks_dir in ("tasks", "tasks/") or arcname != source_dir
         ), f"{arcname} == {source_dir}"
+        assert arcname.startswith("tasks")
+        arcname.replace("tasks/", f"hear-{__version__}")
         with tarfile.open(Path(self.tar_dir).joinpath(tarname), "w:gz") as tar:
             tar.add(source_dir, arcname)
 
