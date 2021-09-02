@@ -25,6 +25,9 @@ TEST_PERCENTAGE = 20
 TRAIN_PERCENTAGE = 100 - VALIDATION_PERCENTAGE - TEST_PERCENTAGE
 
 # We want no more than 5 hours of audio per task.
+# This can be overriden in the task config.
+# e.g. speech_commands test set.
+# If None, no limit is used.
 MAX_TASK_DURATION_BY_SPLIT = {
     "train": 3 * 3600,
     "valid": 1 * 3600,
@@ -429,7 +432,20 @@ class SubsampleSplit(MetadataTask):
         # But we aren't going to use audio that is more than a couple
         # minutes or the timestamp embeddings will explode
         sample_duration = self.task_config["sample_duration"]
-        max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
+
+        if (
+            "max_task_duration_by_split" in self.task_config
+            and self.split in self.task_config["max_task_duration_by_split"]
+        ):
+            max_split_duration = self.task_config["max_task_duration_by_split"][
+                self.split
+            ]
+        else:
+            max_split_duration = MAX_TASK_DURATION_BY_SPLIT[self.split]
+        if max_split_duration is None:
+            max_files = num_files
+        else:
+            max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
 
         if num_files > max_files:
             print(
