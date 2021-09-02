@@ -8,7 +8,6 @@ import multiprocessing
 from typing import Optional
 
 import click
-import hearpreprocess.dcase2016_task2 as dcase2016_task2
 import hearpreprocess.nsynth_pitch as nsynth_pitch
 import hearpreprocess.office_events as office_events
 import hearpreprocess.pipeline as pipeline
@@ -34,9 +33,8 @@ except ImportError as e:
 tasks = {
     "speech_commands": [speech_commands],
     "nsynth_pitch": [nsynth_pitch],
-    "dcase2016_task2": [dcase2016_task2],
     "office_events": [office_events],
-    "all": [speech_commands, nsynth_pitch, dcase2016_task2, office_events]
+    "all": [speech_commands, nsynth_pitch, office_events]
     + secret_tasks.pop("all-secrets", []),
     # Add the task config for the secrets task if the secret task config was found.
     # Not available for participants

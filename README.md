@@ -70,7 +70,7 @@ python3 -m hearpreprocess.runner all
 
 You can also just run individual tasks:
 ```
-python3 -m hearpreprocess.runner [speech_commands|nsynth_pitch|dcase2016_task2]
+python3 -m hearpreprocess.runner [speech_commands|nsynth_pitch|office_events]
 ```
 **_NOTE__**: To run the pipeline on secret tasks please ensure to
 initialize, update, and install the `hear2021-secret-tasks` submodule.
