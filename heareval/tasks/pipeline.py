@@ -30,6 +30,7 @@ SPLITS = ["train", "valid", "test"]
 # the data in the split and hence is not a part of the data config
 VALIDATION_PERCENTAGE = 20
 TEST_PERCENTAGE = 20
+TRAIN_PERCENTAGE = 100 - VALIDATION_PERCENTAGE - TEST_PERCENTAGE
 
 # We want no more than 5 hours of audio per task.
 MAX_TASK_DURATION_BY_SPLIT = {
@@ -253,7 +254,7 @@ class ExtractMetadata(WorkTask):
                 self.get_requires_metadata(requires_key)
                 for requires_key in list(self.requires().keys())
             ]
-        )
+        ).reset_index(drop=True)
         return metadata
 
     def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
@@ -293,7 +294,6 @@ class ExtractMetadata(WorkTask):
         )
         test_percentage = TEST_PERCENTAGE if "test" in splits_to_sample else 0
 
-        metadata.reset_index(drop=True, inplace=True)
         metadata[metadata["split"] == "train"] = metadata[
             metadata["split"] == "train"
         ].assign(
@@ -311,8 +311,11 @@ class ExtractMetadata(WorkTask):
     def run(self):
         # Process metadata gets all metadata to be used for the task
         metadata = self.get_all_metadata()
-
         metadata.reset_index(drop=True)
+
+        # Deterministically shuffle the metadata
+        metadata = metadata.sample(frac=1, random_state=0).reset_index(drop=True)
+
         metadata = metadata.assign(
             slug=lambda df: df.relpath.apply(self.slugify_file_name),
             subsample_key=self.get_subsample_key,
@@ -353,13 +356,6 @@ class ExtractMetadata(WorkTask):
                 )
                 metadata = metadata.loc[exists]
                 assert len(metadata) == sum(exists)
-                print(
-                    "We also modify the TEST_PERCENTAGE and VALIDATION_PERCENTAGE "
-                    "to make sure we have files in each split."
-                )
-                global TEST_PERCENTAGE, VALIDATION_PERCENTAGE
-                TEST_PERCENTAGE = 33
-                VALIDATION_PERCENTAGE = 33
             else:
                 raise FileNotFoundError(
                     "Files in the metadata are missing in the directory"
