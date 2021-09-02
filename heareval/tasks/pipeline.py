@@ -19,6 +19,7 @@ from tqdm import tqdm
 import heareval.tasks.util.audio as audio_util
 from heareval.tasks.util.luigi import (
     WorkTask,
+    MetadataTask,
     download_file,
     filename_to_int_hash,
     new_basedir,
@@ -404,7 +405,7 @@ class ExtractMetadata(WorkTask):
         self.mark_complete()
 
 
-class SubsampleSplit(WorkTask):
+class SubsampleSplit(MetadataTask):
     """
     A subsampler that acts on a specific split.
 
@@ -417,35 +418,23 @@ class SubsampleSplit(WorkTask):
     """
 
     split = luigi.Parameter()
-    metadata: ExtractMetadata = luigi.TaskParameter()
 
     def requires(self):
-        # The meta files contain the path of the files in the data
-        # so we dont need to pass the extract as a dependency here.
         return {
-            "metadata": self.metadata,
+            "metadata": self.metadata_task,
         }
 
-    def get_metadata(self):
-        return pd.read_csv(
-            self.requires()["metadata"].workdir.joinpath(
-                self.requires()["metadata"].outfile
-            )
-        )
-
     def get_subsample_metadata(self):
-        metadata = self.get_metadata()[["split", "subsample_key", "slug", "relpath"]]
+        metadata = self.metadata[["split", "subsample_key", "slug", "relpath"]]
 
         if self.task_config["embedding_type"] == "scene":
             assert metadata["subsample_key"].nunique() == len(metadata)
 
         # Since event detection metadata will have duplicates, we de-dup
         subsample_metadata = (
-            metadata.sort_values(by="subsample_key")
+            metadata[metadata["split"] == self.split].sort_values(by="subsample_key")
             # Drop duplicates as the subsample key is expected to be unique
             .drop_duplicates(subset="subsample_key", ignore_index=True)
-            # Select the split to subsample
-            .loc[lambda df: df["split"] == self.split]
         )
         return subsample_metadata
 
@@ -494,7 +483,7 @@ class SubsampleSplit(WorkTask):
         self.mark_complete()
 
 
-class SubsampleSplits(WorkTask):
+class SubsampleSplits(MetadataTask):
     """
     Aggregates subsampling of all the splits into a single task as dependencies.
 
@@ -504,13 +493,11 @@ class SubsampleSplits(WorkTask):
         subsample_splits (list(SubsampleSplit)): task subsamples each split
     """
 
-    metadata: ExtractMetadata = luigi.TaskParameter()
-
     def requires(self):
         # Perform subsampling on each split independently
         subsample_splits = {
             split: SubsampleSplit(
-                metadata=self.metadata,
+                metadata_task=self.metadata_task,
                 split=split,
                 task_config=self.task_config,
             )
@@ -528,7 +515,7 @@ class SubsampleSplits(WorkTask):
         self.mark_complete()
 
 
-class MonoWavTrimCorpus(WorkTask):
+class MonoWavTrimCorpus(MetadataTask):
     """
     Converts the file to mono, changes to wav encoding,
     trims and pads the audio to be same length
@@ -539,12 +526,10 @@ class MonoWavTrimCorpus(WorkTask):
         corpus (SubsampleSplits): task which aggregates the subsampling for each split
     """
 
-    metadata: ExtractMetadata = luigi.TaskParameter()
-
     def requires(self):
         return {
             "corpus": SubsampleSplits(
-                metadata=self.metadata, task_config=self.task_config
+                metadata_task=self.metadata_task, task_config=self.task_config
             )
         }
 
@@ -560,7 +545,7 @@ class MonoWavTrimCorpus(WorkTask):
         self.mark_complete()
 
 
-class SplitData(WorkTask):
+class SplitData(MetadataTask):
     """
     Go over the subsampled folder and pick the audio files. The audio files are
     saved with their slug names and hence the corresponding label can be picked
@@ -574,28 +559,20 @@ class SplitData(WorkTask):
             them to wav format
     """
 
-    metadata: ExtractMetadata = luigi.TaskParameter()
-
     def requires(self):
-        # The metadata helps in provide the split type for each
-        # audio file
         return {
             "corpus": MonoWavTrimCorpus(
-                metadata=self.metadata, task_config=self.task_config
+                metadata_task=self.metadata_task, task_config=self.task_config
             ),
-            "metadata": self.metadata,
         }
 
     def run(self):
-        meta = self.requires()["metadata"]
-        metadata = pd.read_csv(
-            os.path.join(meta.workdir, meta.outfile),
-        )[["slug", "split"]]
-
         for audiofile in tqdm(list(self.requires()["corpus"].workdir.glob("*.wav"))):
             # Compare the filename with the slug.
             # Note that the slug does not have the extension of the file
-            split = metadata.loc[metadata["slug"] == audiofile.stem, "split"].values[0]
+            split = self.metadata.loc[
+                self.metadata["slug"] == audiofile.stem, "split"
+            ].values[0]
             split_dir = self.workdir.joinpath(split)
             split_dir.mkdir(exist_ok=True)
             newaudiofile = new_basedir(audiofile, split_dir)
@@ -604,7 +581,7 @@ class SplitData(WorkTask):
         self.mark_complete()
 
 
-class SplitMetadata(WorkTask):
+class SplitMetadata(MetadataTask):
     """
     Splits the label dataframe, based upon which audio files are in this split.
 
@@ -614,25 +591,14 @@ class SplitMetadata(WorkTask):
         data (SplitData): which produces the split level corpus
     """
 
-    metadata: ExtractMetadata = luigi.TaskParameter()
-
     def requires(self):
         return {
-            "data": SplitData(metadata=self.metadata, task_config=self.task_config),
-            "metadata": self.metadata,
+            "data": SplitData(
+                metadata_task=self.metadata_task, task_config=self.task_config
+            ),
         }
 
-    def get_metadata(self):
-        metadata = pd.read_csv(
-            self.requires()["metadata"].workdir.joinpath(
-                self.requires()["metadata"].outfile
-            )
-        )
-        return metadata
-
     def run(self):
-        labeldf = self.get_metadata()
-
         for split_path in self.requires()["data"].workdir.iterdir():
             audiodf = pd.DataFrame(
                 [(a.stem, a.suffix) for a in list(split_path.glob("*.wav"))],
@@ -645,7 +611,7 @@ class SplitMetadata(WorkTask):
 
             # Get the label from the metadata with the help of the slug of the filename
             audiolabel_df = (
-                labeldf.merge(audiodf, on="slug")
+                self.metadata.merge(audiodf, on="slug")
                 .assign(slug_path=lambda df: df["slug"] + df["ext"])
                 .drop("ext", axis=1)
             )
@@ -687,7 +653,7 @@ class SplitMetadata(WorkTask):
         self.mark_complete()
 
 
-class MetadataVocabulary(WorkTask):
+class MetadataVocabulary(MetadataTask):
     """
     Creates the vocabulary CSV file for a task.
 
@@ -698,12 +664,10 @@ class MetadataVocabulary(WorkTask):
             level metadata
     """
 
-    metadata: ExtractMetadata = luigi.TaskParameter()
-
     def requires(self):
         return {
             "splitmeta": SplitMetadata(
-                metadata=self.metadata, task_config=self.task_config
+                metadata_task=self.metadata_task, task_config=self.task_config
             )
         }
 
@@ -737,7 +701,7 @@ class MetadataVocabulary(WorkTask):
         self.mark_complete()
 
 
-class ResampleSubcorpus(WorkTask):
+class ResampleSubcorpus(MetadataTask):
     """
     Resamples the Subsampled corpus in different sampling rate
     Parameters
@@ -751,10 +715,13 @@ class ResampleSubcorpus(WorkTask):
 
     sr = luigi.IntParameter()
     split = luigi.Parameter()
-    metadata: ExtractMetadata = luigi.TaskParameter()
 
     def requires(self):
-        return {"data": SplitData(metadata=self.metadata, task_config=self.task_config)}
+        return {
+            "data": SplitData(
+                metadata_task=self.metadata_task, task_config=self.task_config
+            )
+        }
 
     def run(self):
         original_dir = self.requires()["data"].workdir.joinpath(str(self.split))
@@ -773,7 +740,7 @@ class ResampleSubcorpus(WorkTask):
         self.mark_complete()
 
 
-class ResampleSubcorpuses(WorkTask):
+class ResampleSubcorpuses(MetadataTask):
     """
     Aggregates resampling of all the splits and sampling rates
     into a single task as dependencies.
@@ -785,7 +752,6 @@ class ResampleSubcorpuses(WorkTask):
     """
 
     sample_rates = luigi.ListParameter()
-    metadata: ExtractMetadata = luigi.TaskParameter()
 
     def requires(self):
         # Perform resampling on each split and sampling rate independently
@@ -793,7 +759,7 @@ class ResampleSubcorpuses(WorkTask):
             ResampleSubcorpus(
                 sr=sr,
                 split=split,
-                metadata=self.metadata,
+                metadata_task=self.metadata_task,
                 task_config=self.task_config,
             )
             for sr in self.sample_rates
@@ -811,7 +777,7 @@ class ResampleSubcorpuses(WorkTask):
         self.mark_complete()
 
 
-class FinalizeCorpus(WorkTask):
+class FinalizeCorpus(MetadataTask):
     """
     Create a final corpus, no longer in _workdir but in the top-level
     at directory config.TASKNAME.
@@ -826,7 +792,6 @@ class FinalizeCorpus(WorkTask):
     """
 
     sample_rates = luigi.ListParameter()
-    metadata: ExtractMetadata = luigi.TaskParameter()
     tasks_dir = luigi.Parameter()
 
     def requires(self):
@@ -834,14 +799,14 @@ class FinalizeCorpus(WorkTask):
         return {
             "resample": ResampleSubcorpuses(
                 sample_rates=self.sample_rates,
-                metadata=self.metadata,
+                metadata_task=self.metadata_task,
                 task_config=self.task_config,
             ),
             "splitmeta": SplitMetadata(
-                metadata=self.metadata, task_config=self.task_config
+                metadata_task=self.metadata_task, task_config=self.task_config
             ),
             "vocabmeta": MetadataVocabulary(
-                metadata=self.metadata, task_config=self.task_config
+                metadata_task=self.metadata_task, task_config=self.task_config
             ),
         }
 
