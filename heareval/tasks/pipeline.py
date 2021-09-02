@@ -6,7 +6,7 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Set, Union
 from urllib.parse import urlparse
 
 import luigi
@@ -98,14 +98,14 @@ class ExtractArchive(WorkTask):
         self.mark_complete()
 
 
-def get_download_and_extract_tasks(task_config: Dict):
+def get_download_and_extract_tasks(task_config: Dict) -> Dict[str, WorkTask]:
     """
     Iterates over the dowload urls and builds download and extract
     tasks for them
     """
 
     tasks = {}
-    outdirs = set()
+    outdirs: Set[str] = set()
     for urlobj in task_config["download_urls"]:
         split, name, url, md5 = (
             urlobj["split"],
