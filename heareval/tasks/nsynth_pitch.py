@@ -8,10 +8,9 @@ from functools import partial
 from pathlib import Path
 from typing import List
 
+import heareval.tasks.pipeline as pipeline
 import luigi
 import pandas as pd
-
-import heareval.tasks.pipeline as pipeline
 
 logger = logging.getLogger("luigi-interface")
 

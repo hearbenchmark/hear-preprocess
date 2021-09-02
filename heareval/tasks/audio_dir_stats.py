@@ -1,5 +1,4 @@
 import click
-
 import heareval.tasks.util.audio as audio_util
 
 
