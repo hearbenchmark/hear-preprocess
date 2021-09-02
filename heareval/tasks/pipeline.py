@@ -534,7 +534,7 @@ class MonoWavTrimSubcorpus(MetadataTask):
     trims and pads the audio to be same length
 
     Requires:
-        corpus (SubsampleSplits): task which aggregates the subsampling for each split
+        corpus (SubsampleSplits): task which aggregates all subsampled splits
     """
 
     def requires(self):
@@ -593,7 +593,7 @@ class SubcorpusMetadata(MetadataTask):
     files are in each subcorpus split.
 
     Requires
-        data (SubcorpusData): which produces the split level corpus
+        data (SubcorpusData): which produces the subcorpus data.
     """
 
     def requires(self):
@@ -663,8 +663,8 @@ class MetadataVocabulary(MetadataTask):
     Creates the vocabulary CSV file for a task.
 
     Requires
-        subcorpus_metadata (SubcorpusMetadata): task which produces the split
-            level metadata
+            subcorpus_metadata (SubcorpusMetadata): task which produces
+                the subcorpus metadata
     """
 
     def requires(self):
@@ -676,17 +676,16 @@ class MetadataVocabulary(MetadataTask):
 
     def run(self):
         labelset = set()
-        # Iterate over all the files in the split metadata and get the
-        # split_metadata
-        for split_metadata in list(
+        # Save statistics about each subcorpus metadata
+        for subcorpus_metadata in list(
             self.requires()["subcorpus_metadata"].workdir.glob("*.csv")
         ):
-            labeldf = pd.read_csv(split_metadata)
+            labeldf = pd.read_csv(subcorpus_metadata)
             json.dump(
                 labeldf["label"].value_counts().to_dict(),
-                self.workdir.joinpath(f"labelcount_{split_metadata.stem}.json").open(
-                    "w"
-                ),
+                self.workdir.joinpath(
+                    f"labelcount_{subcorpus_metadata.stem}.json"
+                ).open("w"),
                 indent=True,
             )
             labelset = labelset | set(labeldf["label"].unique().tolist())
@@ -708,13 +707,12 @@ class MetadataVocabulary(MetadataTask):
 
 class ResampleSubcorpus(MetadataTask):
     """
-    Resamples the subsampled corpus in different sampling rate
+    Resamples one split in the subsampled corpus to a particular sampling rate
     Parameters
-        split(str): The split for which the resampling has to be done
-        sr(int): output sampling rate
+        split (str): The split for which the resampling has to be done
+        sr (int): output sampling rate
     Requires
-        data (SubcorpusData): task which produces the split
-            level corpus
+        data (SubcorpusData): task which produces the subcorpus data
     """
 
     sr = luigi.IntParameter()
@@ -750,7 +748,7 @@ class ResampleSubcorpuses(MetadataTask):
     into a single task as dependencies.
 
     Requires:
-        subsample_splits (list(SubsampleSplit)): task subsamples each split
+        ResampleSubcorpus for all split and sr
     """
 
     sample_rates = luigi.ListParameter()
@@ -787,16 +785,18 @@ class FinalizeCorpus(MetadataTask):
         sample_rates (list(int)): The list of sampling rates in which the corpus
             is required
     Requires:
-        resample (List(ResampleSubCorpus)): list of task which resamples each split
-        subcorpus_metadata (SubcorpusMetadata): task which produces the split
-            level metadata
+        resample (List(ResampleSubCorpus)): task which resamples
+                the entire subcorpus
+
+        subcorpus_metadata (SubcorpusMetadata): task with the subcorpus metadata
     """
 
     sample_rates = luigi.ListParameter()
     tasks_dir = luigi.Parameter()
 
     def requires(self):
-        # Will copy the resampled data and the split metadata and the metadata_vocabulary
+        # Will copy the resampled subsampled data, the subsampled metadata,
+        # and the metadata_vocabulary
         return {
             "resample": ResampleSubcorpuses(
                 sample_rates=self.sample_rates,
