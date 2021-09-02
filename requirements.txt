@@ -1,7 +1,7 @@
 black
 boto3
 luigi
-numpy==1.19.2
+numpy
 pandas
 pre-commit
 pytest

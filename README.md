@@ -7,6 +7,12 @@ you won't need this repo. Use
 [hear-eval-kit](https://github.com/neuralaudio/hear-eval-kit/) to
 evaluate your embedding models on these tasks.
 
+## Cloud Usage
+
+See [hear-eval's
+README.spotty](https://github.com/neuralaudio/hear-eval-kit/blob/main/README.spotty.md)
+for information on how to use spotty.
+
 ## Installation
 
 ```
