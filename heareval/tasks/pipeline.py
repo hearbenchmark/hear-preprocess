@@ -431,9 +431,6 @@ class SubsampleSplit(MetadataTask):
     Parameters:
         split: name of the split for which subsampling has to be done
         max_files: maximum files required from the subsampling
-        metadata (ExtractMetadata): task which extracts corpus level metadata
-    Requirements:
-        metadata (ExtractMetadata): task which extracts corpus level metadata
     """
 
     split = luigi.Parameter()
@@ -505,8 +502,6 @@ class SubsampleSplits(MetadataTask):
     """
     Aggregates subsampling of all the splits into a single task as dependencies.
 
-    Parameter:
-        metadata (ExtractMetadata): task which extracts a corpus level metadata
     Requires:
         subsample_splits (list(SubsampleSplit)): task subsamples each split
     """
@@ -533,13 +528,11 @@ class SubsampleSplits(MetadataTask):
         self.mark_complete()
 
 
-class MonoWavTrimCorpus(MetadataTask):
+class MonoWavTrimSubcorpus(MetadataTask):
     """
     Converts the file to mono, changes to wav encoding,
     trims and pads the audio to be same length
 
-    Parameters
-        metadata (ExtractMetadata): task which extracts a corpus level metadata
     Requires:
         corpus (SubsampleSplits): task which aggregates the subsampling for each split
     """
@@ -563,23 +556,18 @@ class MonoWavTrimCorpus(MetadataTask):
         self.mark_complete()
 
 
-class SplitData(MetadataTask):
+class SubcorpusData(MetadataTask):
     """
-    Go over the subsampled folder and pick the audio files. The audio files are
-    saved with their slug names and hence the corresponding label can be picked
-    up from the preprocess config. (These are symlinks.)
+    Go over the mono wav folder and symlink the audio files into split dirs.
 
-    Parameters
-        metadata (ExtractMetadata): task which extracts a corpus level metadata
-            the metadata helps to provide the split type of each audio file
     Requires
-        corpus(MonoWavTrimCorpus): which processes the audio file and converts
+        corpus(MonoWavTrimSubcorpus): which processes the audio file and converts
             them to wav format
     """
 
     def requires(self):
         return {
-            "corpus": MonoWavTrimCorpus(
+            "corpus": MonoWavTrimSubcorpus(
                 metadata_task=self.metadata_task, task_config=self.task_config
             ),
         }
@@ -599,19 +587,18 @@ class SplitData(MetadataTask):
         self.mark_complete()
 
 
-class SplitMetadata(MetadataTask):
+class SubcorpusMetadata(MetadataTask):
     """
-    Splits the label dataframe, based upon which audio files are in this split.
+    Find the metadata for the subcorpus, based upon which audio
+    files are in each subcorpus split.
 
-    Parameters
-        metadata (ExtractMetadata): task which extracts a corpus level metadata
     Requires
-        data (SplitData): which produces the split level corpus
+        data (SubcorpusData): which produces the split level corpus
     """
 
     def requires(self):
         return {
-            "data": SplitData(
+            "data": SubcorpusData(
                 metadata_task=self.metadata_task, task_config=self.task_config
             ),
         }
@@ -675,16 +662,14 @@ class MetadataVocabulary(MetadataTask):
     """
     Creates the vocabulary CSV file for a task.
 
-    Parameters
-        metadata (ExtractMetadata): task which extracts a corpus level metadata
     Requires
-        splitmeta (SplitMetadata): task which produces the split
+        subcorpus_metadata (SubcorpusMetadata): task which produces the split
             level metadata
     """
 
     def requires(self):
         return {
-            "splitmeta": SplitMetadata(
+            "subcorpus_metadata": SubcorpusMetadata(
                 metadata_task=self.metadata_task, task_config=self.task_config
             )
         }
@@ -693,7 +678,9 @@ class MetadataVocabulary(MetadataTask):
         labelset = set()
         # Iterate over all the files in the split metadata and get the
         # split_metadata
-        for split_metadata in list(self.requires()["splitmeta"].workdir.glob("*.csv")):
+        for split_metadata in list(
+            self.requires()["subcorpus_metadata"].workdir.glob("*.csv")
+        ):
             labeldf = pd.read_csv(split_metadata)
             json.dump(
                 labeldf["label"].value_counts().to_dict(),
@@ -721,13 +708,12 @@ class MetadataVocabulary(MetadataTask):
 
 class ResampleSubcorpus(MetadataTask):
     """
-    Resamples the Subsampled corpus in different sampling rate
+    Resamples the subsampled corpus in different sampling rate
     Parameters
         split(str): The split for which the resampling has to be done
         sr(int): output sampling rate
-        metadata (ExtractMetadata): task which extracts corpus level metadata
     Requires
-        data (SplitData): task which produces the split
+        data (SubcorpusData): task which produces the split
             level corpus
     """
 
@@ -736,7 +722,7 @@ class ResampleSubcorpus(MetadataTask):
 
     def requires(self):
         return {
-            "data": SplitData(
+            "data": SubcorpusData(
                 metadata_task=self.metadata_task, task_config=self.task_config
             )
         }
@@ -763,8 +749,6 @@ class ResampleSubcorpuses(MetadataTask):
     Aggregates resampling of all the splits and sampling rates
     into a single task as dependencies.
 
-    Parameter:
-        metadata (ExtractMetadata): task which extracts corpus level metadata
     Requires:
         subsample_splits (list(SubsampleSplit)): task subsamples each split
     """
@@ -802,10 +786,9 @@ class FinalizeCorpus(MetadataTask):
     Parameters:
         sample_rates (list(int)): The list of sampling rates in which the corpus
             is required
-        metadata (ExtractMetadata): task which extracts corpus level metadata
     Requires:
         resample (List(ResampleSubCorpus)): list of task which resamples each split
-        splitmeta (SplitMetadata): task which produces the split
+        subcorpus_metadata (SubcorpusMetadata): task which produces the split
             level metadata
     """
 
@@ -813,17 +796,17 @@ class FinalizeCorpus(MetadataTask):
     tasks_dir = luigi.Parameter()
 
     def requires(self):
-        # Will copy the resampled data and the split metadata and the vocabmeta
+        # Will copy the resampled data and the split metadata and the metadata_vocabulary
         return {
             "resample": ResampleSubcorpuses(
                 sample_rates=self.sample_rates,
                 metadata_task=self.metadata_task,
                 task_config=self.task_config,
             ),
-            "splitmeta": SplitMetadata(
+            "subcorpus_metadata": SubcorpusMetadata(
                 metadata_task=self.metadata_task, task_config=self.task_config
             ),
-            "vocabmeta": MetadataVocabulary(
+            "metadata_vocabulary": MetadataVocabulary(
                 metadata_task=self.metadata_task, task_config=self.task_config
             ),
         }
@@ -843,11 +826,13 @@ class FinalizeCorpus(MetadataTask):
 
         # Copy labelvocabulary.csv
         shutil.copy2(
-            self.requires()["vocabmeta"].workdir.joinpath("labelvocabulary.csv"),
+            self.requires()["metadata_vocabulary"].workdir.joinpath(
+                "labelvocabulary.csv"
+            ),
             self.workdir.joinpath("labelvocabulary.csv"),
         )
         # Copy the train test metadata jsons
-        src = self.requires()["splitmeta"].workdir
+        src = self.requires()["subcorpus_metadata"].workdir
         dst = self.workdir
         for item in os.listdir(src):
             if item.endswith(".json"):
