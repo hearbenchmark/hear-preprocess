@@ -4,7 +4,6 @@ Pre-processing pipeline for NSynth pitch detection
 """
 
 import logging
-from functools import partial
 from pathlib import Path
 from typing import List
 
