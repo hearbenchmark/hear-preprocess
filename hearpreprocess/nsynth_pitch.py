@@ -8,7 +8,7 @@ from functools import partial
 from pathlib import Path
 from typing import List
 
-import hearpreprocess.tasks.pipeline as pipeline
+import hearpreprocess.pipeline as pipeline
 import luigi
 import pandas as pd
 

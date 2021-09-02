@@ -7,8 +7,8 @@ import re
 from pathlib import Path
 from typing import List
 
-import hearpreprocess.tasks.pipeline as pipeline
-import hearpreprocess.tasks.util.luigi as luigi_util
+import hearpreprocess.pipeline as pipeline
+import hearpreprocess.util.luigi as luigi_util
 import luigi
 import pandas as pd
 import soundfile as sf

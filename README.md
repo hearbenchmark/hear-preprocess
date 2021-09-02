@@ -65,7 +65,7 @@ python3 -m hearpreprocess.embeddings.runner hearbaseline --model ./naive_baselin
 ```
 
 This assumes that your current working directory contains a folder
-called `tasks` produced by `hearpreprocess.tasks.runner`. If this directory
+called `tasks` produced by `hearpreprocess.runner`. If this directory
 is in a different location or named something different you can use
 the option `--tasks-dir`. 
 
@@ -154,12 +154,12 @@ into a common format for downstream evaluation.
 
 To run the preprocessing pipeline for all available tasks:
 ```
-python3 -m hearpreprocess.tasks.runner all
+python3 -m hearpreprocess.runner all
 ```
 
 You can also just run individual tasks:
 ```
-python3 -m hearpreprocess.tasks.runner [speech_commands|nsynth_pitch|dcase2016_task2]
+python3 -m hearpreprocess.runner [speech_commands|nsynth_pitch|dcase2016_task2]
 ```
 **_NOTE__**: To run the pipeline on secret tasks please ensure to initialise, update and install the `hearsecrettasks` submodule. This repository is not available for participants. If the submodule is set up :
 - Both the aforementioned commands will work for secret tasks as well. 
@@ -215,7 +215,7 @@ Options:
 
 To check the stats of an audio directory:
 ```
-python3 -m hearpreprocess.tasks.audio_dir_stats {input folder} {output json file}
+python3 -m hearpreprocess.audio_dir_stats {input folder} {output json file}
 ```
 Stats include: audio_count, audio_samplerate_count, mean meadian
 and certain (10, 25, 75, 90) percentile durations.  This is helpful
@@ -243,7 +243,7 @@ pipeline.
 These small versions of the data can be generated
 deterministically with the following command:
 ```
-python3 -m hearpreprocess.tasks.sampler <taskname>
+python3 -m hearpreprocess.sampler <taskname>
 ```
 
 **_NOTE_** : The `--small` flag which is used to run the task on a

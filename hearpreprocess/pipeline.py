@@ -10,10 +10,10 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
 
-import hearpreprocess.tasks.util.audio as audio_util
+import hearpreprocess.util.audio as audio_util
 import luigi
 import pandas as pd
-from hearpreprocess.tasks.util.luigi import WorkTask, download_file, new_basedir
+from hearpreprocess.util.luigi import WorkTask, download_file, new_basedir
 from slugify import slugify
 from tqdm import tqdm
 

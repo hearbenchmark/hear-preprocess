@@ -21,22 +21,22 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import click
-import hearpreprocess.tasks.pipeline as pipeline
+import hearpreprocess.pipeline as pipeline
 import luigi
-from hearpreprocess.tasks import (
+from hearpreprocess import (
     dcase2016_task2,
     nsynth_pitch,
     office_events,
     speech_commands,
 )
-from hearpreprocess.tasks.util.luigi import WorkTask
+from hearpreprocess.util.luigi import WorkTask
 from tqdm import tqdm
 
 logger = logging.getLogger("luigi-interface")
 # Currently the sampler is only allowed to run for open tasks
 # The secret tasks module will not be available for participants
 try:
-    from hearpreprocess.tasks.secrettasks import hearsecrettasks
+    from hearpreprocess.secrettasks import hearsecrettasks
 
     secret_config = hearsecrettasks.sampler_config
 except ModuleNotFoundError as e:
