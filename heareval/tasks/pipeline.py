@@ -149,6 +149,7 @@ class ExtractMetadata(WorkTask):
         * label - Label for the scene or event.
         * start, end - Start and end time in seconds of the event,
         for event_labeling tasks.
+        * split_key - See get_split_key
         * slug - This is the filename in our dataset. It should be
         unique, it should be obvious what the original filename
         was, and perhaps it should contain the label for audio scene
@@ -218,12 +219,23 @@ class ExtractMetadata(WorkTask):
         slug_text = slug_text.replace("-", "_negative_")
         return f"{slugify(slug_text)}"
 
+    @staticmethod
+    def get_split_key(df: pd.DataFrame) -> pd.Series:
+        """
+        Gets the split key.
+        A file should only be in one split, i.e. we shouldn't spread
+        file events across splits. This is the default behavior.
+        For some corpora, we might want to be even more restrictive:
+        * An instrument cannot be split.
+        * A speaker cannot be split.
+        """
+        return df["relpath"]
+
     def split_train_test_val(self, metadata: pd.DataFrame):
         """
         This functions splits the metadata into test, train and valid from train
         split if any of test or valid split is not found. We split
-            based upon the relpath (filename), i.e. events in the same
-        file go into the same split.
+        based upon the split_key (see above).
 
         If there is any data specific split, that will already be done in
         get_all_metadata. This function is for automatic splitting if the splits
@@ -282,19 +294,19 @@ class ExtractMetadata(WorkTask):
             train_percentage + valid_percentage + test_percentage == 100
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
 
-        relpaths = metadata["relpath"].unique()
+        split_keys = metadata["split_keys"].unique()
         rng = random.Random("split_train_test_val")
-        rng.shuffle(relpaths)
-        n = len(relpaths)
+        rng.shuffle(split_keys)
+        n = len(split_keys)
 
         n_valid = int(round(n * valid_percentage / 100))
         n_test = int(round(n * test_percentage / 100))
         assert n_valid > 0 or valid_percentage == 0
         assert n_test > 0 or test_percentage == 0
-        valid_relpaths = set(relpaths[:n_valid])
-        test_relpaths = set(relpaths[n_valid : n_valid + n_test])
-        metadata.loc[metadata["relpath"].isin(valid_relpaths), "split"] = "valid"
-        metadata.loc[metadata["relpath"].isin(test_relpaths), "split"] = "test"
+        valid_split_keys = set(split_keys[:n_valid])
+        test_split_keys = set(split_keys[n_valid : n_valid + n_test])
+        metadata.loc[metadata["split_key"].isin(valid_split_keys), "split"] = "valid"
+        metadata.loc[metadata["split_key"].isin(test_split_keys), "split"] = "test"
         return metadata
 
     def run(self):
@@ -305,7 +317,8 @@ class ExtractMetadata(WorkTask):
         metadata = metadata.sample(frac=1, random_state=0).reset_index(drop=True)
 
         metadata = metadata.assign(
-            slug=lambda df: df.relpath.apply(self.slugify_file_name)
+            slug=lambda df: df.relpath.apply(self.slugify_file_name),
+            split_key=lambda df: df.relpath.apply(self.get_split_key),
         )
 
         # Check if one slug is associated with only one relpath.
