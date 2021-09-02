@@ -437,7 +437,7 @@ class SubsampleSplit(MetadataTask):
                 f"Max files to subsample: {max_files}"
             )
             subsampled_relpaths = set(relpaths[:max_files])
-            print(f"Files in split after resampling: f{len(subsampled_relpaths)}")
+            print(f"Files in split after subsampling: f{len(subsampled_relpaths)}")
         else:
             subsampled_relpaths = relpaths
 
