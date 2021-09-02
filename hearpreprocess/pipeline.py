@@ -377,7 +377,7 @@ class ExtractMetadata(WorkTask):
         # Save the label count for each split
         for split, split_df in metadata.groupby("split"):
             json.dump(
-                splitdf["label"].value_counts(normalize=True).to_dict(),
+                split_df["label"].value_counts(normalize=True).to_dict(),
                 self.workdir.joinpath(f"labelcount_{split}.json").open("w"),
                 indent=True,
             )
