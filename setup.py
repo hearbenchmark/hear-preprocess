@@ -39,6 +39,7 @@ setup(
         "spotty",
         "tqdm",
         "scikit-learn>=0.24.2",
+        "ffmpeg-python",
     ],
     extras_require={
         "test": [

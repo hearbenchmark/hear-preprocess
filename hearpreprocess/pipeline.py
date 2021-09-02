@@ -529,12 +529,12 @@ class MonoWavTrimSubcorpus(MetadataTask):
         }
 
     def run(self):
-        # TODO: this should check to see if the audio is already a mono wav at the
-        #   correct length and just create a symlink if that is this case.
         for audiofile in tqdm(list(self.requires()["corpus"].workdir.iterdir())):
             newaudiofile = self.workdir.joinpath(f"{audiofile.stem}.wav")
             audio_util.mono_wav_and_fix_duration(
-                audiofile, newaudiofile, duration=self.task_config["sample_duration"]
+                str(audiofile),
+                str(newaudiofile),
+                duration=self.task_config["sample_duration"],
             )
 
         self.mark_complete()
