@@ -1,3 +1,4 @@
+![HEAR2021](https://neuralaudio.ai/assets/img/hear-header-sponsor.jpg)
 # hear-preprocess
 
 Dataset preprocessing code for the HEAR 2021 NeurIPS competition.
