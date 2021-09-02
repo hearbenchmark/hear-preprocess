@@ -871,14 +871,16 @@ class FinalizeCorpus(MetadataTask):
             )
         }
 
-    def create_tar(sample_rate: str):
+    def create_tar(self, sample_rate: str):
         tarname = f"hear-{__version__}-{self.versioned_task_name}-{sample_rate}.tar.gz"
-        source_dir = self.requires()["combined"].workdir
+        source_dir = str(self.requires()["combined"].workdir)
         arcname = source_dir.replace(self.tasks_dir, "tasks").replace(
             "tasks//", "tasks/"
         )
-        assert arcname != source_dir, f"{arcname} == {source_dir}"
-        with tarfile.open(Path(self.tar_dir).joinpath(tarname)) as tar:
+        assert (
+            self.tasks_dir in ("tasks", "tasks/") or arcname != source_dir
+        ), f"{arcname} == {source_dir}"
+        with tarfile.open(Path(self.tar_dir).joinpath(tarname), "w:gz") as tar:
             tar.add(source_dir, arcname)
 
     def run(self):
