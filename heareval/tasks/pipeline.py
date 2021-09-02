@@ -271,6 +271,10 @@ class ExtractMetadata(WorkTask):
             + f"now sampled with split key are: {splits_to_sample}"
         )
 
+        train_percentage: float
+        valid_percentage: float
+        test_percentage: float
+
         # If we want a 60/20/20 split, but we already have test
         # then we want to do a 75/25/0 split so that train is still 3x validation
         if splits_to_sample == set():
