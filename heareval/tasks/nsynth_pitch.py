@@ -76,6 +76,13 @@ class ExtractMetadata(pipeline.ExtractMetadata):
             "valid": self.valid,
         }
 
+    @staticmethod
+    def get_rel_path(root: Path, item: pd.DataFrame) -> Path:
+        # Creates the relative path to an audio file given the note_str
+        audio_path = root.joinpath("audio")
+        filename = f"{item}.wav"
+        return audio_path.joinpath(filename)
+
     def get_requires_metadata(self, split: str) -> pd.DataFrame:
         logger.info(f"Preparing metadata for {split}")
 
@@ -93,6 +100,9 @@ class ExtractMetadata(pipeline.ExtractMetadata):
                 )
                 # Assign metadata columns
             ].assign(
+                relpath=lambda df: df["note_str"].apply(
+                    partial(self.get_rel_path, split_path)
+                ),
                 label=lambda df: df["pitch"],
             )
         )
