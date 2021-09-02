@@ -136,7 +136,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
     def slugify_file_name(relative_path: str) -> str:
         """
         For speech command each speaker might have given samples for
-        different metadata. In this case, just sluggifying the file name
+        different metadata. In this case, just slugifying the file name
         without the label would cause duplicates
         """
         # Get the foldername which is the label and the filename

@@ -148,13 +148,13 @@ class ExtractMetadata(WorkTask):
 
     The metadata columns are:
         * relpath - How you find the file path in the original dataset.
+        * split - Split of this particular audio file.
+        * label - Label for the scene or event.
         * slug - This is the filename in our dataset. It should be
         unique, it should be obvious what the original filename
         was, and perhaps it should contain the label for audio scene
         tasks.
         * subsample_key - Hash or a tuple of hash to do subsampling
-        * split - Split of this particular audio file.
-        * label - Label for the scene or event.
         * start, end - Start and end time in seconds of the event,
         for event_labeling tasks.
     """
@@ -169,6 +169,33 @@ class ExtractMetadata(WorkTask):
         ...
         # This should have something like the following:
         # return { "train": self.train, "test": self.test }
+
+    def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
+        """
+        For a particular key in the task requires (e.g. "train", or "train_eval"),
+        return a metadata dataframe with the following columns:
+            * relpath - How you find the file path in the original dataset.
+            * split - Split of this particular audio file.
+            * label - Label for the scene or event.
+        """
+        raise NotImplementedError("Deriving classes need to implement this")
+
+    def get_all_metadata(self) -> pd.DataFrame:
+        """
+        Return a dataframe containing all metadata for this task.
+
+        By default, we do one requires task at a time and then concat them.
+        You might consider overriding this for some datasets (like
+        Google Speech Commands) where you cannot process metadata
+        on a per-split basis.
+        """
+        metadata = pd.concat(
+            [
+                self.get_requires_metadata(requires_key)
+                for requires_key in list(self.requires().keys())
+            ]
+        ).reset_index(drop=True)
+        return metadata
 
     @staticmethod
     def slugify_file_name(relative_path: str):
@@ -201,26 +228,6 @@ class ExtractMetadata(WorkTask):
         """
         assert "slug" in df, "slug column not found in the dataframe"
         return df["slug"].apply(str).apply(filename_to_int_hash)
-
-    def get_all_metadata(self) -> pd.DataFrame:
-        """
-        Return a dataframe containing all metadata for this task.
-
-        By default, we do one requires task at a time and then concat them.
-        You might consider overriding this for some datasets (like
-        Google Speech Commands) where you cannot process metadata
-        on a per-split basis.
-        """
-        metadata = pd.concat(
-            [
-                self.get_requires_metadata(requires_key)
-                for requires_key in list(self.requires().keys())
-            ]
-        ).reset_index(drop=True)
-        return metadata
-
-    def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
-        raise NotImplementedError("Deriving classes need to implement this")
 
     def split_train_test_val(self, metadata: pd.DataFrame):
         """
