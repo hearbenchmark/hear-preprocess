@@ -27,12 +27,12 @@ task_config = {
     "prediction_type": "multilabel",
     "download_urls": [
         {
-            "name": "train",
+            "split": "train",
             "url": "https://archive.org/download/dcase2016_task2_train_dev/dcase2016_task2_train_dev.zip",  # noqa: E501
             "md5": "4e1b5e8887159193e8624dec801eb9e7",
         },
         {
-            "name": "test",
+            "split": "test",
             "url": "https://archive.org/download/dcase2016_task2_test_public/dcase2016_task2_test_public.zip",  # noqa: E501
             "md5": "ac98768b39a08fc0c6c2ddd15a981dd7",
         },
@@ -41,12 +41,12 @@ task_config = {
     "small": {
         "download_urls": [
             {
-                "name": "train",
+                "split": "train",
                 "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_train_dev-small.zip",  # noqa: E501
                 "md5": "aa9b43c40e9d496163caab83becf972e",
             },
             {
-                "name": "test",
+                "split": "test",
                 "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_test_public-small.zip",  # noqa: E501
                 "md5": "14539d85dec03cb7ac75eb62dd1dd21e",
             },

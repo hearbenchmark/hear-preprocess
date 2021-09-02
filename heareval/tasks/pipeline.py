@@ -88,13 +88,11 @@ class ExtractArchive(WorkTask):
     def run(self):
         archive_path = self.requires()["download"].workdir.joinpath(self.infile)
         archive_path = archive_path.absolute()
-        output_path = self.workdir
-        if self.outdir is not None:
-            output_path = output_path.joinpath(self.outdir)
+        output_path = output_path.joinpath(self.outdir)
         shutil.unpack_archive(archive_path, output_path)
         audio_util.audio_dir_stats_wav(
             in_dir=output_path,
-            out_file=self.workdir.joinpath(f"{self.outdir}_stats.json"),
+            out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
         )
 
         self.mark_complete()
@@ -107,15 +105,23 @@ def get_download_and_extract_tasks(task_config: Dict):
     """
 
     tasks = {}
+    outdirs = set()
     for urlobj in task_config["download_urls"]:
-        name, url, md5 = urlobj["name"], urlobj["url"], urlobj["md5"]
+        split, name, url, md5 = urlobj["split"], urlobj.get("name", None), urlobj["url"], urlobj["md5"]
         filename = os.path.basename(urlparse(url).path)
+        if name is not None:
+            outdir = f"{split}/{name}"
+        else:
+            outdir = f"{split}"
+        assert outdir not in outdirs, f"{outdir} in {outdirs}. If you are downloading "
+        "multiple archives into one split, they should have different 'name's."
+        outdirs.add(outdir)
         task = ExtractArchive(
             download=DownloadCorpus(
                 url=url, outfile=filename, expected_md5=md5, task_config=task_config
             ),
             infile=filename,
-            outdir=name,
+            outdir=outdir,
             task_config=task_config,
         )
         tasks[name] = task
