@@ -8,6 +8,7 @@ import multiprocessing
 from typing import Optional
 
 import click
+
 import hearpreprocess.dcase2016_task2 as dcase2016_task2
 import hearpreprocess.nsynth_pitch as nsynth_pitch
 import hearpreprocess.office_events as office_events
