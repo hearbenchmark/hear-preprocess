@@ -22,7 +22,7 @@ from heareval.tasks.util.luigi import (
     download_file,
     filename_to_int_hash,
     new_basedir,
-    subsample_metadata,
+    perform_metadata_subsampling,
 )
 
 SPLITS = ["train", "valid", "test"]
@@ -461,13 +461,13 @@ class SubsampleSplit(WorkTask):
                 f"{num_files} audio files in corpus."
                 f"Max files to subsample: {max_files}"
             )
-            sampled_subsample_metadata = subsample_metadata(
+            sampled_subsample_metadata = perform_metadata_subsampling(
                 subsample_metadata, max_files
             )
             print(
                 f"Datapoints in split after resampling: {len(sampled_subsample_metadata)}"
             )
-            assert subsample_metadata(
+            assert perform_metadata_subsampling(
                 subsample_metadata.sample(frac=1), max_files
             ).equals(sampled_subsample_metadata), "The subsampling is not stable"
         else:
