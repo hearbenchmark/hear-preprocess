@@ -32,14 +32,12 @@ task_config = {
             "split": "train",
             "name": "dev",
             "url": "https://archive.org/download/dcase2016_task2_train_dev/dcase2016_task2_train_dev.zip",  # noqa: E501
-            # "url": "https://www.dropbox.com/s/wpzzo7k1p3vs1q9/dcase2016_task2_train_dev.zip",  # noqa: E501
             "md5": "4e1b5e8887159193e8624dec801eb9e7",
         },
         {
             "split": "train",
             "name": "eval",
             "url": "https://archive.org/download/dcase2016_task2_test_public/dcase2016_task2_test_public.zip",  # noqa: E501
-            # "url": "https://www.dropbox.com/s/w5psvsyr651pc1f/dcase2016_task2_test_public.zip",  # noqa: E501
             "md5": "ac98768b39a08fc0c6c2ddd15a981dd7",
         },
     ],

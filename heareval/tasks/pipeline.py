@@ -435,6 +435,7 @@ class SubsampleSplit(WorkTask):
 
         # Since event detection metadata will have duplicates, we de-dup
         # TODO: We might consider different choices of subset
+        # FIXME
         metadata = (
             metadata.sort_values(by="subsample_key")
             # Drop duplicates as the subsample key is expected to be unique

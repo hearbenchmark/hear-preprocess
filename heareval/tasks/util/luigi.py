@@ -117,9 +117,10 @@ def download_file(url, local_filename, expected_md5):
     From: https://stackoverflow.com/a/16696317/82733
     """
     # NOTE the stream=True parameter below
-    with requests.get(url, stream=True) as r:
+    with requests.get(url, stream=True, allow_redirects=True) as r:
         r.raise_for_status()
-        total_length = int(r.headers.get("content-length"))
+        total_length = r.headers.get("content-length")
+        total_length = int(total_length)
         with open(local_filename, "wb") as f:
             pbar = tqdm(total=total_length)
             chunk_size = 8192
@@ -131,7 +132,8 @@ def download_file(url, local_filename, expected_md5):
             pbar.close()
     assert (
         md5sum(local_filename) == expected_md5
-    ), f"Md5sum for url: {url} is: {md5sum(local_filename)}"
+    ), f"md5sum for url: {url} is: {md5sum(local_filename)}"
+    "It should be {expected_md5}"
     return local_filename
 
 
@@ -169,10 +171,10 @@ def which_set(filename_hash: int, validation_percentage: int, testing_percentage
     """
 
     percentage_hash = filename_hash % 100
-    if percentage_hash < validation_percentage:
-        result = "valid"
-    elif percentage_hash < (testing_percentage + validation_percentage):
+    if percentage_hash < test_percentage:
         result = "test"
+    elif percentage_hash < (testing_percentage + validation_percentage):
+        result = "valid"
     else:
         result = "train"
     return result
