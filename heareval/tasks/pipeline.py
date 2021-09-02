@@ -431,24 +431,27 @@ class SubsampleSplit(WorkTask):
             self.requires()["metadata"].workdir.joinpath(
                 self.requires()["metadata"].outfile
             )
-        )[["split", "subsample_key", "slug", "relpath"]]
+        )
+
+    def get_subsample_metadata(self):
+        metadata = self.get_metadata([["split", "subsample_key", "slug", "relpath"]])
 
         if self.task_config["embedding_type"] == "scene":
             assert metadata["subsample_key"].nunique() == len(metadata)
 
         # Since event detection metadata will have duplicates, we de-dup
-        metadata = (
+        subsample_metadata = (
             metadata.sort_values(by="subsample_key")
             # Drop duplicates as the subsample key is expected to be unique
             .drop_duplicates(subset="subsample_key", ignore_index=True)
             # Select the split to subsample
             .loc[lambda df: df["split"] == self.split]
         )
-        return metadata
+        return subsample_metadata
 
     def run(self):
-        metadata = self.get_metadata()
-        num_files = len(metadata)
+        subsample_metadata = self.get_subsample_metadata()
+        num_files = len(subsample_metadata)
         # This might round badly for small corpora with long audio :\
         # TODO: Issue to check for this
         sample_duration = self.task_config["sample_duration"]
@@ -458,15 +461,19 @@ class SubsampleSplit(WorkTask):
                 f"{num_files} audio files in corpus."
                 f"Max files to subsample: {max_files}"
             )
-            sampled_metadata = subsample_metadata(metadata, max_files)
-            print(f"Datapoints in split after resampling: {len(sampled_metadata)}")
-            assert subsample_metadata(metadata.sample(frac=1), max_files).equals(
-                sampled_metadata
-            ), "The subsampling is not stable"
+            sampled_subsample_metadata = subsample_metadata(
+                subsample_metadata, max_files
+            )
+            print(
+                f"Datapoints in split after resampling: {len(sampled_subsample_metadata)}"
+            )
+            assert subsample_metadata(
+                subsample_metadata.sample(frac=1), max_files
+            ).equals(sampled_subsample_metadata), "The subsampling is not stable"
         else:
-            sampled_metadata = metadata
+            sampled_subsample_metadata = subsample_metadata
 
-        for _, audio in sampled_metadata.iterrows():
+        for _, audio in sampled_subsample_metadata.iterrows():
             audiofile = Path(audio["relpath"])
             # Add the original extension to the slug
             newaudiofile = Path(
