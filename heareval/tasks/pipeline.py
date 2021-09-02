@@ -420,9 +420,7 @@ class MetadataTask(WorkTask):
     def metadata(self):
         if self._metadata is None:
             self._metadata = pd.read_csv(
-                self.requires()["metadata"].workdir.joinpath(
-                    self.requires()["metadata"].outfile
-                )
+                self.metadata_task.workdir.joinpath(self.metadata_task.outfile)
             )
         return self._metadata
 
