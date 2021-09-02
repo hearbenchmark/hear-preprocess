@@ -84,7 +84,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         filename = f"{item}.wav"
         return audio_path.joinpath(filename)
 
-    def get_split_metadata(self, split: str) -> pd.DataFrame:
+    def get_requires_metadata(self, split: str) -> pd.DataFrame:
         logger.info(f"Preparing metadata for {split}")
 
         # Loads and prepares the metadata for a specific split

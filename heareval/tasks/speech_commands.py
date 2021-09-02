@@ -205,7 +205,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         )
         assert len(train_df.merge(validation_df, on="relpath")) == 0
 
-        return pd.concat([test_df, validation_df, train_df])
+        return pd.concat([test_df, validation_df, train_df]).reset_index(drop=True)
 
     def get_process_metadata(self) -> pd.DataFrame:
         process_metadata = self.get_split_paths()

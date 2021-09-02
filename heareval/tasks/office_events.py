@@ -31,15 +31,15 @@ task_config = {
         {
             "split": "train",
             "name": "dev",
-            # "url": "https://archive.org/download/dcase2016_task2_train_dev/dcase2016_task2_train_dev.zip",  # noqa: E501
-            "url": "https://www.dropbox.com/s/wpzzo7k1p3vs1q9/dcase2016_task2_train_dev.zip",  # noqa: E501
+            "url": "https://archive.org/download/dcase2016_task2_train_dev/dcase2016_task2_train_dev.zip",  # noqa: E501
+            # "url": "https://www.dropbox.com/s/wpzzo7k1p3vs1q9/dcase2016_task2_train_dev.zip",  # noqa: E501
             "md5": "4e1b5e8887159193e8624dec801eb9e7",
         },
         {
             "split": "train",
             "name": "eval",
-            # "url": "https://archive.org/download/dcase2016_task2_test_public/dcase2016_task2_test_public.zip",  # noqa: E501
-            "url": "https://www.dropbox.com/s/w5psvsyr651pc1f/dcase2016_task2_test_public.zip",  # noqa: E501
+            "url": "https://archive.org/download/dcase2016_task2_test_public/dcase2016_task2_test_public.zip",  # noqa: E501
+            # "url": "https://www.dropbox.com/s/w5psvsyr651pc1f/dcase2016_task2_test_public.zip",  # noqa: E501
             "md5": "ac98768b39a08fc0c6c2ddd15a981dd7",
         },
     ],
@@ -70,11 +70,11 @@ task_config = {
 
 
 class ExtractMetadata(pipeline.ExtractMetadata):
-    train = luigi.TaskParameter()
-    test = luigi.TaskParameter()
+    train_dev = luigi.TaskParameter()
+    train_eval= luigi.TaskParameter()
 
     def requires(self):
-        return {"train": self.train, "test": self.test}
+        return {"train_eval": self.train_eval, "train_dev": self.train_dev}
 
     @staticmethod
     def slugify_file_name(relative_path: str):
@@ -94,50 +94,48 @@ class ExtractMetadata(pipeline.ExtractMetadata):
     DCASE 2016 uses funny pathing, so we just hardcode the desired
     (paths)
     """
-    train_name_to_path_str = {
-        "dev": "dev/dcase2016_task2_train_dev/dcase2016_task2_dev/",
-        "eval": "eval/dcase2016_task2_test_public/",
+    requires_key_to_path_str = {
+        "train_dev": "train/dev/dcase2016_task2_train_dev/dcase2016_task2_dev/",
+        "train_eval": "train/eval/dcase2016_task2_test_public/",
     }
 
-    def get_split_metadata(self, split: str) -> pd.DataFrame:
-        logger.info(f"Preparing metadata for {split}")
+    def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
+        logger.info(f"Preparing metadata for {requires_key}")
 
-        assert split == "train"
+        assert requires_key.startswith("train_")
+
+        requires_path = (
+            Path(self.requires()[requires_key].workdir)
+            .joinpath(self.requires_key_to_path_str[requires_key])
+        )
 
         metadatas = []
-        for name in train_name_to_path_str:
-            split_path = (
-                Path(self.requires()[split].workdir)
-                .joinpath(split)
-                .joinpath(self.split_to_path_str[name])
-            )
-
-            for annotation_file in split_path.glob("annotation/*.txt"):
-                metadata = pd.read_csv(
+        for annotation_file in requires_path.glob("annotation/*.txt"):
+            metadata = pd.read_csv(
                     annotation_file,
                     sep="\t",
                     header=None,
                     names=["start", "end", "label"],
-                )
-                # Convert start and end times to milliseconds
-                metadata["start"] *= 1000
-                metadata["end"] *= 1000
-                sound_file = (
+            )
+            # Convert start and end times to milliseconds
+            metadata["start"] *= 1000
+            metadata["end"] *= 1000
+            sound_file = (
                     str(annotation_file)
                     .replace("annotation", "sound")
                     .replace(".txt", ".wav")
-                )
-                metadata = metadata.assign(
+            )
+            metadata = metadata.assign(
                     relpath=sound_file,
                     slug=lambda df: df.relpath.apply(self.slugify_file_name),
                     subsample_key=self.get_subsample_key,
-                    split=lambda df: split,
+                    split=lambda df: "train",
                     split_key=self.get_split_key,
                 )
 
-                metadatas.append(metadata)
+            metadatas.append(metadata)
 
-        return pd.concat(metadatas)
+        return pd.concat(metadatas).reset_index(drop=True)
 
 
 def main(

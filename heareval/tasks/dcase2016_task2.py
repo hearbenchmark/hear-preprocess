@@ -93,7 +93,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         "test": "dcase2016_task2_test_public/",
     }
 
-    def get_split_metadata(self, split: str) -> pd.DataFrame:
+    def get_requires_metadata(self, split: str) -> pd.DataFrame:
         logger.info(f"Preparing metadata for {split}")
 
         split_path = (
@@ -125,7 +125,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
 
             metadatas.append(metadata)
 
-        return pd.concat(metadatas)
+        return pd.concat(metadatas).reset_index(drop=True)
 
 
 def main(

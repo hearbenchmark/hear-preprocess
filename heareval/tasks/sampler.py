@@ -26,7 +26,7 @@ from tqdm import tqdm
 
 import heareval.tasks.pipeline as pipeline
 import heareval.tasks.util.luigi as luigi_util
-from heareval.tasks import dcase2016_task2, nsynth_pitch, speech_commands
+from heareval.tasks import dcase2016_task2, nsynth_pitch, office_events, speech_commands
 
 logger = logging.getLogger("luigi-interface")
 # Currently the sampler is only allowed to run for open tasks
@@ -63,6 +63,18 @@ configs = {
     },
     "dcase2016_task2": {
         "task_config": dcase2016_task2.task_config,
+        "audio_sample_size": 4,
+        # Put two files from the dev and train split so that those splits are
+        # made
+        # dev_1_ebr_6_nec_2_poly_0.wav -> 1 train file in valid split
+        # dev_1_ebr_6_nec_3_poly_0.wav -> 1 valid file in valid split
+        "necessary_keys": [
+            "dev_1_ebr_6_nec_2_poly_0.wav",
+            "dev_1_ebr_6_nec_3_poly_0.wav",
+        ],
+    },
+    "office_events": {
+        "task_config": office_events.task_config,
         "audio_sample_size": 4,
         # Put two files from the dev and train split so that those splits are
         # made

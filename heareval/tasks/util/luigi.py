@@ -135,7 +135,7 @@ def download_file(url, local_filename, expected_md5):
     return local_filename
 
 
-def filename_to_int_hash(text):
+def filename_to_int_hash(text: str) -> int:
     """
     Returns the sha1 hash of the text passed in.
     """
@@ -143,7 +143,7 @@ def filename_to_int_hash(text):
     return int(hash_name_hashed, 16)
 
 
-def which_set(filename_hash, validation_percentage, testing_percentage):
+def which_set(filename_hash: int, validation_percentage: int, testing_percentage: int) -> str:
     """
     Code adapted from Google Speech Commands dataset.
 
