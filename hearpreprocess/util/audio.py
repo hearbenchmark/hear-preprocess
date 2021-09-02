@@ -81,24 +81,23 @@ def resample_wav(in_file: str, out_file: str, out_sr: int):
 
 
 def get_audio_stats(in_file: Union[str, Path]):
-    """Get statistics for audio files in any format(supported by ffmpeg)"""
-    ret = subprocess.check_output(
-        ["ffmpeg", "-i", in_file, "-f", "null", "-"], stderr=subprocess.STDOUT
-    ).decode("utf-8")
-    sample_rate = int(re.findall("([0-9]+) Hz", ret)[0])
-
-    # Get the duration from the returned string with regex.
-    h, m, s = re.findall(" time=([0-9:.]+)", ret)[0].split(":")
-    duration = int(h) * 3600 + int(m) * 60 + float(s)
-
-    # Get the Stream
-    mono_flag = "mono" in re.findall("Stream (.+)", ret)[0]
-
-    return {
-        "samples": sample_rate * duration,
-        "sample_rate": sample_rate,
-        "duration": duration,
-    }
+    try:
+        audio_stream = ffmpeg.probe(in_file)["streams"][0]
+        audio_stats = {
+            "sample_rate": int(audio_stream["sample_rate"]),
+            "samples": int(audio_stream["duration_ts"]),
+            "mono": True if audio_stream["channels"] == 1 else False,
+            "duration": float(audio_stream["duration"]),
+            "ext": Path(in_file).suffix,
+        }
+    except ffmpeg.Error as e:
+        print(
+            "Skipping audio file for stats calculation. "
+            "Audio path: {file_path}"
+            "Error: {e}"
+        )
+        audio_stats = {}
+    return audio_stats
 
 
 def get_audio_dir_stats(
@@ -133,10 +132,13 @@ def get_audio_dir_stats(
             # succesful
             failure_counter[audio_path.suffix] += 1
 
+    assert audio_dir_stats, "Stats was not calculated for any audio file. Please Check"
+    " the formats of the audio file"
     durations = [stats["duration"] for stats in audio_dir_stats]
     unique_sample_rates = dict(
         Counter([stats["sample_rate"] for stats in audio_dir_stats])
     )
+    mono_audio_count = sum(stats["mono"] for stats in audio_dir_stats)
 
     summary_stats = {
         # Count of no of success and failure for audio summary extraction for each
@@ -146,6 +148,7 @@ def get_audio_dir_stats(
             "failure": failure_counter,
         },
         "audio_samplerate_count": unique_sample_rates,
+        "mono_audio_count": mono_audio_count,
         "audio_mean_dur(sec)": np.mean(durations),
         "audio_median_dur(sec)": np.median(durations),
         # Percentile duration of the audio
