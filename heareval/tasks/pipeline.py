@@ -202,25 +202,6 @@ class ExtractMetadata(WorkTask):
         assert "slug" in df, "slug column not found in the dataframe"
         return df["slug"].apply(str).apply(filename_to_int_hash)
 
-    @staticmethod
-    def get_stratify_key(df: DataFrame) -> Series:
-        """
-        CURRENTLY UNUSED.
-
-        Get the stratify key
-
-        Subsampling is stratified based on this key.
-        Since hashing is only required for ordering the samples
-        for subsampling, the stratify key should not necessarily be a hash,
-        as it is only used to group the data points before subsampling.
-        The actual subsampling is done by the split key and
-        the subsample key.
-
-        By default, the label is used for stratification
-        """
-        assert "label" in df, "label column not found in the dataframe"
-        return df["label"]
-
     def get_all_metadata(self) -> pd.DataFrame:
         """
         Return a dataframe containing all metadata for this task.
