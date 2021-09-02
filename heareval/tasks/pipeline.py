@@ -23,7 +23,6 @@ from heareval.tasks.util.luigi import (
     filename_to_int_hash,
     new_basedir,
     subsample_metadata,
-    which_set,
 )
 
 SPLITS = ["train", "valid", "test"]
@@ -281,7 +280,7 @@ class ExtractMetadata(WorkTask):
             train_percentage = (
                 TRAIN_PERCENTAGE + TRAIN_PERCENTAGE * VALIDATION_PERCENTAGE / tot
             )
-            valid_percetage = 0
+            valid_percentage = 0
             test_percentage = (
                 TEST_PERCENTAGE + TEST_PERCENTAGE * VALIDATION_PERCENTAGE / tot
             )

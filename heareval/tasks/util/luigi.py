@@ -145,43 +145,6 @@ def filename_to_int_hash(text: str) -> int:
     return int(hash_name_hashed, 16)
 
 
-def which_set(
-    filename_hash: int, validation_percentage: int, test_percentage: int
-) -> str:
-    """
-    Code adapted from Google Speech Commands dataset.
-
-    Determines which data split the file should belong to, based
-    upon the filename int hash.
-
-    We want to keep files in the same training, validation, or test
-    sets even if new ones are added over time. This makes it less
-    likely that test samples will accidentally be reused in training
-    when long runs are restarted for example. To keep this stability,
-    a hash of the filename is taken and used to determine which set
-    it should belong to. This determination only depends on the name
-    and the set proportions, so it won't change as other files are
-    added.
-
-    Args:
-      filename: File path of the data sample.
-      validation_percentage: How much of the data set to use for validation.
-      test_percentage: How much of the data set to use for test.
-
-    Returns:
-      String, one of 'train', 'valid', or 'test'.
-    """
-
-    percentage_hash = filename_hash % 100
-    if percentage_hash < test_percentage:
-        result = "test"
-    elif percentage_hash < (test_percentage + validation_percentage):
-        result = "valid"
-    else:
-        result = "train"
-    return result
-
-
 def new_basedir(filename, basedir):
     """
     Rewrite .../filename as basedir/filename
