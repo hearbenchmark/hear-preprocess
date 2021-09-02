@@ -318,8 +318,6 @@ class ExtractMetadata(WorkTask):
 
         metadata = metadata.assign(
             slug=lambda df: df.relpath.apply(self.slugify_file_name),
-        )
-        metadata = metadata.assign(
             split_key=self.get_split_key,
         )
 
@@ -456,7 +454,7 @@ class SubsampleSplit(MetadataTask):
                     "%s%s"
                     % (
                         self.metadata_task.slugify_file_name(audiofile),
-                        audiofile.suffix,
+                        audiopath.suffix,
                     )
                 )
             )
