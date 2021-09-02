@@ -408,9 +408,6 @@ class MetadataTask(WorkTask):
     """
     Abstract WorkTask that wants to have access to the metadata
     from the entire dataset.
-
-    requires should include:
-        "metadata": self.metadata_task,
     """
 
     metadata_task: ExtractMetadata = luigi.TaskParameter()
