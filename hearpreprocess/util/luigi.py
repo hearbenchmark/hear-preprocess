@@ -9,6 +9,7 @@ from functools import partial
 from pathlib import Path
 
 import luigi
+import numpy as np
 import requests
 from tqdm.auto import tqdm
 
@@ -104,6 +105,12 @@ class WorkTask(luigi.Task):
             return 1 + max([task.stage_number for task in parentasks])
         else:
             raise ValueError(f"Unknown requires: {self.requires()}")
+
+
+def labelcount(df):
+    cnts = df["label"].value_counts().to_dict()
+    tot = np.sum(cnt.values())
+    return sorted([(cnt / tot, k, cnt) for k, cnt in cnts.items()])
 
 
 def download_file(url, local_filename, expected_md5):

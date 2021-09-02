@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 import hearpreprocess.util.audio as audio_util
 import luigi
 import pandas as pd
-from hearpreprocess.util.luigi import WorkTask, download_file, new_basedir
+from hearpreprocess.util.luigi import WorkTask, download_file, new_basedir, labelcount
 from slugify import slugify
 from tqdm import tqdm
 
@@ -374,7 +374,7 @@ class ExtractMetadata(WorkTask):
         # Save the label count for each split
         for split, split_df in metadata.groupby("split"):
             json.dump(
-                split_df["label"].value_counts().to_dict(),
+                labelcount(split_df),
                 self.workdir.joinpath(f"labelcount_{split}.json").open("w"),
                 indent=True,
             )
@@ -650,7 +650,7 @@ class MetadataVocabulary(MetadataTask):
         ):
             labeldf = pd.read_csv(subcorpus_metadata)
             json.dump(
-                labeldf["label"].value_counts().to_dict(),
+                labelcount(labeldf),
                 self.workdir.joinpath(
                     f"labelcount_{subcorpus_metadata.stem}.json"
                 ).open("w"),
