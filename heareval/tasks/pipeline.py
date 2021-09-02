@@ -407,7 +407,6 @@ class ExtractMetadata(WorkTask):
 class SubsampleSplit(WorkTask):
     """
     A subsampler that acts on a specific split.
-    All instances of this will depend on the combined metadata csv.
 
     Parameters:
         split: name of the split for which subsampling has to be done
@@ -418,7 +417,7 @@ class SubsampleSplit(WorkTask):
     """
 
     split = luigi.Parameter()
-    metadata = luigi.TaskParameter()
+    metadata: ExtractMetadata = luigi.TaskParameter()
 
     def requires(self):
         # The meta files contain the path of the files in the data
@@ -434,9 +433,10 @@ class SubsampleSplit(WorkTask):
             )
         )[["split", "subsample_key", "slug", "relpath"]]
 
+        if self.task_config["embedding_type"] == "scene":
+            assert metadata["subsample_key"].nunique() == len(metadata)
+
         # Since event detection metadata will have duplicates, we de-dup
-        # TODO: We might consider different choices of subset
-        # FIXME
         metadata = (
             metadata.sort_values(by="subsample_key")
             # Drop duplicates as the subsample key is expected to be unique
@@ -496,7 +496,7 @@ class SubsampleSplits(WorkTask):
         subsample_splits (list(SubsampleSplit)): task subsamples each split
     """
 
-    metadata = luigi.TaskParameter()
+    metadata: ExtractMetadata = luigi.TaskParameter()
 
     def requires(self):
         # Perform subsampling on each split independently
@@ -531,7 +531,7 @@ class MonoWavTrimCorpus(WorkTask):
         corpus (SubsampleSplits): task which aggregates the subsampling for each split
     """
 
-    metadata = luigi.TaskParameter()
+    metadata: ExtractMetadata = luigi.TaskParameter()
 
     def requires(self):
         return {
@@ -566,7 +566,7 @@ class SplitData(WorkTask):
             them to wav format
     """
 
-    metadata = luigi.TaskParameter()
+    metadata: ExtractMetadata = luigi.TaskParameter()
 
     def requires(self):
         # The metadata helps in provide the split type for each
@@ -579,7 +579,6 @@ class SplitData(WorkTask):
         }
 
     def run(self):
-
         meta = self.requires()["metadata"]
         metadata = pd.read_csv(
             os.path.join(meta.workdir, meta.outfile),
@@ -587,7 +586,7 @@ class SplitData(WorkTask):
 
         for audiofile in tqdm(list(self.requires()["corpus"].workdir.glob("*.wav"))):
             # Compare the filename with the slug.
-            # Please note that the slug doesnot has the extension of the file
+            # Note that the slug does not have the extension of the file
             split = metadata.loc[metadata["slug"] == audiofile.stem, "split"].values[0]
             split_dir = self.workdir.joinpath(split)
             split_dir.mkdir(exist_ok=True)
@@ -599,7 +598,7 @@ class SplitData(WorkTask):
 
 class SplitMetadata(WorkTask):
     """
-    Splits the label dataframe.
+    Splits the label dataframe, based upon which audio files are in this split.
 
     Parameters
         metadata (ExtractMetadata): task which extracts a corpus level metadata
@@ -607,7 +606,7 @@ class SplitMetadata(WorkTask):
         data (SplitData): which produces the split level corpus
     """
 
-    metadata = luigi.TaskParameter()
+    metadata: ExtractMetadata = luigi.TaskParameter()
 
     def requires(self):
         return {
@@ -691,7 +690,7 @@ class MetadataVocabulary(WorkTask):
             level metadata
     """
 
-    metadata = luigi.TaskParameter()
+    metadata: ExtractMetadata = luigi.TaskParameter()
 
     def requires(self):
         return {
@@ -744,7 +743,7 @@ class ResampleSubcorpus(WorkTask):
 
     sr = luigi.IntParameter()
     split = luigi.Parameter()
-    metadata = luigi.TaskParameter()
+    metadata: ExtractMetadata = luigi.TaskParameter()
 
     def requires(self):
         return {"data": SplitData(metadata=self.metadata, task_config=self.task_config)}
@@ -778,7 +777,7 @@ class ResampleSubcorpuses(WorkTask):
     """
 
     sample_rates = luigi.ListParameter()
-    metadata = luigi.TaskParameter()
+    metadata: ExtractMetadata = luigi.TaskParameter()
 
     def requires(self):
         # Perform resampling on each split and sampling rate independently
@@ -819,7 +818,7 @@ class FinalizeCorpus(WorkTask):
     """
 
     sample_rates = luigi.ListParameter()
-    metadata = luigi.TaskParameter()
+    metadata: ExtractMetadata = luigi.TaskParameter()
     tasks_dir = luigi.Parameter()
 
     def requires(self):
