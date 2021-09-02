@@ -120,8 +120,7 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
 RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
     PIP_INSTALL="python3 -m pip --no-cache-dir install" && \
     GIT_CLONE="git clone --depth 10" && \
-    $GIT_CLONE -b spotty https://github.com/neuralaudio/hear-preprocess.git
-#    $GIT_CLONE https://github.com/neuralaudio/hear-preprocess.git
+    $GIT_CLONE https://github.com/neuralaudio/hear-preprocess.git
 RUN cd hear-preprocess && \
     python3 -m pip --no-cache-dir install -e ".[dev]"
 
