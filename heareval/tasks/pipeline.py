@@ -253,7 +253,7 @@ class ExtractMetadata(WorkTask):
                 self.get_requires_metadata(requires_key)
                 for requires_key in list(self.requires().keys())
             ]
-        ).reset_index(drop=True)
+        )
         return metadata
 
     def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
@@ -311,6 +311,14 @@ class ExtractMetadata(WorkTask):
     def run(self):
         # Process metadata gets all metadata to be used for the task
         metadata = self.get_all_metadata()
+
+        metadata.reset_index(drop=True)
+        metadata = metadata.assign(
+            slug=lambda df: df.relpath.apply(self.slugify_file_name),
+            subsample_key=self.get_subsample_key,
+            split=lambda df: split,
+            split_key=self.get_split_key,
+        )
 
         # Check if one slug is associated with only one relpath.
         # Also implies there is a one to one correspondence between relpath and slug.
