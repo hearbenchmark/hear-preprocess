@@ -256,7 +256,7 @@ class ExtractMetadata(WorkTask):
         return process_metadata
 
     def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
-        raise NotImplementError("Deriving classes need to implement this")
+        raise NotImplementedError("Deriving classes need to implement this")
 
     def split_train_test_val(self, metadata: pd.DataFrame):
         """
