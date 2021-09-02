@@ -283,7 +283,7 @@ class ExtractMetadata(WorkTask):
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
 
         relpaths = metadata["relpath"].unique()
-        rng = random.Random(seed="split_train_test_val")
+        rng = random.Random("split_train_test_val")
         rng.shuffle(relpaths)
         n = len(relpaths)
 
@@ -413,7 +413,7 @@ class SubsampleSplit(MetadataTask):
     def run(self):
         split_metadata = self.metadata[self.metadata["split"] == self.split]
         relpaths = split_metadata["relpath"].unique()
-        rng = random.Random(seed="SubsampleSplit")
+        rng = random.Random("SubsampleSplit")
         rng.shuffle(relpaths)
         num_files = len(relpaths)
 

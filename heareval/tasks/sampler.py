@@ -126,7 +126,7 @@ class RandomSampleOriginalDataset(WorkTask):
             )
         )
 
-        rng = random.Random(seed="RandomSampleOriginalDataset")
+        rng = random.Random("RandomSampleOriginalDataset")
         rng.shuffle(audio_files_to_sample)
         sampled_audio_files = audio_files_to_sample[: self.audio_sample_size]
 
