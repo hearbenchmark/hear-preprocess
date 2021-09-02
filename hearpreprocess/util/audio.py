@@ -4,8 +4,9 @@ Audio utility functions for evaluation task preparation
 
 import json
 import os
+import re
 import subprocess
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -66,8 +67,8 @@ def resample_wav(in_file: str, out_file: str, out_sr: int):
             "-y",
             "-i",
             in_file,
-            "-af",
-            "aresample=resampler=soxr",
+            # "-af",
+            # "aresample=resampler=soxr",
             "-ar",
             str(out_sr),
             out_file,
@@ -79,24 +80,35 @@ def resample_wav(in_file: str, out_file: str, out_sr: int):
     assert ret == 0
 
 
-def audio_stats_wav(in_file: Union[str, Path]):
-    """Get statistics for a single wav file"""
-    audio = sf.SoundFile(str(in_file))
+def get_audio_stats(in_file: Union[str, Path]):
+    """Get statistics for audio files in any format(supported by ffmpeg)"""
+    ret = subprocess.check_output(
+        ["ffmpeg", "-i", in_file, "-f", "null", "-"], stderr=subprocess.STDOUT
+    ).decode("utf-8")
+    sample_rate = int(re.findall("([0-9]+) Hz", ret)[0])
+
+    # Get the duration from the returned string with regex.
+    h, m, s = re.findall(" time=([0-9:.]+)", ret)[0].split(":")
+    duration = int(h) * 3600 + int(m) * 60 + float(s)
+
+    # Get the Stream
+    mono_flag = "mono" in re.findall("Stream (.+)", ret)[0]
+
     return {
-        "samples": len(audio),
-        "sample_rate": audio.samplerate,
-        "duration": len(audio) / audio.samplerate,
+        "samples": sample_rate * duration,
+        "sample_rate": sample_rate,
+        "duration": duration,
     }
 
 
-def audio_dir_stats_wav(
+def get_audio_dir_stats(
     in_dir: Union[str, Path], out_file: str, exts: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """Produce summary by recursively searching a directory for wav files"""
     if exts is None:
-        exts = [".wav", ".mp3", ".ogg"]
+        exts = [".wav", ".mp3", ".ogg", ".webm"]
 
-    # Filter the files in the directory for the required extensions
+    # Get all the audio files
     audio_paths = list(
         filter(
             lambda audio_path: audio_path.suffix.lower()
@@ -104,26 +116,40 @@ def audio_dir_stats_wav(
             Path(in_dir).absolute().rglob("*"),
         )
     )
-    audio_dir_stats = list(
-        map(
-            audio_stats_wav,
-            tqdm(audio_paths),
-        )
-    )
+
+    # Count the number of successful and failed statistics extraction to be
+    # added the output stats file
+    success_counter = defaultdict(int)
+    failure_counter = defaultdict(int)
+
+    # Iterate and get the statistics for each audio
+    audio_dir_stats = []
+    for audio_path in tqdm(audio_paths):
+        try:
+            audio_dir_stats.append(get_audio_stats(audio_path))
+            success_counter[audio_path.suffix] += 1
+        except:
+            # update the failed counter if the extraction was not
+            # succesful
+            failure_counter[audio_path.suffix] += 1
 
     durations = [stats["duration"] for stats in audio_dir_stats]
     unique_sample_rates = dict(
         Counter([stats["sample_rate"] for stats in audio_dir_stats])
     )
 
-    stats = {
-        "audio_count": len(durations),
+    summary_stats = {
+        # Count of no of success and failure for audio summary extraction for each
+        # extension type
+        "audio_summary_from": {
+            "successfully_extracted": success_counter,
+            "failure": failure_counter,
+        },
         "audio_samplerate_count": unique_sample_rates,
         "audio_mean_dur(sec)": np.mean(durations),
         "audio_median_dur(sec)": np.median(durations),
-    }
-    stats.update(
-        {
+        # Percentile duration of the audio
+        **{
             f"{str(p)}th percentile dur(sec)": np.percentile(durations, p)
             for p in [10, 25, 75, 90]
         }

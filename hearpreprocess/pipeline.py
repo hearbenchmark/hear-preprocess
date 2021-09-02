@@ -96,7 +96,7 @@ class ExtractArchive(WorkTask):
         archive_path = self.requires()["download"].workdir.joinpath(self.infile)
         archive_path = archive_path.absolute()
         shutil.unpack_archive(archive_path, self.output_path)
-        stats = audio_util.audio_dir_stats_wav(
+        stats = audio_util.get_audio_dir_stats(
             in_dir=self.output_path,
             out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
         )
@@ -890,7 +890,7 @@ class ResampleSubcorpus(MetadataTask):
             resampled_audiofile = new_basedir(audiofile, resample_dir)
             audio_util.resample_wav(audiofile, resampled_audiofile, self.sr)
 
-        stats = audio_util.audio_dir_stats_wav(
+        stats = audio_util.get_audio_dir_stats(
             in_dir=resample_dir,
             out_file=self.workdir.joinpath(str(self.sr)).joinpath(
                 f"{self.split}_stats.json"
