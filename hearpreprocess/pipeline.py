@@ -238,7 +238,7 @@ class ExtractMetadata(WorkTask):
         based upon the split_key (see above).
 
         If there is any data specific split, that will already be
-            done in get_all_metadata. This function is for automatic
+        done in get_all_metadata. This function is for automatic
         splitting if the splits are not found.
 
         Note that all files are shuffled and we pick exactly as
@@ -249,7 +249,7 @@ class ExtractMetadata(WorkTask):
         * The downside is that if a later version of the
         dataset is released with more files, this method will not
         preserve the split across dataset versions.
-            * The benefit is that, for small datasets, it correctly
+        * The benefit is that, for small datasets, it correctly
         stratifies the data according to the desired percentages.
         For small datasets, unless the splits are predetermined
         (e.g. in a key file), using the size of the data set to
