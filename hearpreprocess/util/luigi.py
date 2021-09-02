@@ -107,12 +107,6 @@ class WorkTask(luigi.Task):
             raise ValueError(f"Unknown requires: {self.requires()}")
 
 
-def labelcount(df):
-    cnts = df["label"].value_counts().to_dict()
-    tot = np.sum(cnt.values())
-    return sorted([(cnt / tot, k, cnt) for k, cnt in cnts.items()])
-
-
 def download_file(url, local_filename, expected_md5):
     """
     The downside of this approach versus `wget -c` is that this
