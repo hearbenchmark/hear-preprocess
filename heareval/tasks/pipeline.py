@@ -289,7 +289,7 @@ class ExtractMetadata(WorkTask):
             train_percentage + valid_percentage + test_percentage == 100
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
 
-        split_keys = metadata["split_keys"].unique()
+        split_keys = metadata["split_key"].unique()
         rng = random.Random("split_train_test_val")
         rng.shuffle(split_keys)
         n = len(split_keys)
