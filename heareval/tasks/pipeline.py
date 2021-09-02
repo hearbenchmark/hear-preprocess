@@ -19,7 +19,6 @@ from tqdm import tqdm
 import heareval.tasks.util.audio as audio_util
 from heareval.tasks.util.luigi import (
     WorkTask,
-    MetadataTask,
     download_file,
     filename_to_int_hash,
     new_basedir,
@@ -403,6 +402,29 @@ class ExtractMetadata(WorkTask):
             )
 
         self.mark_complete()
+
+
+class MetadataTask(WorkTask):
+    """
+    Abstract WorkTask that wants to have access to the metadata
+    from the entire dataset.
+
+    requires should include:
+        "metadata": self.metadata_task,
+    """
+
+    metadata_task: ExtractMetadata = luigi.TaskParameter()
+    _metadata: Optional[pd.DataFrame] = None
+
+    @property
+    def metadata(self):
+        if self._metadata is None:
+            self._metadata = pd.read_csv(
+                self.requires()["metadata"].workdir.joinpath(
+                    self.requires()["metadata"].outfile
+                )
+            )
+        return self._metadata
 
 
 class SubsampleSplit(MetadataTask):
