@@ -62,13 +62,20 @@ tasks = {
     "--tmp-dir",
     default="_workdir",
     help="Temporary directory to save all the "
-    + "intermediate tasks (will not be deleted afterwords)",
+    "intermediate tasks (will not be deleted afterwords). "
+    "(default: _workdir/)",
     type=str,
 )
 @click.option(
     "--tasks-dir",
     default="tasks",
-    help="Directory to save the final task output",
+    help="Directory to save the final task output (default: tasks/)",
+    type=str,
+)
+@click.option(
+    "--tar-dir",
+    default=".",
+    help="Directory to save the tar'ed output (default: .)",
     type=str,
 )
 @click.option(
@@ -83,6 +90,7 @@ def run(
     sample_rate: Optional[int] = None,
     tmp_dir: Optional[str] = "_workdir",
     tasks_dir: Optional[str] = "tasks",
+    tar_dir: Optional[str] = ".",
     small: bool = False,
 ):
 
@@ -100,6 +108,7 @@ def run(
             sample_rates=sample_rates,
             tmp_dir=tmp_dir,
             tasks_dir=tasks_dir,
+            tar_dir=tar_dir,
             small=small,
         )
         for task_script in tasks[task]

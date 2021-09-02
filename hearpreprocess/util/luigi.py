@@ -9,6 +9,7 @@ from functools import partial
 from pathlib import Path
 
 import luigi
+import numpy as np
 import requests
 from tqdm.auto import tqdm
 

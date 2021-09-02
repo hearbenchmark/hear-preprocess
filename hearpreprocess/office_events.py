@@ -26,6 +26,12 @@ task_config = {
     "version": "hear2021",
     "embedding_type": "event",
     "prediction_type": "multilabel",
+    "sample_duration": 120.0,
+    # DCASE2016 task 2 used the segment-based total error rate as
+    # their main score and then the onset only event based F1 as
+    # their secondary score.
+    # However, we announced that onset F1 would be our primary score.
+    "evaluation": ["event_onset_200ms_fms", "segment_1s_er"],
     "download_urls": [
         {
             "split": "train",
@@ -40,7 +46,6 @@ task_config = {
             "md5": "ac98768b39a08fc0c6c2ddd15a981dd7",
         },
     ],
-    "sample_duration": 120.0,
     "small": {
         "download_urls": [
             {
@@ -58,11 +63,6 @@ task_config = {
         ],
         "version": "hear2021-small",
     },
-    # DCASE2016 task 2 used the segment-based total error rate as
-    # their main score and then the onset only event based F1 as
-    # their secondary score.
-    # However, we announced that onset F1 would be our primary score.
-    "evaluation": ["event_onset_200ms_fms", "segment_1s_er"],
 }
 
 
@@ -135,6 +135,7 @@ def main(
     sample_rates: List[int],
     tmp_dir: str,
     tasks_dir: str,
+    tar_dir: str,
     small: bool = False,
 ):
     if small:
@@ -150,6 +151,7 @@ def main(
     final_task = pipeline.FinalizeCorpus(
         sample_rates=sample_rates,
         tasks_dir=tasks_dir,
+        tar_dir=tar_dir,
         metadata_task=extract_metadata,
         task_config=task_config,
     )
