@@ -427,7 +427,7 @@ class SubsampleSplit(WorkTask):
         }
 
     def get_metadata(self):
-        metadata = pd.read_csv(
+        return pd.read_csv(
             self.requires()["metadata"].workdir.joinpath(
                 self.requires()["metadata"].outfile
             )
