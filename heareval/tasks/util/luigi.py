@@ -9,7 +9,6 @@ from functools import partial
 from pathlib import Path
 
 import luigi
-import pandas as pd
 import requests
 from tqdm.auto import tqdm
 
@@ -135,14 +134,6 @@ def download_file(url, local_filename, expected_md5):
     ), f"md5sum for url: {url} is: {md5sum(local_filename)}"
     "It should be {expected_md5}"
     return local_filename
-
-
-def filename_to_int_hash(text: str) -> int:
-    """
-    Returns the sha1 hash of the text passed in.
-    """
-    hash_name_hashed = hashlib.sha1(text.encode("utf-8")).hexdigest()
-    return int(hash_name_hashed, 16)
 
 
 def new_basedir(filename, basedir):

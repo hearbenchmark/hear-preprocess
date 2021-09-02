@@ -12,7 +12,6 @@ from urllib.parse import urlparse
 
 import luigi
 import pandas as pd
-from pandas import DataFrame, Series
 from slugify import slugify
 from tqdm import tqdm
 
@@ -20,9 +19,7 @@ import heareval.tasks.util.audio as audio_util
 from heareval.tasks.util.luigi import (
     WorkTask,
     download_file,
-    filename_to_int_hash,
     new_basedir,
-    perform_metadata_subsampling,
 )
 
 SPLITS = ["train", "valid", "test"]
@@ -441,7 +438,11 @@ class SubsampleSplit(MetadataTask):
             # Add the original extension to the slug
             newaudiofile = Path(
                 self.workdir.joinpath(
-                    f"{self.metadata_task.slugify_file_name(audiofile)}{audiofile.suffix}"
+                    "%s%s"
+                    % (
+                        self.metadata_task.slugify_file_name(audiofile),
+                        audiofile.suffix,
+                    )
                 )
             )
             assert not newaudiofile.exists(), f"{newaudiofile} already exists! "

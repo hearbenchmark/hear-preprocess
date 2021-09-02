@@ -22,7 +22,6 @@ from urllib.parse import urlparse
 
 import click
 import luigi
-import pandas as pd
 from tqdm import tqdm
 
 import heareval.tasks.pipeline as pipeline
