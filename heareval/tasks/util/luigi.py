@@ -145,7 +145,9 @@ def filename_to_int_hash(text: str) -> int:
     return int(hash_name_hashed, 16)
 
 
-def which_set(filename_hash: int, validation_percentage: int, test_percentage: int) -> str:
+def which_set(
+    filename_hash: int, validation_percentage: int, test_percentage: int
+) -> str:
     """
     Code adapted from Google Speech Commands dataset.
 

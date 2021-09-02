@@ -69,7 +69,7 @@ task_config = {
 
 class ExtractMetadata(pipeline.ExtractMetadata):
     train_dev = luigi.TaskParameter()
-    train_eval= luigi.TaskParameter()
+    train_eval = luigi.TaskParameter()
 
     def requires(self):
         return {"train_eval": self.train_eval, "train_dev": self.train_dev}
@@ -102,34 +102,33 @@ class ExtractMetadata(pipeline.ExtractMetadata):
 
         assert requires_key.startswith("train_")
 
-        requires_path = (
-            Path(self.requires()[requires_key].workdir)
-            .joinpath(self.requires_key_to_path_str[requires_key])
+        requires_path = Path(self.requires()[requires_key].workdir).joinpath(
+            self.requires_key_to_path_str[requires_key]
         )
 
         metadatas = []
         for annotation_file in requires_path.glob("annotation/*.txt"):
             metadata = pd.read_csv(
-                    annotation_file,
-                    sep="\t",
-                    header=None,
-                    names=["start", "end", "label"],
+                annotation_file,
+                sep="\t",
+                header=None,
+                names=["start", "end", "label"],
             )
             # Convert start and end times to milliseconds
             metadata["start"] *= 1000
             metadata["end"] *= 1000
             sound_file = (
-                    str(annotation_file)
-                    .replace("annotation", "sound")
-                    .replace(".txt", ".wav")
+                str(annotation_file)
+                .replace("annotation", "sound")
+                .replace(".txt", ".wav")
             )
             metadata = metadata.assign(
-                    relpath=sound_file,
-                    slug=lambda df: df.relpath.apply(self.slugify_file_name),
-                    subsample_key=self.get_subsample_key,
-                    split=lambda df: "train",
-                    split_key=self.get_split_key,
-                )
+                relpath=sound_file,
+                slug=lambda df: df.relpath.apply(self.slugify_file_name),
+                subsample_key=self.get_subsample_key,
+                split=lambda df: "train",
+                split_key=self.get_split_key,
+            )
 
             metadatas.append(metadata)
 

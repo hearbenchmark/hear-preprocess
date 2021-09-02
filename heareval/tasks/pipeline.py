@@ -107,7 +107,12 @@ def get_download_and_extract_tasks(task_config: Dict):
     tasks = {}
     outdirs = set()
     for urlobj in task_config["download_urls"]:
-        split, name, url, md5 = urlobj["split"], urlobj.get("name", None), urlobj["url"], urlobj["md5"]
+        split, name, url, md5 = (
+            urlobj["split"],
+            urlobj.get("name", None),
+            urlobj["url"],
+            urlobj["md5"],
+        )
         filename = os.path.basename(urlparse(url).path)
         if name is not None:
             outdir = f"{split}/{name}"
@@ -282,7 +287,9 @@ class ExtractMetadata(WorkTask):
 
         # Depending on whether valid and test are already present, the percentage can
         # either be the predefined percentage or 0
-        validation_percentage = VALIDATION_PERCENTAGE if "valid" in splits_to_sample else 0
+        validation_percentage = (
+            VALIDATION_PERCENTAGE if "valid" in splits_to_sample else 0
+        )
         test_percentage = TEST_PERCENTAGE if "test" in splits_to_sample else 0
 
         metadata.reset_index(drop=True, inplace=True)
@@ -291,7 +298,11 @@ class ExtractMetadata(WorkTask):
         ].assign(
             split=lambda df: df["split_key"].apply(
                 # Use the which set to split the train into the required splits
-                lambda split_key: which_set(split_key, validation_percentage=validation_percentage, test_percentage=test_percentage)
+                lambda split_key: which_set(
+                    split_key,
+                    validation_percentage=validation_percentage,
+                    test_percentage=test_percentage,
+                )
             )
         )
         return metadata
