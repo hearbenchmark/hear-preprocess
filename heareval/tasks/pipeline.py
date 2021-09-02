@@ -7,7 +7,7 @@ import os
 import random
 import shutil
 from pathlib import Path
-from typing import Dict, List, Set, Union
+from typing import Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
 
 import luigi
