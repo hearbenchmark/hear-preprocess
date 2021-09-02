@@ -430,6 +430,8 @@ class MetadataTask(WorkTask):
 class SubsampleSplit(MetadataTask):
     """
     A subsampler that acts on a specific split.
+    For large datasets, we may want to restrict each split to a
+    certain number of minutes.
 
     Parameters:
         split: name of the split for which subsampling has to be done
@@ -491,7 +493,6 @@ class SubsampleSplit(MetadataTask):
             newaudiofile = Path(
                 self.workdir.joinpath(f"{audio['slug']}{audiofile.suffix}")
             )
-            # missing_ok is python >= 3.8
             assert not newaudiofile.exists(), f"{newaudiofile} already exists! "
             "We shouldn't have two files with the same name. If this is happening "
             "because luigi is overwriting an incomplete output directory "
