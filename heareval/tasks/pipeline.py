@@ -434,7 +434,7 @@ class SubsampleSplit(WorkTask):
         )
 
     def get_subsample_metadata(self):
-        metadata = self.get_metadata([["split", "subsample_key", "slug", "relpath"]])
+        metadata = self.get_metadata()[["split", "subsample_key", "slug", "relpath"]]
 
         if self.task_config["embedding_type"] == "scene":
             assert metadata["subsample_key"].nunique() == len(metadata)
