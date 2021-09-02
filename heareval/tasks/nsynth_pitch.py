@@ -89,7 +89,6 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         """
         The instrument is the split key.
         """
-        print(df["slug"])
         return df["slug"].apply(lambda slug: slug.split("-")[0])
 
     def get_requires_metadata(self, split: str) -> pd.DataFrame:

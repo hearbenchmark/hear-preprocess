@@ -320,7 +320,7 @@ class ExtractMetadata(WorkTask):
             slug=lambda df: df.relpath.apply(self.slugify_file_name),
         )
         metadata = metadata.assign(
-            split_key=lambda df: df.apply(self.get_split_key),
+            split_key=self.get_split_key,
         )
 
         # Check if one slug is associated with only one relpath.
