@@ -207,7 +207,7 @@ class ExtractMetadata(WorkTask):
         return metadata
 
     @staticmethod
-    def slugify_file_name(relative_path: str):
+    def slugify_file_name(relative_path: str) -> str:
         """
         This is the filename in our dataset, WITHOUT the extension.
 
@@ -318,7 +318,9 @@ class ExtractMetadata(WorkTask):
 
         metadata = metadata.assign(
             slug=lambda df: df.relpath.apply(self.slugify_file_name),
-            split_key=lambda df: df.relpath.apply(self.get_split_key),
+        )
+        metadata = metadata.assign(
+            split_key=lambda df: df.apply(self.get_split_key),
         )
 
         # Check if one slug is associated with only one relpath.
