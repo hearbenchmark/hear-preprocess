@@ -282,8 +282,8 @@ class ExtractMetadata(WorkTask):
 
         # Depending on whether valid and test are already present, the percentage can
         # either be the predefined percentage or 0
-        valid_perc = VALIDATION_PERCENTAGE if "valid" in splits_to_sample else 0
-        test_perc = TEST_PERCENTAGE if "test" in splits_to_sample else 0
+        validation_percentage = VALIDATION_PERCENTAGE if "valid" in splits_to_sample else 0
+        test_percentage = TEST_PERCENTAGE if "test" in splits_to_sample else 0
 
         metadata.reset_index(drop=True, inplace=True)
         metadata[metadata["split"] == "train"] = metadata[
@@ -291,7 +291,7 @@ class ExtractMetadata(WorkTask):
         ].assign(
             split=lambda df: df["split_key"].apply(
                 # Use the which set to split the train into the required splits
-                lambda split_key: which_set(split_key, valid_perc, test_perc)
+                lambda split_key: which_set(split_key, validation_percentage=validation_percentage, test_percentage=test_percentage)
             )
         )
         return metadata
