@@ -124,6 +124,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
             )
             metadata = metadata.assign(
                 relpath=sound_file,
+                split=lambda df: "train",
             )
 
             metadatas.append(metadata)

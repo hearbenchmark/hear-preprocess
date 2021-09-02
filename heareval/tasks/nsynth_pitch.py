@@ -105,6 +105,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
                     partial(self.get_rel_path, split_path)
                 ),
                 label=lambda df: df["pitch"],
+                split=lambda df: split,
             )
         )
 
