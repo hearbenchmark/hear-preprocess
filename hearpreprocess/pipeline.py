@@ -140,9 +140,13 @@ class ExtractMetadata(WorkTask):
     The metadata columns are:
         * relpath - How you find the file path in the original dataset.
         * split - Split of this particular audio file.
-        * label - Label for the scene or event.
-        * start, end - Start and end time in seconds of the event,
-        for event_labeling tasks.
+        * label - Label for the scene or event. For multilabel, if
+        there are multiple labels, they will be on different rows
+        of the df.
+        * start, end - Start time in milliseconds for the event with
+        this label. Event prediction tasks only, i.e. timestamp
+        embeddings.
+        * end - End time, as start.
         * split_key - See get_split_key
         * slug - This is the filename in our dataset. It should be
         unique, it should be obvious what the original filename
@@ -282,7 +286,7 @@ class ExtractMetadata(WorkTask):
             train_percentage + valid_percentage + test_percentage == 100
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
 
-        split_keys = metadata["split_key"].unique()
+        split_keys = metadata[metadata.split == "train"]["split_key"].unique()
         rng = random.Random("split_train_test_val")
         rng.shuffle(split_keys)
         n = len(split_keys)
@@ -358,6 +362,12 @@ class ExtractMetadata(WorkTask):
             if self.task_config["prediction_type"] == "multiclass":
                 label_count = metadata.groupby("slug")["label"].aggregate(len)
                 assert (label_count == 1).all()
+        elif self.task_config["embedding_type"] == "event":
+            pass
+        else:
+            raise ValueError(
+                "%s embedding_type unknown" % self.task_config["embedding_type"]
+            )
 
         metadata.to_csv(
             self.workdir.joinpath(self.outfile),
@@ -431,7 +441,7 @@ class SubsampleSplit(MetadataTask):
             )
             subsampled_relpaths = set(relpaths[:max_files])
             print(
-                f"Files in split {self.split} after resampling: f{len(subsampled_relpaths)}"
+                f"Files in split {self.split} after resampling: {len(subsampled_relpaths)}"
             )
         else:
             subsampled_relpaths = relpaths
