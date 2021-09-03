@@ -408,6 +408,16 @@ class ExtractMetadata(WorkTask):
         metadata.loc[metadata["split_key"].isin(test_split_keys), "split"] = "test"
         return metadata
 
+    def get_requires_metadata_check(self, requires_key: str) -> pd.DataFrame:
+        df = self.get_requires_metadata(requires_key)
+        assert "relpath" in df.columns
+        assert "split" in df.columns
+        assert "label" in df.columns
+        if self.task_config["embedding_type"] == "event":
+            assert "start" in df.columns
+            assert "end" in df.columns
+        return df
+
     def run(self):
         # Get all metadata to be used for the task
         metadata = self.get_all_metadata()
@@ -473,16 +483,6 @@ class ExtractMetadata(WorkTask):
             f"datapath in {relpath} not found. " + f"base_paths = {base_paths}"
         )
         return datapath
-
-    def get_requires_metadata_check(self, requires_key: str) -> pd.DataFrame:
-        df = self.get_requires_metadata(requires_key)
-        assert "relpath" in df.columns
-        assert "split" in df.columns
-        assert "label" in df.columns
-        if self.task_config["embedding_type"] == "event":
-            assert "start" in df.columns
-            assert "end" in df.columns
-        return df
 
 
 class MetadataTask(WorkTask):
@@ -648,12 +648,12 @@ class SubcorpusData(MetadataTask):
     def run(self):
         audiofiles = list(self.requires()["corpus"].workdir.glob("*.wav"))
         assert len(audiofiles) == len(
-            self.metadata["unique_filestems"].drop_duplicates()
+            self.metadata["unique_filestem"].drop_duplicates()
         )
         for audiofile in audiofiles:
             # Compare the filename with the unique_filestem.
             # Note that the unique_filestem does not have a file extension
-            split = self.metadata.loc[
+            splits = self.metadata.loc[
                 self.metadata["unique_filestem"] == audiofile.stem, "split"
             ].drop_duplicates()
             assert len(splits) == 1
