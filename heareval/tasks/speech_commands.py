@@ -84,6 +84,7 @@ class GenerateTrainDataset(luigi_util.WorkTask):
         print("Generating silence files from background sounds ...")
         for audio_path in tqdm(background_audio):
             audio, sr = sf.read(str(audio_path))
+            assert audio.ndim == 1
 
             basename = os.path.basename(audio_path)
             name, ext = os.path.splitext(basename)
@@ -124,28 +125,32 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         }
 
     @staticmethod
-    def apply_label(relative_path):
-        label = os.path.basename(os.path.dirname(relative_path))
-        if label not in WORDS and label != SILENCE:
-            label = UNKNOWN
-        return label
-
-    @staticmethod
-    def slugify_file_name(relative_path: str) -> str:
+    def unique_filename(relpath: str) -> str:
         """
-        For speech command each speaker might have given samples for
-        different metadata. In this case, just slugifying the file name
-        without the label would cause duplicates
+        For speech command each speaker, include the command name
+        (parent directory) in the filename.
         """
         # Get the foldername which is the label and the filename
-        name = os.path.splitext(os.path.join(*Path(relative_path).parts[-2:]))[0]
-        return f"{slugify(str(name))}"
+        name = os.path.splitext(os.path.join(*Path(relpath).parts[-2:]))[0]
+        return str(name)
+
+    @staticmethod
+    def speaker_hash(unique_filename: str) -> str:
+        """Get the speaker hash as the Split key for Speech Commands"""
+        hsh = re.sub(r"-nohash-.*$", "", unique_filename)
+        assert hsh != unique_filename, "{unique_filename} has no speaker hash."
 
     @staticmethod
     def get_split_key(df: pd.DataFrame) -> pd.Series:
         """Get the speaker hash as the Split key for Speech Commands"""
-        # TODO: Make sure the substitution always applies
-        return df["slug"].apply(lambda slug: re.sub(r"-nohash-.*$", "", slug))
+        return df["unique_filename"].apply(self.speaker_hash)
+
+    @staticmethod
+    def relpath_to_label(relpath: Path):
+        label = os.path.basename(os.path.dirname(relpath))
+        if label not in WORDS and label != SILENCE:
+            label = UNKNOWN
+        return label
 
     def get_split_paths(self):
         """
@@ -205,7 +210,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
     def get_all_metadata(self) -> pd.DataFrame:
         metadata = self.get_split_paths()
         metadata = metadata.assign(
-            label=lambda df: df["relpath"].apply(self.apply_label),
+            label=lambda df: df["relpath"].apply(self.relpath_to_label),
         )
         return metadata
 
