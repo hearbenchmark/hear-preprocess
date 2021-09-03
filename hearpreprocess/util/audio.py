@@ -3,64 +3,60 @@ Audio utility functions for evaluation task preparation
 """
 
 import json
-import os
-import re
-import subprocess
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict
 
 import numpy as np
 import ffmpeg
-import soundfile as sf
 from tqdm import tqdm
 
 
 def mono_wav_and_fix_duration(in_file: str, out_file: str, duration: float):
     """
     Convert to WAV file and trim to be equal to or less than a specific length
+
+    If the audio is already mono and has the required duration, the step is skipped
+    and a symlink is created to the original file
     """
     # Get the audio stats for the audio file
     audio_stats = get_audio_stats(in_file)
-    # Make the expected audio stats
-    expected_audio_stats = {"ext": ".wav", "duration": float(duration), "mono": True}
-    # Compare the audio stats with the expected audio stats
-    # to check if the file already is in the required format
-    filters_to_do = [
-        key
-        for key, value in expected_audio_stats.items()
-        # Default to none in case the stats couldnot be extracted
-        if audio_stats.get(key, None) != value
-    ]
-    # For each criterion, add the corresponding filter
-    if filters_to_do:
-        chain = ffmpeg.input(in_file).audio
-        if "duration" in filters_to_do:
-            chain = chain.filter("apad", whole_dur=duration).filter(
+    # Get the filters to apply to the audio
+    duration_filter_flag = audio_stats["duration"] != duration
+    mono_filter_flag = not audio_stats["mono"]
+    ext_filter_flag = audio_stats["ext"].lower() != ".wav"
+
+    # If the audio has the desired duration and is already mono .wav all the flags will
+    # be false, then we will move to the else part where we will just create a symlink
+    if duration_filter_flag or mono_filter_flag or ext_filter_flag:
+        # create a ffmpeg command chain to take the input
+        cmd_chain = ffmpeg.input(in_file).audio
+        # Add duration commands if required
+        if duration_filter_flag:
+            cmd_chain = cmd_chain.filter("apad", whole_dur=duration).filter(
                 "atrim", end=duration
             )
-        if "mono" in filters_to_do:
-            chain = chain.output(out_file, format="wav", acodec="pcm_f32le", ac=1)
+        # Add mono flag if required
+        if mono_filter_flag:
+            cmd_chain = cmd_chain.output(out_file, f="wav", acodec="pcm_f32le", ac=1)
         else:
-            chain = chain.output(out_file, format="wav", acodec="pcm_f32le")
+            cmd_chain = cmd_chain.output(out_file, f="wav", acodec="pcm_f32le")
 
-        # Finally run all the command filter
-        # Overwrite ouput rewrites the output if it is already present
         try:
-            _ = chain.overwrite_output().run(capture_stdout=False)
+            _ = cmd_chain.overwrite_output().run(quiet=True)
         except ffmpeg.Error as e:
-            print("Please check the console output for ffmpeg to debug the error: ", e)
+            print(
+                "Please check the console output for ffmpeg to debug the "
+                "error in mono wav and fix duration: ",
+                f"Error: {e}",
+            )
             raise
-
     else:
-        # If all the expected audio stats already meet the criterion, do a symlink
-        # TODO The symlinked files are not working for speech commands yet
-        out_file = Path(out_file)
-        in_file = Path(in_file)
+        # If the file already has the desired duration and is mono wav, make a symlink
+        if Path(out_file).exists():
+            Path(out_file).unlink()
+        Path(out_file).symlink_to(Path(in_file).absolute())
 
-        if out_file.exists():
-            out_file.unlink()
-        out_file.symlink_to(in_file.absolute())
 
 def resample_wav(in_file: str, out_file: str, out_sr: int):
     """
