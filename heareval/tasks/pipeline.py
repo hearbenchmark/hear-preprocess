@@ -451,13 +451,13 @@ class SubsampleSplit(WorkTask):
         if num_files > max_files:
             print(
                 f"{num_files} audio files in corpus."
-                f"Max files to subsample: {max_files}"
+                f"Max files to subsample in {self.split}: {max_files}"
             )
             sampled_subsample_metadata = perform_metadata_subsampling(
                 subsample_metadata, max_files
             )
             print(
-                "Datapoints in split after resampling: "
+                f"Datapoints in split {self.split} after resampling: "
                 f"{len(sampled_subsample_metadata)}"
             )
             assert perform_metadata_subsampling(
