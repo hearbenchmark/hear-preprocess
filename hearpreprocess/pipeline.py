@@ -331,6 +331,8 @@ class ExtractMetadata(WorkTask):
     def run(self):
         # Process metadata gets all metadata to be used for the task
         metadata = self.get_all_metadata()
+        # Reset the index, we don't know what upstream did
+        metadata.reset_index(inplace=True, drop=True)
 
         metadata = metadata.assign(
             slug=lambda df: df.relpath.apply(self.slugify_file_name),
@@ -359,9 +361,11 @@ class ExtractMetadata(WorkTask):
         if "start" in metadata.columns:
             metadata.sort_values(
                 ["slug", "start", "end", "label"], inplace=True, kind="stable"
-            )
+            ).reset_index(drop=True)
         else:
-            metadata.sort_values(["slug", "label"], inplace=True, kind="stable")
+            metadata.sort_values(
+                ["slug", "label"], inplace=True, kind="stable"
+            ).reset_index(drop=True)
 
         # Now, deterministically shuffle the metadata
         metadata = metadata.sample(frac=1, random_state=0).reset_index(drop=True)
