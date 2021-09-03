@@ -8,6 +8,7 @@ import multiprocessing
 from typing import Optional
 
 import click
+
 import hearpreprocess.nsynth_pitch as nsynth_pitch
 import hearpreprocess.office_events as office_events
 import hearpreprocess.pipeline as pipeline

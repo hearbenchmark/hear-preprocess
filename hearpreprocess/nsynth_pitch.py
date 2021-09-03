@@ -8,9 +8,10 @@ from functools import partial
 from pathlib import Path
 from typing import List
 
-import hearpreprocess.pipeline as pipeline
 import luigi
 import pandas as pd
+
+import hearpreprocess.pipeline as pipeline
 
 logger = logging.getLogger("luigi-interface")
 

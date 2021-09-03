@@ -10,12 +10,13 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
 
-import hearpreprocess.util.audio as audio_util
 import luigi
 import pandas as pd
-from hearpreprocess.util.luigi import WorkTask, download_file, new_basedir
 from slugify import slugify
 from tqdm import tqdm
+
+import hearpreprocess.util.audio as audio_util
+from hearpreprocess.util.luigi import WorkTask, download_file, new_basedir
 
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
@@ -139,9 +140,13 @@ class ExtractMetadata(WorkTask):
     The metadata columns are:
         * relpath - How you find the file path in the original dataset.
         * split - Split of this particular audio file.
-        * label - Label for the scene or event.
-        * start, end - Start and end time in seconds of the event,
-        for event_labeling tasks.
+        * label - Label for the scene or event. For multilabel, if
+        there are multiple labels, they will be on different rows
+        of the df.
+        * start, end - Start time in milliseconds for the event with
+        this label. Event prediction tasks only, i.e. timestamp
+        embeddings.
+        * end - End time, as start.
         * split_key - See get_split_key
         * slug - This is the filename in our dataset. It should be
         unique, it should be obvious what the original filename
@@ -386,6 +391,12 @@ class ExtractMetadata(WorkTask):
             if self.task_config["prediction_type"] == "multiclass":
                 label_count = metadata.groupby("slug")["label"].aggregate(len)
                 assert (label_count == 1).all()
+        elif self.task_config["embedding_type"] == "event":
+            pass
+        else:
+            raise ValueError(
+                "%s embedding_type unknown" % self.task_config["embedding_type"]
+            )
 
         metadata.to_csv(
             self.workdir.joinpath(self.outfile),
@@ -468,7 +479,7 @@ class SubsampleSplit(MetadataTask):
             )
             subsampled_relpaths = set(relpaths[:max_files])
             print(
-                f"Files in split {self.split} after resampling: f{len(subsampled_relpaths)}"
+                f"Files in split {self.split} after resampling: {len(subsampled_relpaths)}"
             )
         else:
             subsampled_relpaths = relpaths
