@@ -7,15 +7,13 @@ import re
 from pathlib import Path
 from typing import List
 
+import heareval.tasks.pipeline as pipeline
+import heareval.tasks.util.luigi as luigi_util
 import luigi
 import pandas as pd
 import soundfile as sf
-from pandas import DataFrame, Series
 from slugify import slugify
 from tqdm import tqdm
-
-import heareval.tasks.pipeline as pipeline
-import heareval.tasks.util.luigi as luigi_util
 
 WORDS = ["down", "go", "left", "no", "off", "on", "right", "stop", "up", "yes"]
 BACKGROUND_NOISE = "_background_noise_"
@@ -144,13 +142,9 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         return f"{slugify(str(name))}"
 
     @staticmethod
-    def get_split_key(df: DataFrame) -> Series:
+    def get_split_key(df: pd.DataFrame) -> pd.Series:
         """Get the speaker hash as the Split key for Speech Commands"""
-        return df["slug"].apply(
-            lambda slug: luigi_util.filename_to_int_hash(
-                re.sub(r"-nohash-.*$", "", slug)
-            )
-        )
+        return df["slug"].apply(lambda slug: re.sub(r"-nohash-.*$", "", slug))
 
     def get_split_paths(self):
         """

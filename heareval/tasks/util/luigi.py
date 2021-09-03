@@ -9,7 +9,6 @@ from functools import partial
 from pathlib import Path
 
 import luigi
-import pandas as pd
 import requests
 from tqdm.auto import tqdm
 
@@ -137,14 +136,6 @@ def download_file(url, local_filename, expected_md5):
     return local_filename
 
 
-def filename_to_int_hash(text: str) -> int:
-    """
-    Returns the sha1 hash of the text passed in.
-    """
-    hash_name_hashed = hashlib.sha1(text.encode("utf-8")).hexdigest()
-    return int(hash_name_hashed, 16)
-
-
 def new_basedir(filename, basedir):
     """
     Rewrite .../filename as basedir/filename
@@ -163,26 +154,3 @@ def md5sum(filename):
                 d.update(buf)
                 pbar.update(32768)
     return d.hexdigest()
-
-
-def perform_metadata_subsampling(subsample_metadata: pd.DataFrame, max_files: int):
-    """
-    Returns the sampled metadata
-
-    Common Step -
-        1. Sort the metadata by the subsample_key
-        2. Select max number of files required for subsampling.
-    """
-
-    assert "subsample_key" in subsample_metadata.columns
-    subsample_metadata = subsample_metadata.sort_values(
-        by=["subsample_key"], ascending=[True, True]
-    ).reset_index()
-
-    # Select the max_file number of files, from the sorted subsample_metadata
-    # (by subsample key)
-    sampled_subsample_metadata = subsample_metadata.head(max_files)
-    assert (
-        len(sampled_subsample_metadata) <= max_files
-    ), "Sampled subsample_metadata is more than the allowed max files"
-    return sampled_subsample_metadata.sort_values("subsample_key")

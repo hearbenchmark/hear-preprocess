@@ -14,19 +14,18 @@ it simple to scale across multiple dataset
 
 import logging
 import multiprocessing
+import random
 import shutil
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
 import click
-import luigi
-import pandas as pd
-from tqdm import tqdm
-
 import heareval.tasks.pipeline as pipeline
-import heareval.tasks.util.luigi as luigi_util
+import luigi
 from heareval.tasks import dcase2016_task2, nsynth_pitch, office_events, speech_commands
+from heareval.tasks.util.luigi import WorkTask
+from tqdm import tqdm
 
 logger = logging.getLogger("luigi-interface")
 # Currently the sampler is only allowed to run for open tasks
@@ -91,7 +90,7 @@ configs = {
 }
 
 
-class RandomSampleOriginalDataset(luigi_util.WorkTask):
+class RandomSampleOriginalDataset(WorkTask):
     necessary_keys = luigi.ListParameter()
     audio_sample_size = luigi.IntParameter()
 
@@ -116,40 +115,19 @@ class RandomSampleOriginalDataset(luigi_util.WorkTask):
                 all_files,
             )
         )
-        audio_files_to_sample = pd.DataFrame(
-            list(
-                # Filter all the audio files which are not in the necessary list.
-                # Out of these audios audio_sample_size number of samples will be
-                # selected
-                filter(
-                    lambda file: file.suffix.lower() in map(str.lower, AUDIOFORMATS),
-                    [file for file in all_files if file not in necessary_files],
-                )
-            ),
-            columns=["audio_path"],
+        audio_files_to_sample = list(
+            # Filter all the audio files which are not in the necessary list.
+            # Out of these audios audio_sample_size number of samples will be
+            # selected
+            filter(
+                lambda file: file.suffix.lower() in map(str.lower, AUDIOFORMATS),
+                [file for file in all_files if file not in necessary_files],
+            )
         )
 
-        sampled_audio_files = (
-            audio_files_to_sample.assign(
-                # The subfolder name is set as the stratify key. This ensures at least
-                # one audio is selected from each subfolder in the original dataset
-                # However, the stratification key is currently removed and should
-                # not be passed.
-                # stratify_key=lambda df: df.audio_path.apply(lambda path: path.parent),
-                # The split key is the hash of the path. This ensures the sampling is
-                # deterministic
-                subsample_key=lambda df: df.audio_path.apply(
-                    lambda path: luigi_util.filename_to_int_hash(str(path))
-                ),
-                # Split key is same as the subsample key in this case
-                split_key=lambda df: df.subsample_key,
-            )
-            # The above metadata is passed in the subsample metadata and
-            # audio_sample_size number of files are selected
-            .pipe(
-                luigi_util.subsample_metadata, self.audio_sample_size
-            ).audio_path.to_list()
-        )
+        rng = random.Random("RandomSampleOriginalDataset")
+        rng.shuffle(audio_files_to_sample)
+        sampled_audio_files = audio_files_to_sample[: self.audio_sample_size]
 
         return metadata_files + necessary_files + sampled_audio_files
 

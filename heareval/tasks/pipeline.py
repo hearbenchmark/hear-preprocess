@@ -10,20 +10,12 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
 
+import heareval.tasks.util.audio as audio_util
 import luigi
 import pandas as pd
-from pandas import DataFrame, Series
+from heareval.tasks.util.luigi import WorkTask, download_file, new_basedir
 from slugify import slugify
 from tqdm import tqdm
-
-import heareval.tasks.util.audio as audio_util
-from heareval.tasks.util.luigi import (
-    WorkTask,
-    download_file,
-    filename_to_int_hash,
-    new_basedir,
-    perform_metadata_subsampling,
-)
 
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
@@ -150,17 +142,15 @@ class ExtractMetadata(WorkTask):
         * label - Label for the scene or event. For multilabel, if
         there are multiple labels, they will be on different rows
         of the df.
-        * start - Start time in milliseconds for the event with
+        * start, end - Start time in milliseconds for the event with
         this label. Event prediction tasks only, i.e. timestamp
         embeddings.
         * end - End time, as start.
+        * split_key - See get_split_key
         * slug - This is the filename in our dataset. It should be
         unique, it should be obvious what the original filename
         was, and perhaps it should contain the label for audio scene
         tasks.
-        * subsample_key - Hash or a tuple of hash to do subsampling
-        * start, end - Start and end time in seconds of the event,
-        for event_labeling tasks.
     """
 
     outfile = luigi.Parameter()
@@ -181,8 +171,20 @@ class ExtractMetadata(WorkTask):
             * relpath - How you find the file path in the original dataset.
             * split - Split of this particular audio file.
             * label - Label for the scene or event.
+            * start, end - Start and end time in seconds of the event,
+            only for event_labeling tasks.
         """
         raise NotImplementedError("Deriving classes need to implement this")
+
+    def get_requires_metadata_check(self, requires_key: str) -> pd.DataFrame:
+        df = self.get_requires_metadata(requires_key)
+        assert "relpath" in df.columns
+        assert "split" in df.columns
+        assert "label" in df.columns
+        if self.task_config["embedding_type"] == "event":
+            assert "start" in df.columns
+            assert "end" in df.columns
+        return df
 
     def get_all_metadata(self) -> pd.DataFrame:
         """
@@ -195,50 +197,42 @@ class ExtractMetadata(WorkTask):
         """
         metadata = pd.concat(
             [
-                self.get_requires_metadata(requires_key)
+                self.get_requires_metadata_check(requires_key)
                 for requires_key in list(self.requires().keys())
             ]
         ).reset_index(drop=True)
         return metadata
 
     @staticmethod
-    def slugify_file_name(relative_path: str):
+    def slugify_file_name(relative_path: str) -> str:
         """
-        This is the filename in our dataset.
+        This is the filename in our dataset, WITHOUT the extension.
 
         It should be unique, it should be obvious what the original
         filename was, and perhaps it should contain the label for
         audio scene tasks.
-        You can override this and simplify if the slugified filename
-        for this dataset is too long.
-
-        The basic version here takes the filename and slugifies it.
         """
         slug_text = str(Path(relative_path).stem)
         slug_text = slug_text.replace("-", "_negative_")
         return f"{slugify(slug_text)}"
 
     @staticmethod
-    def get_subsample_key(df: DataFrame) -> Series:
+    def get_split_key(df: pd.DataFrame) -> pd.Series:
         """
-        Gets the subsample key.
-        Subsample key is a unique hash at a audio file level used for subsampling.
-        This is a hash of the slug. This is not recommended to be
-        overridden.
-
-        The data is first split by the split key and the subsample key is
-        used to ensure stable sampling for groups which are incompletely
-        sampled(the last group to be part of the subsample output)
+        Gets the split key.
+        A file should only be in one split, i.e. we shouldn't spread
+        file events across splits. This is the default behavior.
+        For some corpora, we might want to be even more restrictive:
+        * An instrument cannot be split.
+        * A speaker cannot be split.
         """
-        assert "slug" in df, "slug column not found in the dataframe"
-        return df["slug"].apply(str).apply(filename_to_int_hash)
+        return df["relpath"]
 
     def split_train_test_val(self, metadata: pd.DataFrame):
         """
         This functions splits the metadata into test, train and valid from train
         split if any of test or valid split is not found. We split
-            based upon the relpath (filename), i.e. events in the same
-        file go into the same split.
+        based upon the split_key (see above).
 
         If there is any data specific split, that will already be done in
         get_all_metadata. This function is for automatic splitting if the splits
@@ -291,19 +285,19 @@ class ExtractMetadata(WorkTask):
             train_percentage + valid_percentage + test_percentage == 100
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
 
-        relpaths = metadata[metadata.split == "train"]["relpath"].unique()
-        rng = random.Random(0)
-        rng.shuffle(relpaths)
-        n = len(relpaths)
+        split_keys = metadata[metadata.split == "train"]["split_key"].unique()
+        rng = random.Random("split_train_test_val")
+        rng.shuffle(split_keys)
+        n = len(split_keys)
 
         n_valid = int(round(n * valid_percentage / 100))
         n_test = int(round(n * test_percentage / 100))
         assert n_valid > 0 or valid_percentage == 0
         assert n_test > 0 or test_percentage == 0
-        valid_relpaths = set(relpaths[:n_valid])
-        test_relpaths = set(relpaths[n_valid : n_valid + n_test])
-        metadata.loc[metadata["relpath"].isin(valid_relpaths), "split"] = "valid"
-        metadata.loc[metadata["relpath"].isin(test_relpaths), "split"] = "test"
+        valid_split_keys = set(split_keys[:n_valid])
+        test_split_keys = set(split_keys[n_valid : n_valid + n_test])
+        metadata.loc[metadata["split_key"].isin(valid_split_keys), "split"] = "valid"
+        metadata.loc[metadata["split_key"].isin(test_split_keys), "split"] = "test"
         return metadata
 
     def run(self):
@@ -315,7 +309,7 @@ class ExtractMetadata(WorkTask):
 
         metadata = metadata.assign(
             slug=lambda df: df.relpath.apply(self.slugify_file_name),
-            subsample_key=self.get_subsample_key,
+            split_key=self.get_split_key,
         )
 
         # Check if one slug is associated with only one relpath.
@@ -362,36 +356,11 @@ class ExtractMetadata(WorkTask):
         # created explicitly in get_all_metadata
         metadata = self.split_train_test_val(metadata)
 
-        if self.task_config["embedding_type"] == "event":
-            assert set(
-                [
-                    "relpath",
-                    "slug",
-                    "subsample_key",
-                    "split",
-                    "label",
-                    "start",
-                    "end",
-                ]
-            ).issubset(set(metadata.columns))
-        elif self.task_config["embedding_type"] == "scene":
-            assert set(
-                [
-                    "relpath",
-                    "slug",
-                    "subsample_key",
-                    "split",
-                    "label",
-                ]
-            ).issubset(set(metadata.columns))
+        if self.task_config["embedding_type"] == "scene":
             # Multiclass predictions should only have a single label per file
             if self.task_config["prediction_type"] == "multiclass":
                 label_count = metadata.groupby("slug")["label"].aggregate(len)
                 assert (label_count == 1).all()
-        else:
-            raise ValueError(
-                "%s embedding_type unknown" % self.task_config["embedding_type"]
-            )
 
         metadata.to_csv(
             self.workdir.joinpath(self.outfile),
@@ -429,13 +398,13 @@ class MetadataTask(WorkTask):
 
 class SubsampleSplit(MetadataTask):
     """
-    A subsampler that acts on a specific split.
     For large datasets, we may want to restrict each split to a
     certain number of minutes.
+    This subsampler acts on a specific split, and ensures we are under
+    our desired audio length threshold for this split.
 
     Parameters:
         split: name of the split for which subsampling has to be done
-        max_files: maximum files required from the subsampling
     """
 
     split = luigi.Parameter()
@@ -445,50 +414,42 @@ class SubsampleSplit(MetadataTask):
             "metadata": self.metadata_task,
         }
 
-    def get_subsample_metadata(self):
-        metadata = self.metadata[["split", "subsample_key", "slug", "relpath"]]
-
-        if self.task_config["embedding_type"] == "scene":
-            assert metadata["subsample_key"].nunique() == len(metadata)
-
-        # Since event detection metadata will have duplicates, we de-dup
-        subsample_metadata = (
-            metadata[metadata["split"] == self.split].sort_values(by="subsample_key")
-            # Drop duplicates as the subsample key is expected to be unique
-            .drop_duplicates(subset="subsample_key", ignore_index=True)
-        )
-        return subsample_metadata
-
     def run(self):
-        subsample_metadata = self.get_subsample_metadata()
-        num_files = len(subsample_metadata)
+        split_metadata = self.metadata[self.metadata["split"] == self.split]
+        relpaths = split_metadata["relpath"].unique()
+        rng = random.Random("SubsampleSplit")
+        rng.shuffle(relpaths)
+        num_files = len(relpaths)
+
         # This might round badly for small corpora with long audio :\
-        # TODO: Issue to check for this
+        # But we aren't going to use audio that is more than a couple
+        # minutes or the timestamp embeddings will explode
         sample_duration = self.task_config["sample_duration"]
         max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
+
         if num_files > max_files:
             print(
                 f"{num_files} audio files in corpus."
                 f"Max files to subsample in {self.split}: {max_files}"
             )
-            sampled_subsample_metadata = perform_metadata_subsampling(
-                subsample_metadata, max_files
-            )
+            subsampled_relpaths = set(relpaths[:max_files])
             print(
-                f"Datapoints in split {self.split} after resampling: "
-                f"{len(sampled_subsample_metadata)}"
+                f"Files in split {self.split} after resampling: {len(subsampled_relpaths)}"
             )
-            assert perform_metadata_subsampling(
-                subsample_metadata.sample(frac=1), max_files
-            ).equals(sampled_subsample_metadata), "The subsampling is not stable"
         else:
-            sampled_subsample_metadata = subsample_metadata
+            subsampled_relpaths = relpaths
 
-        for _, audio in sampled_subsample_metadata.iterrows():
-            audiofile = Path(audio["relpath"])
+        for audiofile in subsampled_relpaths:
+            audiopath = Path(audiofile)
             # Add the original extension to the slug
             newaudiofile = Path(
-                self.workdir.joinpath(f"{audio['slug']}{audiofile.suffix}")
+                self.workdir.joinpath(
+                    "%s%s"
+                    % (
+                        self.metadata_task.slugify_file_name(audiofile),
+                        audiopath.suffix,
+                    )
+                )
             )
             assert not newaudiofile.exists(), f"{newaudiofile} already exists! "
             "We shouldn't have two files with the same name. If this is happening "
@@ -498,7 +459,7 @@ class SubsampleSplit(MetadataTask):
             "If this is happening because different data dirs have the same "
             "audio file name, we should include the data dir in the symlinked "
             "filename."
-            newaudiofile.symlink_to(audiofile.resolve())
+            newaudiofile.symlink_to(audiopath.resolve())
 
         self.mark_complete()
 

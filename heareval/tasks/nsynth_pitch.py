@@ -8,10 +8,9 @@ from functools import partial
 from pathlib import Path
 from typing import List
 
+import heareval.tasks.pipeline as pipeline
 import luigi
 import pandas as pd
-
-import heareval.tasks.pipeline as pipeline
 
 logger = logging.getLogger("luigi-interface")
 
@@ -83,6 +82,13 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         audio_path = root.joinpath("audio")
         filename = f"{item}.wav"
         return audio_path.joinpath(filename)
+
+    @staticmethod
+    def get_split_key(df: pd.DataFrame) -> pd.Series:
+        """
+        The instrument is the split key.
+        """
+        return df["slug"].apply(lambda slug: slug.split("-")[0])
 
     def get_requires_metadata(self, split: str) -> pd.DataFrame:
         logger.info(f"Preparing metadata for {split}")
