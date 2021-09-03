@@ -279,7 +279,7 @@ class ExtractMetadata(WorkTask):
         # then we want to do a 75/25/0 split so that train is still 3x validation
         if splits_to_sample == set():
             return metadata
-        elif splits_to_sample == set("valid"):
+        elif splits_to_sample == set(["valid"]):
             tot = TRAIN_PERCENTAGE + TEST_PERCENTAGE
             train_percentage = (
                 TRAIN_PERCENTAGE + TRAIN_PERCENTAGE * VALIDATION_PERCENTAGE / tot
@@ -288,7 +288,7 @@ class ExtractMetadata(WorkTask):
             test_percentage = (
                 TEST_PERCENTAGE + TEST_PERCENTAGE * VALIDATION_PERCENTAGE / tot
             )
-        elif splits_to_sample == set("test"):
+        elif splits_to_sample == set(["test"]):
             tot = TRAIN_PERCENTAGE + TEST_PERCENTAGE
             train_percentage = (
                 TRAIN_PERCENTAGE + TRAIN_PERCENTAGE * TEST_PERCENTAGE / tot
@@ -298,6 +298,7 @@ class ExtractMetadata(WorkTask):
             )
             test_percentage = 0
         else:
+            assert splits_to_sample == set(["valid", "test"])
             train_percentage = TRAIN_PERCENTAGE
             valid_percentage = VALIDATION_PERCENTAGE
             test_percentage = TEST_PERCENTAGE
