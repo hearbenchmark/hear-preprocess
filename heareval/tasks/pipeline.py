@@ -465,7 +465,7 @@ class SubsampleSplit(WorkTask):
                 subsample_metadata, max_files
             )
             print(
-                "Datapoints in split after resampling: "
+                f"Datapoints in split {self.split} after resampling: "
                 f"{len(sampled_subsample_metadata)}"
             )
             assert perform_metadata_subsampling(
