@@ -146,13 +146,19 @@ class ExtractMetadata(WorkTask):
 
     The metadata columns are:
         * relpath - How you find the file path in the original dataset.
+        * split - Split of this particular audio file.
+        * label - Label for the scene or event. For multilabel, if
+        there are multiple labels, they will be on different rows
+        of the df.
+        * start - Start time in milliseconds for the event with
+        this label. Event prediction tasks only, i.e. timestamp
+        embeddings.
+        * end - End time, as start.
         * slug - This is the filename in our dataset. It should be
         unique, it should be obvious what the original filename
         was, and perhaps it should contain the label for audio scene
         tasks.
         * subsample_key - Hash or a tuple of hash to do subsampling
-        * split - Split of this particular audio file.
-        * label - Label for the scene or event.
         * start, end - Start and end time in seconds of the event,
         for event_labeling tasks.
     """
@@ -167,6 +173,33 @@ class ExtractMetadata(WorkTask):
         ...
         # This should have something like the following:
         # return { "train": self.train, "test": self.test }
+
+    def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
+        """
+        For a particular key in the task requires (e.g. "train", or "train_eval"),
+        return a metadata dataframe with the following columns:
+            * relpath - How you find the file path in the original dataset.
+            * split - Split of this particular audio file.
+            * label - Label for the scene or event.
+        """
+        raise NotImplementedError("Deriving classes need to implement this")
+
+    def get_all_metadata(self) -> pd.DataFrame:
+        """
+        Return a dataframe containing all metadata for this task.
+
+        By default, we do one requires task at a time and then concat them.
+        You might consider overriding this for some datasets (like
+        Google Speech Commands) where you cannot process metadata
+        on a per-split basis.
+        """
+        metadata = pd.concat(
+            [
+                self.get_requires_metadata(requires_key)
+                for requires_key in list(self.requires().keys())
+            ]
+        ).reset_index(drop=True)
+        return metadata
 
     @staticmethod
     def slugify_file_name(relative_path: str):
@@ -199,26 +232,6 @@ class ExtractMetadata(WorkTask):
         """
         assert "slug" in df, "slug column not found in the dataframe"
         return df["slug"].apply(str).apply(filename_to_int_hash)
-
-    def get_all_metadata(self) -> pd.DataFrame:
-        """
-        Return a dataframe containing all metadata for this task.
-
-        By default, we do one requires task at a time and then concat them.
-        You might consider overriding this for some datasets (like
-        Google Speech Commands) where you cannot process metadata
-        on a per-split basis.
-        """
-        metadata = pd.concat(
-            [
-                self.get_requires_metadata(requires_key)
-                for requires_key in list(self.requires().keys())
-            ]
-        ).reset_index(drop=True)
-        return metadata
-
-    def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
-        raise NotImplementedError("Deriving classes need to implement this")
 
     def split_train_test_val(self, metadata: pd.DataFrame):
         """
@@ -423,9 +436,6 @@ class SubsampleSplit(MetadataTask):
     Parameters:
         split: name of the split for which subsampling has to be done
         max_files: maximum files required from the subsampling
-        metadata (ExtractMetadata): task which extracts corpus level metadata
-    Requirements:
-        metadata (ExtractMetadata): task which extracts corpus level metadata
     """
 
     split = luigi.Parameter()
@@ -497,8 +507,6 @@ class SubsampleSplits(MetadataTask):
     """
     Aggregates subsampling of all the splits into a single task as dependencies.
 
-    Parameter:
-        metadata (ExtractMetadata): task which extracts a corpus level metadata
     Requires:
         subsample_splits (list(SubsampleSplit)): task subsamples each split
     """
@@ -525,15 +533,13 @@ class SubsampleSplits(MetadataTask):
         self.mark_complete()
 
 
-class MonoWavTrimCorpus(MetadataTask):
+class MonoWavTrimSubcorpus(MetadataTask):
     """
     Converts the file to mono, changes to wav encoding,
     trims and pads the audio to be same length
 
-    Parameters
-        metadata (ExtractMetadata): task which extracts a corpus level metadata
     Requires:
-        corpus (SubsampleSplits): task which aggregates the subsampling for each split
+        corpus (SubsampleSplits): task which aggregates all subsampled splits
     """
 
     def requires(self):
@@ -555,23 +561,18 @@ class MonoWavTrimCorpus(MetadataTask):
         self.mark_complete()
 
 
-class SplitData(MetadataTask):
+class SubcorpusData(MetadataTask):
     """
-    Go over the subsampled folder and pick the audio files. The audio files are
-    saved with their slug names and hence the corresponding label can be picked
-    up from the preprocess config. (These are symlinks.)
+    Go over the mono wav folder and symlink the audio files into split dirs.
 
-    Parameters
-        metadata (ExtractMetadata): task which extracts a corpus level metadata
-            the metadata helps to provide the split type of each audio file
     Requires
-        corpus(MonoWavTrimCorpus): which processes the audio file and converts
+        corpus(MonoWavTrimSubcorpus): which processes the audio file and converts
             them to wav format
     """
 
     def requires(self):
         return {
-            "corpus": MonoWavTrimCorpus(
+            "corpus": MonoWavTrimSubcorpus(
                 metadata_task=self.metadata_task, task_config=self.task_config
             ),
         }
@@ -591,19 +592,18 @@ class SplitData(MetadataTask):
         self.mark_complete()
 
 
-class SplitMetadata(MetadataTask):
+class SubcorpusMetadata(MetadataTask):
     """
-    Splits the label dataframe, based upon which audio files are in this split.
+    Find the metadata for the subcorpus, based upon which audio
+    files are in each subcorpus split.
 
-    Parameters
-        metadata (ExtractMetadata): task which extracts a corpus level metadata
     Requires
-        data (SplitData): which produces the split level corpus
+        data (SubcorpusData): which produces the subcorpus data.
     """
 
     def requires(self):
         return {
-            "data": SplitData(
+            "data": SubcorpusData(
                 metadata_task=self.metadata_task, task_config=self.task_config
             ),
         }
@@ -667,31 +667,30 @@ class MetadataVocabulary(MetadataTask):
     """
     Creates the vocabulary CSV file for a task.
 
-    Parameters
-        metadata (ExtractMetadata): task which extracts a corpus level metadata
     Requires
-        splitmeta (SplitMetadata): task which produces the split
-            level metadata
+            subcorpus_metadata (SubcorpusMetadata): task which produces
+                the subcorpus metadata
     """
 
     def requires(self):
         return {
-            "splitmeta": SplitMetadata(
+            "subcorpus_metadata": SubcorpusMetadata(
                 metadata_task=self.metadata_task, task_config=self.task_config
             )
         }
 
     def run(self):
         labelset = set()
-        # Iterate over all the files in the split metadata and get the
-        # split_metadata
-        for split_metadata in list(self.requires()["splitmeta"].workdir.glob("*.csv")):
-            labeldf = pd.read_csv(split_metadata)
+        # Save statistics about each subcorpus metadata
+        for subcorpus_metadata in list(
+            self.requires()["subcorpus_metadata"].workdir.glob("*.csv")
+        ):
+            labeldf = pd.read_csv(subcorpus_metadata)
             json.dump(
                 labeldf["label"].value_counts().to_dict(),
-                self.workdir.joinpath(f"labelcount_{split_metadata.stem}.json").open(
-                    "w"
-                ),
+                self.workdir.joinpath(
+                    f"labelcount_{subcorpus_metadata.stem}.json"
+                ).open("w"),
                 indent=True,
             )
             labelset = labelset | set(labeldf["label"].unique().tolist())
@@ -713,14 +712,12 @@ class MetadataVocabulary(MetadataTask):
 
 class ResampleSubcorpus(MetadataTask):
     """
-    Resamples the Subsampled corpus in different sampling rate
+    Resamples one split in the subsampled corpus to a particular sampling rate
     Parameters
-        split(str): The split for which the resampling has to be done
-        sr(int): output sampling rate
-        metadata (ExtractMetadata): task which extracts corpus level metadata
+        split (str): The split for which the resampling has to be done
+        sr (int): output sampling rate
     Requires
-        data (SplitData): task which produces the split
-            level corpus
+        data (SubcorpusData): task which produces the subcorpus data
     """
 
     sr = luigi.IntParameter()
@@ -728,7 +725,7 @@ class ResampleSubcorpus(MetadataTask):
 
     def requires(self):
         return {
-            "data": SplitData(
+            "data": SubcorpusData(
                 metadata_task=self.metadata_task, task_config=self.task_config
             )
         }
@@ -755,10 +752,8 @@ class ResampleSubcorpuses(MetadataTask):
     Aggregates resampling of all the splits and sampling rates
     into a single task as dependencies.
 
-    Parameter:
-        metadata (ExtractMetadata): task which extracts corpus level metadata
     Requires:
-        subsample_splits (list(SubsampleSplit)): task subsamples each split
+        ResampleSubcorpus for all split and sr
     """
 
     sample_rates = luigi.ListParameter()
@@ -794,28 +789,29 @@ class FinalizeCorpus(MetadataTask):
     Parameters:
         sample_rates (list(int)): The list of sampling rates in which the corpus
             is required
-        metadata (ExtractMetadata): task which extracts corpus level metadata
     Requires:
-        resample (List(ResampleSubCorpus)): list of task which resamples each split
-        splitmeta (SplitMetadata): task which produces the split
-            level metadata
+        resample (List(ResampleSubCorpus)): task which resamples
+                the entire subcorpus
+
+        subcorpus_metadata (SubcorpusMetadata): task with the subcorpus metadata
     """
 
     sample_rates = luigi.ListParameter()
     tasks_dir = luigi.Parameter()
 
     def requires(self):
-        # Will copy the resampled data and the split metadata and the vocabmeta
+        # Will copy the resampled subsampled data, the subsampled metadata,
+        # and the metadata_vocabulary
         return {
             "resample": ResampleSubcorpuses(
                 sample_rates=self.sample_rates,
                 metadata_task=self.metadata_task,
                 task_config=self.task_config,
             ),
-            "splitmeta": SplitMetadata(
+            "subcorpus_metadata": SubcorpusMetadata(
                 metadata_task=self.metadata_task, task_config=self.task_config
             ),
-            "vocabmeta": MetadataVocabulary(
+            "metadata_vocabulary": MetadataVocabulary(
                 metadata_task=self.metadata_task, task_config=self.task_config
             ),
         }
@@ -835,11 +831,13 @@ class FinalizeCorpus(MetadataTask):
 
         # Copy labelvocabulary.csv
         shutil.copy2(
-            self.requires()["vocabmeta"].workdir.joinpath("labelvocabulary.csv"),
+            self.requires()["metadata_vocabulary"].workdir.joinpath(
+                "labelvocabulary.csv"
+            ),
             self.workdir.joinpath("labelvocabulary.csv"),
         )
         # Copy the train test metadata jsons
-        src = self.requires()["splitmeta"].workdir
+        src = self.requires()["subcorpus_metadata"].workdir
         dst = self.workdir
         for item in os.listdir(src):
             if item.endswith(".json"):
