@@ -207,15 +207,12 @@ class ExtractMetadata(pipeline.ExtractMetadata):
 
         return pd.concat([test_df, validation_df, train_df]).reset_index(drop=True)
 
-    def get_process_metadata(self) -> pd.DataFrame:
-        process_metadata = self.get_split_paths()
-        process_metadata = process_metadata.assign(
+    def get_all_metadata(self) -> pd.DataFrame:
+        metadata = self.get_split_paths()
+        metadata = metadata.assign(
             label=lambda df: df["relpath"].apply(self.apply_label),
-            slug=lambda df: df["relpath"].apply(self.slugify_file_name),
-            split_key=self.get_split_key,
-            subsample_key=self.get_subsample_key,
         )
-        return process_metadata
+        return metadata
 
 
 def main(

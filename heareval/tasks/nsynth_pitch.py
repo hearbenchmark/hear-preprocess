@@ -101,14 +101,11 @@ class ExtractMetadata(pipeline.ExtractMetadata):
                 )
                 # Assign metadata columns
             ].assign(
-                label=lambda df: df["pitch"],
                 relpath=lambda df: df["note_str"].apply(
                     partial(self.get_rel_path, split_path)
                 ),
-                slug=lambda df: df["note_str"].apply(self.slugify_file_name),
+                label=lambda df: df["pitch"],
                 split=lambda df: split,
-                subsample_key=self.get_subsample_key,
-                split_key=self.get_split_key,
             )
         )
 

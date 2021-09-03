@@ -117,10 +117,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
             )
             metadata = metadata.assign(
                 relpath=sound_file,
-                slug=lambda df: df.relpath.apply(self.slugify_file_name),
-                subsample_key=self.get_subsample_key,
                 split=lambda df: split,
-                split_key=self.get_split_key,
             )
 
             metadatas.append(metadata)

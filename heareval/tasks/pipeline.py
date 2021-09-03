@@ -185,23 +185,6 @@ class ExtractMetadata(WorkTask):
         return f"{slugify(slug_text)}"
 
     @staticmethod
-    def get_stratify_key(df: DataFrame) -> Series:
-        """
-        Get the stratify key
-
-        Subsampling is stratified based on this key.
-        Since hashing is only required for ordering the samples
-        for subsampling, the stratify key should not necessarily be a hash,
-        as it is only used to group the data points before subsampling.
-        The actual subsampling is done by the split key and
-        the subsample key.
-
-        By default, the label is used for stratification
-        """
-        assert "label" in df, "label column not found in the dataframe"
-        return df["label"]
-
-    @staticmethod
     def get_split_key(df: DataFrame) -> Series:
         """
         Gets the split key.
@@ -214,7 +197,7 @@ class ExtractMetadata(WorkTask):
         i.e leave out some groups and select others based on this key.
 
         This key is also used to split the data into test and valid if those splits
-        are not made explicitly in the get_process_metadata
+        are not made explicitly in the get_all_metadata
         """
         assert "relpath" in df, "relpath column not found in the dataframe"
         file_names = df["relpath"].apply(lambda path: Path(path).name)
@@ -235,23 +218,41 @@ class ExtractMetadata(WorkTask):
         assert "slug" in df, "slug column not found in the dataframe"
         return df["slug"].apply(str).apply(filename_to_int_hash)
 
-    def get_process_metadata(self) -> pd.DataFrame:
+    @staticmethod
+    def get_stratify_key(df: DataFrame) -> Series:
         """
-        Return a dataframe containing the task metadata for this
-        entire task.
+        CURRENTLY UNUSED.
+
+        Get the stratify key
+
+        Subsampling is stratified based on this key.
+        Since hashing is only required for ordering the samples
+        for subsampling, the stratify key should not necessarily be a hash,
+        as it is only used to group the data points before subsampling.
+        The actual subsampling is done by the split key and
+        the subsample key.
+
+        By default, the label is used for stratification
+        """
+        assert "label" in df, "label column not found in the dataframe"
+        return df["label"]
+
+    def get_all_metadata(self) -> pd.DataFrame:
+        """
+        Return a dataframe containing all metadata for this task.
 
         By default, we do one requires task at a time and then concat them.
         You might consider overriding this for some datasets (like
         Google Speech Commands) where you cannot process metadata
         on a per-split basis.
         """
-        process_metadata = pd.concat(
+        metadata = pd.concat(
             [
                 self.get_requires_metadata(requires_key)
                 for requires_key in list(self.requires().keys())
             ]
-        ).reset_index(drop=True)
-        return process_metadata
+        )
+        return metadata
 
     def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
         raise NotImplementedError("Deriving classes need to implement this")
@@ -266,7 +267,7 @@ class ExtractMetadata(WorkTask):
         3. Validation and Test split not found - Train will be split into test, train
             and valid
         If there is any data specific split that will already be done in
-        get_process_metadata. This function is for automatic splitting if the splits
+        get_all_metadata. This function is for automatic splitting if the splits
         are not found
         This uses the split key to do the split with the which set function.
         """
@@ -306,8 +307,15 @@ class ExtractMetadata(WorkTask):
         return metadata
 
     def run(self):
-        # Process metadata gets the final metadata to be used for the task
-        process_metadata = self.get_process_metadata()
+        # Process metadata gets all metadata to be used for the task
+        metadata = self.get_all_metadata()
+
+        metadata.reset_index(drop=True)
+        metadata = metadata.assign(
+            slug=lambda df: df.relpath.apply(self.slugify_file_name),
+            subsample_key=self.get_subsample_key,
+            split_key=self.get_split_key,
+        )
 
         # Check if one slug is associated with only one relpath.
         # Also implies there is a one to one correspondence between relpath and slug.
@@ -320,33 +328,29 @@ class ExtractMetadata(WorkTask):
         #  3. relpath.nunique() == slug.nunique(), automatically holds if the above
         #   two holds.
         assert (
-            process_metadata.groupby("slug")["relpath"].nunique() == 1
+            metadata.groupby("slug")["relpath"].nunique() == 1
         ).all(), "One slug is associated with more than one file"
         "Please make sure slugs are unique at a file level"
 
         # Assertion sanity check -- one to one mapping between the relpaths and slugs
-        assert (
-            process_metadata["relpath"].nunique() == process_metadata["slug"].nunique()
-        )
+        assert metadata["relpath"].nunique() == metadata["slug"].nunique()
 
         # Filter the files which actually exist in the data
-        exists = process_metadata["relpath"].apply(
-            lambda relpath: Path(relpath).exists()
-        )
+        exists = metadata["relpath"].apply(lambda relpath: Path(relpath).exists())
 
         # If any of the audio files in the metadata is missing, raise an error for the
         # regular dataset. However, in case of small dataset, this is expected and we
         # need to remove those entries from the metadata
-        if sum(exists) < len(process_metadata):
+        if sum(exists) < len(metadata):
             if self.task_config["version"].split("-")[-1] == "small":
                 print(
                     "All files in metadata do not exist in the dataset. This is "
                     "expected behavior when small task is running.\n"
-                    f"Removing {len(process_metadata) - sum(exists)} entries in the "
+                    f"Removing {len(metadata) - sum(exists)} entries in the "
                     "metadata"
                 )
-                process_metadata = process_metadata.loc[exists]
-                assert len(process_metadata) == sum(exists)
+                metadata = metadata.loc[exists]
+                assert len(metadata) == sum(exists)
                 print(
                     "We also modify the TEST_PERCENTAGE and VALIDATION_PERCENTAGE "
                     "to make sure we have files in each split."
@@ -360,8 +364,8 @@ class ExtractMetadata(WorkTask):
                 )
 
         # Split the metadata to create valid and test set from train if they are not
-        # created explicitly in the get process metadata
-        process_metadata = self.split_train_test_val(process_metadata)
+        # created explicitly in get_all_metadata
+        metadata = self.split_train_test_val(metadata)
 
         if self.task_config["embedding_type"] == "event":
             assert set(
@@ -375,7 +379,7 @@ class ExtractMetadata(WorkTask):
                     "start",
                     "end",
                 ]
-            ).issubset(set(process_metadata.columns))
+            ).issubset(set(metadata.columns))
         elif self.task_config["embedding_type"] == "scene":
             assert set(
                 [
@@ -386,23 +390,23 @@ class ExtractMetadata(WorkTask):
                     "split",
                     "label",
                 ]
-            ).issubset(set(process_metadata.columns))
+            ).issubset(set(metadata.columns))
             # Multiclass predictions should only have a single label per file
             if self.task_config["prediction_type"] == "multiclass":
-                label_count = process_metadata.groupby("slug")["label"].aggregate(len)
+                label_count = metadata.groupby("slug")["label"].aggregate(len)
                 assert (label_count == 1).all()
         else:
             raise ValueError(
                 "%s embedding_type unknown" % self.task_config["embedding_type"]
             )
 
-        process_metadata.to_csv(
+        metadata.to_csv(
             self.workdir.joinpath(self.outfile),
             index=False,
         )
 
         # Save the label count for each split
-        for split, split_df in process_metadata.groupby("split"):
+        for split, split_df in metadata.groupby("split"):
             json.dump(
                 split_df["label"].value_counts().to_dict(),
                 self.workdir.joinpath(f"labelcount_{split}.json").open("w"),
@@ -415,7 +419,7 @@ class ExtractMetadata(WorkTask):
 class SubsampleSplit(WorkTask):
     """
     A subsampler that acts on a specific split.
-    All instances of this will depend on the combined process metadata csv.
+    All instances of this will depend on the combined metadata csv.
 
     Parameters:
         split: name of the split for which subsampling has to be done
