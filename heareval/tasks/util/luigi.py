@@ -165,7 +165,7 @@ def md5sum(filename):
     return d.hexdigest()
 
 
-def subsample_metadata(metadata: pd.DataFrame, max_files: int):
+def perform_metadata_subsampling(subsample_metadata: pd.DataFrame, max_files: int):
     """
     Returns the sampled metadata
 
@@ -174,15 +174,15 @@ def subsample_metadata(metadata: pd.DataFrame, max_files: int):
         2. Select max number of files required for subsampling.
     """
 
-    assert "subsample_key" in metadata.columns
-    metadata = metadata.sort_values(
-        by="subsample_key", ascending=True
-    ).reset_index(drop=True)
+    assert "subsample_key" in subsample_metadata.columns
+    subsample_metadata = subsample_metadata.sort_values(
+        by=["subsample_key"], ascending=[True, True]
+    ).reset_index()
 
-    # Select the max_file number of files, from the sorted metadata
+    # Select the max_file number of files, from the sorted subsample_metadata
     # (by subsample key)
-    sampled_metadata = metadata.head(max_files)
+    sampled_subsample_metadata = subsample_metadata.head(max_files)
     assert (
-        len(sampled_metadata) <= max_files
-    ), "Sampled metadata is more than the allowed max files"
-    return sampled_metadata.sort_values("subsample_key")
+        len(sampled_subsample_metadata) <= max_files
+    ), "Sampled subsample_metadata is more than the allowed max files"
+    return sampled_subsample_metadata.sort_values("subsample_key")

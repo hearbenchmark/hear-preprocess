@@ -231,7 +231,7 @@ def main(
     generate = GenerateTrainDataset(
         train_data=download_tasks["train"], task_config=task_config
     )
-    configure_metadata = ExtractMetadata(
+    extract_metadata = ExtractMetadata(
         train=generate,
         test=download_tasks["test"],
         outfile="process_metadata.csv",
@@ -241,7 +241,7 @@ def main(
     final_task = pipeline.FinalizeCorpus(
         sample_rates=sample_rates,
         tasks_dir=tasks_dir,
-        metadata=configure_metadata,
+        metadata_task=extract_metadata,
         task_config=task_config,
     )
     return final_task
