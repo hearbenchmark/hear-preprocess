@@ -90,7 +90,7 @@ def resample_wav(in_file: str, out_file: str, out_sr: int):
 
 def get_audio_stats(in_file: Union[str, Path]):
     try:
-        audio_stream = ffmpeg.probe(in_file)["streams"][0]
+        audio_stream = ffmpeg.probe(in_file, select_streams="a")["streams"][0]
         audio_stats = {
             "sample_rate": int(audio_stream["sample_rate"]),
             "samples": int(audio_stream["duration_ts"]),
@@ -102,7 +102,7 @@ def get_audio_stats(in_file: Union[str, Path]):
         print(
             "Skipping audio file for stats calculation. "
             "Audio path: {file_path}"
-            "Error: {e}"
+            f"Error: {e}"
         )
         audio_stats = {}
     return audio_stats
@@ -126,16 +126,17 @@ def get_audio_dir_stats(
 
     # Count the number of successful and failed statistics extraction to be
     # added the output stats file
-    success_counter = defaultdict(int)
-    failure_counter = defaultdict(int)
+    success_counter: Dict[str, int] = defaultdict(int)
+    failure_counter: Dict[str, int] = defaultdict(int)
 
     # Iterate and get the statistics for each audio
     audio_dir_stats = []
     for audio_path in tqdm(audio_paths):
-        try:
-            audio_dir_stats.append(get_audio_stats(audio_path))
+        audio_stats = get_audio_stats(audio_path)
+        if audio_stats:
+            audio_dir_stats.append(audio_stats)
             success_counter[audio_path.suffix] += 1
-        except:
+        else:
             # update the failed counter if the extraction was not
             # succesful
             failure_counter[audio_path.suffix] += 1
@@ -153,7 +154,7 @@ def get_audio_dir_stats(
         # extension type
         "audio_summary_from": {
             "successfully_extracted": success_counter,
-            "failure": failure_counter,
+            "failed_to_extract": failure_counter,
         },
         "audio_samplerate_count": unique_sample_rates,
         "mono_audio_count": mono_audio_count,
