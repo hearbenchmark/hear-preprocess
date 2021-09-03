@@ -138,13 +138,13 @@ def main(
     # Build the dataset pipeline with the custom metadata configuration task
     download_tasks = pipeline.get_download_and_extract_tasks(task_config)
 
-    configure_metadata = ExtractMetadata(
+    extract_metadata = ExtractMetadata(
         outfile="process_metadata.csv", task_config=task_config, **download_tasks
     )
     final_task = pipeline.FinalizeCorpus(
         sample_rates=sample_rates,
         tasks_dir=tasks_dir,
-        metadata=configure_metadata,
+        metadata_task=extract_metadata,
         task_config=task_config,
     )
     return final_task
