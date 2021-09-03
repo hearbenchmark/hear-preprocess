@@ -59,8 +59,8 @@ task_config = {
 
 class GenerateTrainDataset(luigi_util.WorkTask):
     """
-    Silence / background samples in the train / validation sets need to be
-    created by slicing up longer background samples into 1sec slices.
+    Silence / background samples in the train (and, after split, validation) sets need to be
+    created by slicing up longer background samples into 1 sec slices.
     This is the same method used in the TensorFlow dataset generator.
     https://github.com/tensorflow/datasets/blob/79d56e662a15cd11e1fb3b679e0f978c8041566f/tensorflow_datasets/audio/speech_commands.py#L142
     """
@@ -144,6 +144,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
     @staticmethod
     def get_split_key(df: pd.DataFrame) -> pd.Series:
         """Get the speaker hash as the Split key for Speech Commands"""
+        # TODO: Make sure the substitution always applies
         return df["slug"].apply(lambda slug: re.sub(r"-nohash-.*$", "", slug))
 
     def get_split_paths(self):

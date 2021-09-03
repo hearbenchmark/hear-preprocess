@@ -70,19 +70,22 @@ class ExtractArchive(WorkTask):
     download = luigi.TaskParameter(
         visibility=luigi.parameter.ParameterVisibility.PRIVATE
     )
-    # Outdir is the sub dir inside the workdir to extract the file.
+    # outdir is the sub dir inside the workdir to extract the file.
     outdir = luigi.Parameter()
 
     def requires(self):
         return {"download": self.download}
 
+    @property
+    def output_path(self):
+        return self.workdir.joinpath(self.outdir)
+
     def run(self):
         archive_path = self.requires()["download"].workdir.joinpath(self.infile)
         archive_path = archive_path.absolute()
-        output_path = self.workdir.joinpath(self.outdir)
-        shutil.unpack_archive(archive_path, output_path)
+        shutil.unpack_archive(archive_path, self.output_path)
         audio_util.audio_dir_stats_wav(
-            in_dir=output_path,
+            in_dir=self.output_path,
             out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
         )
 
@@ -137,42 +140,65 @@ class ExtractMetadata(WorkTask):
     luigi tasks to curate the final dataset.
 
     The metadata columns are:
-        * relpath - How you find the file path in the original dataset.
-        * split - Split of this particular audio file.
-        * label - Label for the scene or event. For multilabel, if
-        there are multiple labels, they will be on different rows
-        of the df.
-        * start, end - Start time in milliseconds for the event with
-        this label. Event prediction tasks only, i.e. timestamp
-        embeddings.
-        * end - End time, as start.
-        * split_key - See get_split_key
-        * slug - This is the filename in our dataset. It should be
-        unique, it should be obvious what the original filename
-        was, and perhaps it should contain the label for audio scene
-        tasks.
+        * datapath
+            Fixed unique location of this audio file
+            relative to the dataset root. This can be used for hashing
+            and generating splits.
+        * relpath
+            (Possible variable) location of this audio
+            file relative to the working directory. WARNING: Don't
+            use this for hashing e.g. for splitting, because it may
+            vary depending upon our choice of _workdir. Use datapath
+            instead.
+        * split
+            Split of this particular audio file: ['train' 'valid', 'test']
+            # TODO: Verify this
+        * label
+            Label for the scene or event. For multilabel, if
+            there are multiple labels, they will be on different rows
+            of the df.
+        * start, end
+            Start time in milliseconds for the event with
+            this label. Event prediction tasks only, i.e. timestamp
+            embeddings.
+        * split_key - See get_split_key [TODO: Move here]
+        * slug
+            This is the filename in our dataset. It should be
+            unique, it should be obvious what the original filename
+            was, and perhaps it should contain the label for audio scene
+            tasks.
     """
 
     outfile = luigi.Parameter()
 
-    # This should have something like the following:
+    """
+    You should define one for every (split, name) task.
+
+    `ExtractArchive` is usually enough, but it's more fancy for Speech
+    Commands where postprocessing is applied by task `GenerateTrain`.
+
+    Custom postprocessing tasks should have `output_path` TaskParameter
+    (like `ExtractArchive`)`, which is the path to the (split,name)
+    subdir inside the workdir where the audio files reside.
+
+    e.g.
+    """
     # train = luigi.TaskParameter()
     # test = luigi.TaskParameter()
 
     def requires(self):
-        ...
-        # This should have something like the following:
+        # You should have one for each TaskParameter above. e.g.
         # return { "train": self.train, "test": self.test }
+        ...
 
     def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
         """
         For a particular key in the task requires (e.g. "train", or "train_eval"),
-        return a metadata dataframe with the following columns:
-            * relpath - How you find the file path in the original dataset.
-            * split - Split of this particular audio file.
-            * label - Label for the scene or event.
-            * start, end - Start and end time in seconds of the event,
-            only for event_labeling tasks.
+        return a metadata dataframe with the following columns (see above):
+            * relpath
+            * split
+            * label
+            * start, end: Optional
         """
         raise NotImplementedError("Deriving classes need to implement this")
 
@@ -188,9 +214,11 @@ class ExtractMetadata(WorkTask):
 
     def get_all_metadata(self) -> pd.DataFrame:
         """
-        Return a dataframe containing all metadata for this task.
+        Combine all metadata for this task.
 
-        By default, we do one requires task at a time and then concat them.
+        By default, we do one required task at a time and then
+        concat them.
+
         You might consider overriding this for some datasets (like
         Google Speech Commands) where you cannot process metadata
         on a per-split basis.
@@ -202,6 +230,32 @@ class ExtractMetadata(WorkTask):
             ]
         ).reset_index(drop=True)
         return metadata
+
+    def relative_path_to_dataset_path(self, relative_path: str) -> str:
+        """
+        Given the path to this audio file from the working directory,
+        strip all output_path from each required task.
+
+        This filename directory is a little fiddly and gnarly.
+        """
+        # Find all possible base paths into which audio was extracted
+        base_paths = [t.output_path for t in self.requires().values()]
+        assert len(base_paths) == len(set(base_paths)), (
+            "You seem to have duplicate (split, name) in your task "
+            + f"config. {len(base_paths)} != {len(set(base_paths))}"
+        )
+        dataset_path = relative_path
+        relatives = 0
+        for base_path in base_paths:
+            if dataset_path.is_relative_to(base_path):
+                dataset_path = dataset_path.relative_to(base_path)
+                relatives += 1
+        assert relatives == 1, f"relatives {relatives}. " + f"base_paths = {base_paths}"
+        assert dataset_path != relative_path, (
+            f"dataset_path in {relative_path} not found. "
+            + f"base_paths = {base_paths}"
+        )
+        return dataset_path
 
     @staticmethod
     def slugify_file_name(relative_path: str) -> str:
@@ -308,9 +362,28 @@ class ExtractMetadata(WorkTask):
         metadata = metadata.sample(frac=1, random_state=0).reset_index(drop=True)
 
         metadata = metadata.assign(
+            datapath=lambda df: df.relpath.apply(self.relative_path_to_dataset_path),
             slug=lambda df: df.relpath.apply(self.slugify_file_name),
             split_key=self.get_split_key,
         )
+
+        # Check if one datapath is associated with only one relpath.
+        # Also implies there is a one to one correspondence between relpath and datapath.
+        #  1. One datapath to one relpath -- the bug which we were having is one datapath for
+        #   two relpath(relpath with -6 as well as +6 having the same datapath), groupby
+        #   by datapath and see if one relpath is associated with one datapath - this is done
+        #   in the assert statement.
+        #  2. One relpath to one datapath -- always the case, because datapathify is
+        #   a deterministic function.
+        #  3. relpath.nunique() == datapath.nunique(), automatically holds if the above
+        #   two holds.
+        assert (
+            metadata.groupby("datapath")["relpath"].nunique() == 1
+        ).all(), "One datapath is associated with more than one file"
+        "Please make sure datapaths are unique at a file level"
+
+        # Assertion sanity check -- one to one mapping between the relpaths and datapaths
+        assert metadata["relpath"].nunique() == metadata["datapath"].nunique()
 
         # Check if one slug is associated with only one relpath.
         # Also implies there is a one to one correspondence between relpath and slug.
