@@ -164,45 +164,6 @@ class ExtractMetadata(WorkTask):
         # This should have something like the following:
         # return { "train": self.train, "test": self.test }
 
-    def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
-        """
-        For a particular key in the task requires (e.g. "train", or "train_eval"),
-        return a metadata dataframe with the following columns:
-            * relpath - How you find the file path in the original dataset.
-            * split - Split of this particular audio file.
-            * label - Label for the scene or event.
-            * start, end - Start and end time in seconds of the event,
-            only for event_labeling tasks.
-        """
-        raise NotImplementedError("Deriving classes need to implement this")
-
-    def get_requires_metadata_check(self, requires_key: str) -> pd.DataFrame:
-        df = self.get_requires_metadata(requires_key)
-        assert "relpath" in df.columns
-        assert "split" in df.columns
-        assert "label" in df.columns
-        if self.task_config["embedding_type"] == "event":
-            assert "start" in df.columns
-            assert "end" in df.columns
-        return df
-
-    def get_all_metadata(self) -> pd.DataFrame:
-        """
-        Return a dataframe containing all metadata for this task.
-
-        By default, we do one requires task at a time and then concat them.
-        You might consider overriding this for some datasets (like
-        Google Speech Commands) where you cannot process metadata
-        on a per-split basis.
-        """
-        metadata = pd.concat(
-            [
-                self.get_requires_metadata_check(requires_key)
-                for requires_key in list(self.requires().keys())
-            ]
-        ).reset_index(drop=True)
-        return metadata
-
     @staticmethod
     def slugify_file_name(relative_path: str) -> str:
         """
@@ -227,6 +188,85 @@ class ExtractMetadata(WorkTask):
         * A speaker cannot be split.
         """
         return df["relpath"]
+
+    def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
+        """
+        For a particular key in the task requires (e.g. "train", or "train_eval"),
+        return a metadata dataframe with the following columns:
+            * relpath - How you find the file path in the original dataset.
+            * split - Split of this particular audio file.
+            * label - Label for the scene or event.
+            * start, end - Start and end time in seconds of the event,
+            only for event_labeling tasks.
+        """
+        raise NotImplementedError("Deriving classes need to implement this")
+
+    def get_all_metadata(self) -> pd.DataFrame:
+        """
+        Return a dataframe containing all metadata for this task.
+
+        By default, we do one requires task at a time and then concat them.
+        You might consider overriding this for some datasets (like
+        Google Speech Commands) where you cannot process metadata
+        on a per-split basis.
+        """
+        metadata = pd.concat(
+            [
+                self.get_requires_metadata_check(requires_key)
+                for requires_key in list(self.requires().keys())
+            ]
+        ).reset_index(drop=True)
+        return metadata
+
+    def postprocess_all_metadata(self, metadata: pd.DataFrame) -> pd.DataFrame:
+        # Deterministically shuffle the metadata
+        metadata = metadata.sample(frac=1, random_state=0).reset_index(drop=True)
+
+        metadata = metadata.assign(
+            slug=lambda df: df.relpath.apply(self.slugify_file_name),
+            split_key=self.get_split_key,
+        )
+
+        # Check if one slug is associated with only one relpath.
+        # Also implies there is a one to one correspondence between relpath and slug.
+        #  1. One slug to one relpath -- the bug which we were having is one slug for
+        #   two relpath(relpath with -6 as well as +6 having the same slug), groupby
+        #   by slug and see if one relpath is associated with one slug - this is done
+        #   in the assert statement.
+        #  2. One relpath to one slug -- always the case, because slugify is
+        #   a deterministic function.
+        #  3. relpath.nunique() == slug.nunique(), automatically holds if the above
+        #   two holds.
+        assert (
+            metadata.groupby("slug")["relpath"].nunique() == 1
+        ).all(), "One slug is associated with more than one file"
+        "Please make sure slugs are unique at a file level"
+
+        # Assertion sanity check -- one to one mapping between the relpaths and slugs
+        assert metadata["relpath"].nunique() == metadata["slug"].nunique()
+
+        # Filter the files which actually exist in the data
+        exists = metadata["relpath"].apply(lambda relpath: Path(relpath).exists())
+
+        # If any of the audio files in the metadata is missing, raise an error for the
+        # regular dataset. However, in case of small dataset, this is expected and we
+        # need to remove those entries from the metadata
+        if sum(exists) < len(metadata):
+            if self.task_config["version"].split("-")[-1] == "small":
+                print(
+                    "All files in metadata do not exist in the dataset. This is "
+                    "expected behavior when small task is running.\n"
+                    f"Removing {len(metadata) - sum(exists)} entries in the "
+                    "metadata"
+                )
+                metadata = metadata.loc[exists]
+                metadata.reset_index(drop=True, inplace=True)
+                assert len(metadata) == sum(exists)
+            else:
+                raise FileNotFoundError(
+                    "Files in the metadata are missing in the directory"
+                )
+        return metadata
 
     def split_train_test_val(self, metadata: pd.DataFrame):
         """
@@ -300,57 +340,19 @@ class ExtractMetadata(WorkTask):
         metadata.loc[metadata["split_key"].isin(test_split_keys), "split"] = "test"
         return metadata
 
+    def get_requires_metadata_check(self, requires_key: str) -> pd.DataFrame:
+        df = self.get_requires_metadata(requires_key)
+        assert "relpath" in df.columns
+        assert "split" in df.columns
+        assert "label" in df.columns
+        if self.task_config["embedding_type"] == "event":
+            assert "start" in df.columns
+            assert "end" in df.columns
+        return df
+
     def run(self):
         # Process metadata gets all metadata to be used for the task
         metadata = self.get_all_metadata()
-
-        # Deterministically shuffle the metadata
-        metadata = metadata.sample(frac=1, random_state=0).reset_index(drop=True)
-
-        metadata = metadata.assign(
-            slug=lambda df: df.relpath.apply(self.slugify_file_name),
-            split_key=self.get_split_key,
-        )
-
-        # Check if one slug is associated with only one relpath.
-        # Also implies there is a one to one correspondence between relpath and slug.
-        #  1. One slug to one relpath -- the bug which we were having is one slug for
-        #   two relpath(relpath with -6 as well as +6 having the same slug), groupby
-        #   by slug and see if one relpath is associated with one slug - this is done
-        #   in the assert statement.
-        #  2. One relpath to one slug -- always the case, because slugify is
-        #   a deterministic function.
-        #  3. relpath.nunique() == slug.nunique(), automatically holds if the above
-        #   two holds.
-        assert (
-            metadata.groupby("slug")["relpath"].nunique() == 1
-        ).all(), "One slug is associated with more than one file"
-        "Please make sure slugs are unique at a file level"
-
-        # Assertion sanity check -- one to one mapping between the relpaths and slugs
-        assert metadata["relpath"].nunique() == metadata["slug"].nunique()
-
-        # Filter the files which actually exist in the data
-        exists = metadata["relpath"].apply(lambda relpath: Path(relpath).exists())
-
-        # If any of the audio files in the metadata is missing, raise an error for the
-        # regular dataset. However, in case of small dataset, this is expected and we
-        # need to remove those entries from the metadata
-        if sum(exists) < len(metadata):
-            if self.task_config["version"].split("-")[-1] == "small":
-                print(
-                    "All files in metadata do not exist in the dataset. This is "
-                    "expected behavior when small task is running.\n"
-                    f"Removing {len(metadata) - sum(exists)} entries in the "
-                    "metadata"
-                )
-                metadata = metadata.loc[exists]
-                metadata.reset_index(drop=True, inplace=True)
-                assert len(metadata) == sum(exists)
-            else:
-                raise FileNotFoundError(
-                    "Files in the metadata are missing in the directory"
-                )
 
         # Split the metadata to create valid and test set from train if they are not
         # created explicitly in get_all_metadata
