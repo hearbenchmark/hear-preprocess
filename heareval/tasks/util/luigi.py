@@ -176,8 +176,8 @@ def subsample_metadata(metadata: pd.DataFrame, max_files: int):
 
     assert "subsample_key" in metadata.columns
     metadata = metadata.sort_values(
-        by=["subsample_key"], ascending=[True, True]
-    ).reset_index()
+        by="subsample_key", ascending=True
+    ).reset_index(drop=True)
 
     # Select the max_file number of files, from the sorted metadata
     # (by subsample key)
