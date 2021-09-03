@@ -11,13 +11,14 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
 
-import hearpreprocess.util.audio as audio_util
 import luigi
 import pandas as pd
-from hearpreprocess import __version__
-from hearpreprocess.util.luigi import WorkTask, download_file, new_basedir
 from slugify import slugify
 from tqdm import tqdm
+
+import hearpreprocess.util.audio as audio_util
+from hearpreprocess import __version__
+from hearpreprocess.util.luigi import WorkTask, download_file, new_basedir
 
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
@@ -144,9 +145,13 @@ class ExtractMetadata(WorkTask):
     The metadata columns are:
         * relpath - How you find the file path in the original dataset.
         * split - Split of this particular audio file.
-        * label - Label for the scene or event.
-        * start, end - Start and end time in seconds of the event,
-        for event_labeling tasks.
+        * label - Label for the scene or event. For multilabel, if
+        there are multiple labels, they will be on different rows
+        of the df.
+        * start, end - Start time in milliseconds for the event with
+        this label. Event prediction tasks only, i.e. timestamp
+        embeddings.
+        * end - End time, as start.
         * split_key - See get_split_key
         * slug - This is the filename in our dataset. It should be
         unique, it should be obvious what the original filename
@@ -283,29 +288,23 @@ class ExtractMetadata(WorkTask):
         valid_percentage: float
         test_percentage: float
 
-        # If we want a 60/20/20 split, but we already have test
-        # then we want to do a 75/25/0 split so that train is still 3x validation
+        # If we want a 60/20/20 split, but we already have test and don't
+        # to partition one, we want to do a 75/25/0 split. i.e. we
+        # keep everything summing to one and the proportions the same.
         if splits_to_sample == set():
             return metadata
-        elif splits_to_sample == set("valid"):
-            tot = TRAIN_PERCENTAGE + TEST_PERCENTAGE
-            train_percentage = (
-                TRAIN_PERCENTAGE + TRAIN_PERCENTAGE * VALIDATION_PERCENTAGE / tot
-            )
-            valid_percentage = 0
-            test_percentage = (
-                TEST_PERCENTAGE + TEST_PERCENTAGE * VALIDATION_PERCENTAGE / tot
-            )
-        elif splits_to_sample == set("test"):
-            tot = TRAIN_PERCENTAGE + TEST_PERCENTAGE
-            train_percentage = (
-                TRAIN_PERCENTAGE + TRAIN_PERCENTAGE * TEST_PERCENTAGE / tot
-            )
-            valid_percentage = (
-                VALIDATION_PERCENTAGE + VALIDATION_PERCENTAGE * TEST_PERCENTAGE / tot
-            )
+        elif splits_to_sample == set(["valid"]):
+            tot = (TRAIN_PERCENTAGE + VALIDATION_PERCENTAGE) / 100
+            train_percentage = TRAIN_PERCENTAGE / tot
+            valid_percentage = VALIDATION_PERCENTAGE / tot
             test_percentage = 0
+        elif splits_to_sample == set(["test"]):
+            tot = (TRAIN_PERCENTAGE + TEST_PERCENTAGE) / 100
+            train_percentage = TRAIN_PERCENTAGE / tot
+            valid_percentage = 0
+            test_percentage = TEST_PERCENTAGE / tot
         else:
+            assert splits_to_sample == set(["valid", "test"])
             train_percentage = TRAIN_PERCENTAGE
             valid_percentage = VALIDATION_PERCENTAGE
             test_percentage = TEST_PERCENTAGE
@@ -313,7 +312,7 @@ class ExtractMetadata(WorkTask):
             train_percentage + valid_percentage + test_percentage == 100
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
 
-        split_keys = sorted(metadata["split_key"].unique())
+        split_keys = sorted(metadata[metadata.split == "train"]["split_key"].unique())
         rng = random.Random("split_train_test_val")
         rng.shuffle(split_keys)
         n = len(split_keys)
@@ -401,6 +400,12 @@ class ExtractMetadata(WorkTask):
             if self.task_config["prediction_type"] == "multiclass":
                 label_count = metadata.groupby("slug")["label"].aggregate(len)
                 assert (label_count == 1).all()
+        elif self.task_config["embedding_type"] == "event":
+            pass
+        else:
+            raise ValueError(
+                "%s embedding_type unknown" % self.task_config["embedding_type"]
+            )
 
         metadata.to_csv(
             self.workdir.joinpath(self.outfile),
@@ -492,10 +497,12 @@ class SubsampleSplit(MetadataTask):
         if num_files > max_files:
             print(
                 f"{num_files} audio files in corpus."
-                f"Max files to subsample: {max_files}"
+                f"Max files to subsample in {self.split}: {max_files}"
             )
             subsampled_relpaths = set(relpaths[:max_files])
-            print(f"Files in split after subsampling: f{len(subsampled_relpaths)}")
+            print(
+                f"Files in split {self.split} after resampling: {len(subsampled_relpaths)}"
+            )
         else:
             subsampled_relpaths = relpaths
 
