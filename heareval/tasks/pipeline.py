@@ -149,7 +149,13 @@ class ExtractMetadata(WorkTask):
     The metadata columns are:
         * relpath - How you find the file path in the original dataset.
         * split - Split of this particular audio file.
-        * label - Label for the scene or event.
+        * label - Label for the scene or event. For multilabel, if
+        there are multiple labels, they will be on different rows
+        of the df.
+        * start - Start time in milliseconds for the event with
+        this label. Event prediction tasks only, i.e. timestamp
+        embeddings.
+        * end - End time, as start.
         * slug - This is the filename in our dataset. It should be
         unique, it should be obvious what the original filename
         was, and perhaps it should contain the label for audio scene
