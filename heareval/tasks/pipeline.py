@@ -4,6 +4,7 @@ Generic pipelines for datasets
 
 import json
 import os
+import random
 import shutil
 from pathlib import Path
 from typing import Dict, List, Set, Union
@@ -22,7 +23,6 @@ from heareval.tasks.util.luigi import (
     filename_to_int_hash,
     new_basedir,
     subsample_metadata,
-    which_set,
 )
 
 SPLITS = ["train", "valid", "test"]
@@ -30,6 +30,7 @@ SPLITS = ["train", "valid", "test"]
 # the data in the split and hence is not a part of the data config
 VALIDATION_PERCENTAGE = 20
 TEST_PERCENTAGE = 20
+TRAIN_PERCENTAGE = 100 - VALIDATION_PERCENTAGE - TEST_PERCENTAGE
 
 # We want no more than 5 hours of audio per task.
 MAX_TASK_DURATION_BY_SPLIT = {
@@ -185,25 +186,6 @@ class ExtractMetadata(WorkTask):
         return f"{slugify(slug_text)}"
 
     @staticmethod
-    def get_split_key(df: DataFrame) -> Series:
-        """
-        Gets the split key.
-
-        This can be the hash of a data specific split like instrument generating
-        the file or person recording the sound.
-        For subsampling, the data is subsampled in chunks of split.
-        By default this is the hash of the filename, but can be overridden if the
-        data needs to split into certain groups while subsampling
-        i.e leave out some groups and select others based on this key.
-
-        This key is also used to split the data into test and valid if those splits
-        are not made explicitly in the get_all_metadata
-        """
-        assert "relpath" in df, "relpath column not found in the dataframe"
-        file_names = df["relpath"].apply(lambda path: Path(path).name)
-        return file_names.apply(filename_to_int_hash)
-
-    @staticmethod
     def get_subsample_key(df: DataFrame) -> Series:
         """
         Gets the subsample key.
@@ -251,7 +233,7 @@ class ExtractMetadata(WorkTask):
                 self.get_requires_metadata(requires_key)
                 for requires_key in list(self.requires().keys())
             ]
-        )
+        ).reset_index(drop=True)
         return metadata
 
     def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
@@ -260,16 +242,19 @@ class ExtractMetadata(WorkTask):
     def split_train_test_val(self, metadata: pd.DataFrame):
         """
         This functions splits the metadata into test, train and valid from train
-        split if any of test or valid split is not found
+        split if any of test or valid split is not found. We split
+            based upon the relpath (filename), i.e. events in the same
+        file go into the same split.
+
+        If there is any data specific split, that will already be done in
+        get_all_metadata. This function is for automatic splitting if the splits
+        are not found.
+
         Three cases might arise -
         1. Validation split not found - Train will be split into valid and train
         2. Test split not found - Train will be split into test and train
         3. Validation and Test split not found - Train will be split into test, train
             and valid
-        If there is any data specific split that will already be done in
-        get_all_metadata. This function is for automatic splitting if the splits
-        are not found
-        This uses the split key to do the split with the which set function.
         """
 
         splits_present = metadata["split"].unique()
@@ -284,37 +269,59 @@ class ExtractMetadata(WorkTask):
             + f"now sampled with split key are: {splits_to_sample}"
         )
 
-        # Depending on whether valid and test are already present, the percentage can
-        # either be the predefined percentage or 0
-        validation_percentage = (
-            VALIDATION_PERCENTAGE if "valid" in splits_to_sample else 0
-        )
-        test_percentage = TEST_PERCENTAGE if "test" in splits_to_sample else 0
+        train_percentage: float
+        valid_percentage: float
+        test_percentage: float
 
-        metadata.reset_index(drop=True, inplace=True)
-        metadata[metadata["split"] == "train"] = metadata[
-            metadata["split"] == "train"
-        ].assign(
-            split=lambda df: df["split_key"].apply(
-                # Use the which set to split the train into the required splits
-                lambda split_key: which_set(
-                    split_key,
-                    validation_percentage=validation_percentage,
-                    test_percentage=test_percentage,
-                )
-            )
-        )
+        # If we want a 60/20/20 split, but we already have test and don't
+        # to partition one, we want to do a 75/25/0 split. i.e. we
+        # keep everything summing to one and the proportions the same.
+        if splits_to_sample == set():
+            return metadata
+        elif splits_to_sample == set(["valid"]):
+            tot = (TRAIN_PERCENTAGE + VALIDATION_PERCENTAGE) / 100
+            train_percentage = TRAIN_PERCENTAGE / tot
+            valid_percentage = VALIDATION_PERCENTAGE / tot
+            test_percentage = 0
+        elif splits_to_sample == set(["test"]):
+            tot = (TRAIN_PERCENTAGE + TEST_PERCENTAGE) / 100
+            train_percentage = TRAIN_PERCENTAGE / tot
+            valid_percentage = 0
+            test_percentage = TEST_PERCENTAGE / tot
+        else:
+            assert splits_to_sample == set(["valid", "test"])
+            train_percentage = TRAIN_PERCENTAGE
+            valid_percentage = VALIDATION_PERCENTAGE
+            test_percentage = TEST_PERCENTAGE
+        assert (
+            train_percentage + valid_percentage + test_percentage == 100
+        ), f"{train_percentage + valid_percentage + test_percentage} != 100"
+
+        relpaths = metadata[metadata.split == "train"]["relpath"].unique()
+        rng = random.Random(0)
+        rng.shuffle(relpaths)
+        n = len(relpaths)
+
+        n_valid = int(round(n * valid_percentage / 100))
+        n_test = int(round(n * test_percentage / 100))
+        assert n_valid > 0 or valid_percentage == 0
+        assert n_test > 0 or test_percentage == 0
+        valid_relpaths = set(relpaths[:n_valid])
+        test_relpaths = set(relpaths[n_valid : n_valid + n_test])
+        metadata.loc[metadata["relpath"].isin(valid_relpaths), "split"] = "valid"
+        metadata.loc[metadata["relpath"].isin(test_relpaths), "split"] = "test"
         return metadata
 
     def run(self):
         # Process metadata gets all metadata to be used for the task
         metadata = self.get_all_metadata()
 
-        metadata.reset_index(drop=True)
+        # Deterministically shuffle the metadata
+        metadata = metadata.sample(frac=1, random_state=0).reset_index(drop=True)
+
         metadata = metadata.assign(
             slug=lambda df: df.relpath.apply(self.slugify_file_name),
             subsample_key=self.get_subsample_key,
-            split_key=self.get_split_key,
         )
 
         # Check if one slug is associated with only one relpath.
@@ -350,14 +357,8 @@ class ExtractMetadata(WorkTask):
                     "metadata"
                 )
                 metadata = metadata.loc[exists]
+                metadata.reset_index(drop=True, inplace=True)
                 assert len(metadata) == sum(exists)
-                print(
-                    "We also modify the TEST_PERCENTAGE and VALIDATION_PERCENTAGE "
-                    "to make sure we have files in each split."
-                )
-                global TEST_PERCENTAGE, VALIDATION_PERCENTAGE
-                TEST_PERCENTAGE = 33
-                VALIDATION_PERCENTAGE = 33
             else:
                 raise FileNotFoundError(
                     "Files in the metadata are missing in the directory"
@@ -372,7 +373,6 @@ class ExtractMetadata(WorkTask):
                 [
                     "relpath",
                     "slug",
-                    "split_key",
                     "subsample_key",
                     "split",
                     "label",
@@ -385,7 +385,6 @@ class ExtractMetadata(WorkTask):
                 [
                     "relpath",
                     "slug",
-                    "split_key",
                     "subsample_key",
                     "split",
                     "label",
@@ -444,7 +443,7 @@ class SubsampleSplit(WorkTask):
             self.requires()["metadata"].workdir.joinpath(
                 self.requires()["metadata"].outfile
             )
-        )[["split", "split_key", "subsample_key", "slug", "relpath"]]
+        )[["split", "subsample_key", "slug", "relpath"]]
 
         # Since event detection metadata will have duplicates, we de-dup
         # TODO: We might consider different choices of subset
