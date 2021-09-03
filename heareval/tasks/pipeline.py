@@ -281,7 +281,7 @@ class ExtractMetadata(WorkTask):
         if splits_to_sample == set():
             return metadata
         elif splits_to_sample == set(["valid"]):
-            tot = (TRAIN_PERCENTAGE + VALID_PERCENTAGE) / 100
+            tot = (TRAIN_PERCENTAGE + VALIDATION_PERCENTAGE) / 100
             train_percentage = TRAIN_PERCENTAGE / tot
             valid_percentage = VALIDATION_PERCENTAGE / tot
             test_percentage = 0
