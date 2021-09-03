@@ -23,17 +23,17 @@ task_config = {
     "prediction_type": "multiclass",
     "download_urls": [
         {
-            "name": "train",
+            "split": "train",
             "url": "http://download.magenta.tensorflow.org/datasets/nsynth/nsynth-train.jsonwav.tar.gz",  # noqa: E501
             "md5": "fde6665a93865503ba598b9fac388660",
         },
         {
-            "name": "valid",
+            "split": "valid",
             "url": "http://download.magenta.tensorflow.org/datasets/nsynth/nsynth-valid.jsonwav.tar.gz",  # noqa: E501
             "md5": "87e94a00a19b6dbc99cf6d4c0c0cae87",
         },
         {
-            "name": "test",
+            "split": "test",
             "url": "http://download.magenta.tensorflow.org/datasets/nsynth/nsynth-test.jsonwav.tar.gz",  # noqa: E501
             "md5": "5e6f8719bf7e16ad0a00d518b78af77d",
         },
@@ -44,17 +44,17 @@ task_config = {
     "small": {
         "download_urls": [
             {
-                "name": "train",
+                "split": "train",
                 "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-train-small.zip",  # noqa: E501
                 "md5": "c17070e4798655d8bea1231506479ba8",
             },
             {
-                "name": "valid",
+                "split": "valid",
                 "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-valid-small.zip",  # noqa: E501
                 "md5": "e36722262497977f6b945bb06ab0969d",
             },
             {
-                "name": "test",
+                "split": "test",
                 "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-test-small.zip",  # noqa: E501
                 "md5": "9a98e869ed4add8ba9ebb0d7c22becca",
             },
@@ -84,7 +84,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         filename = f"{item}.wav"
         return audio_path.joinpath(filename)
 
-    def get_split_metadata(self, split: str) -> pd.DataFrame:
+    def get_requires_metadata(self, split: str) -> pd.DataFrame:
         logger.info(f"Preparing metadata for {split}")
 
         # Loads and prepares the metadata for a specific split

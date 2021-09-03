@@ -29,12 +29,12 @@ task_config = {
     "prediction_type": "multiclass",
     "download_urls": [
         {
-            "name": "train",
+            "split": "train",
             "url": "http://download.tensorflow.org/data/speech_commands_v0.02.tar.gz",  # noqa: E501
             "md5": "6b74f3901214cb2c2934e98196829835",
         },
         {
-            "name": "test",
+            "split": "test",
             "url": "http://download.tensorflow.org/data/speech_commands_test_set_v0.02.tar.gz",  # noqa: E501
             "md5": "854c580ee90bff80c516491c84544e32",
         },
@@ -43,12 +43,12 @@ task_config = {
     "small": {
         "download_urls": [
             {
-                "name": "train",
+                "split": "train",
                 "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/speech_commands_v0.02-small.zip",  # noqa: E501
                 "md5": "455123a88b8410d1f955c77ad331524f",
             },
             {
-                "name": "test",
+                "split": "test",
                 "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/speech_commands_test_set_v0.02-small.zip",  # noqa: E501
                 "md5": "26d08374a7abd13ca2f4a4b8424f41d0",
             },
@@ -205,7 +205,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         )
         assert len(train_df.merge(validation_df, on="relpath")) == 0
 
-        return pd.concat([test_df, validation_df, train_df])
+        return pd.concat([test_df, validation_df, train_df]).reset_index(drop=True)
 
     def get_process_metadata(self) -> pd.DataFrame:
         process_metadata = self.get_split_paths()

@@ -6,7 +6,7 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Set, Union
 from urllib.parse import urlparse
 
 import luigi
@@ -78,9 +78,7 @@ class ExtractArchive(WorkTask):
         visibility=luigi.parameter.ParameterVisibility.PRIVATE
     )
     # Outdir is the sub dir inside the workdir to extract the file.
-    # If set to None the file is extracted in the workdir without any
-    # subdir
-    outdir = luigi.Parameter(default=None)
+    outdir = luigi.Parameter()
 
     def requires(self):
         return {"download": self.download}
@@ -88,37 +86,48 @@ class ExtractArchive(WorkTask):
     def run(self):
         archive_path = self.requires()["download"].workdir.joinpath(self.infile)
         archive_path = archive_path.absolute()
-        output_path = self.workdir
-        if self.outdir is not None:
-            output_path = output_path.joinpath(self.outdir)
+        output_path = self.workdir.joinpath(self.outdir)
         shutil.unpack_archive(archive_path, output_path)
         audio_util.audio_dir_stats_wav(
             in_dir=output_path,
-            out_file=self.workdir.joinpath(f"{self.outdir}_stats.json"),
+            out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
         )
 
         self.mark_complete()
 
 
-def get_download_and_extract_tasks(task_config: Dict):
+def get_download_and_extract_tasks(task_config: Dict) -> Dict[str, WorkTask]:
     """
     Iterates over the dowload urls and builds download and extract
     tasks for them
     """
 
     tasks = {}
+    outdirs: Set[str] = set()
     for urlobj in task_config["download_urls"]:
-        name, url, md5 = urlobj["name"], urlobj["url"], urlobj["md5"]
+        split, name, url, md5 = (
+            urlobj["split"],
+            urlobj.get("name", None),
+            urlobj["url"],
+            urlobj["md5"],
+        )
         filename = os.path.basename(urlparse(url).path)
+        if name is not None:
+            outdir = f"{split}/{name}"
+        else:
+            outdir = f"{split}"
+        assert outdir not in outdirs, f"{outdir} in {outdirs}. If you are downloading "
+        "multiple archives into one split, they should have different 'name's."
+        outdirs.add(outdir)
         task = ExtractArchive(
             download=DownloadCorpus(
                 url=url, outfile=filename, expected_md5=md5, task_config=task_config
             ),
             infile=filename,
-            outdir=name,
+            outdir=outdir,
             task_config=task_config,
         )
-        tasks[name] = task
+        tasks[slugify(outdir, separator="_")] = task
 
     return tasks
 
@@ -231,23 +240,21 @@ class ExtractMetadata(WorkTask):
         Return a dataframe containing the task metadata for this
         entire task.
 
-        By default, we do one split at a time and then concat them.
-        This runs only for the splits which have a requires task. All
-        other splits are sampled with the split train test val function.
+        By default, we do one requires task at a time and then concat them.
         You might consider overriding this for some datasets (like
         Google Speech Commands) where you cannot process metadata
         on a per-split basis.
         """
         process_metadata = pd.concat(
             [
-                self.get_split_metadata(split)
-                # The splits should come from the requires and not from the data config
-                # splits as the splits in data config might need to be generated from
-                # the training split with split train test val function
-                for split in list(self.requires().keys())
+                self.get_requires_metadata(requires_key)
+                for requires_key in list(self.requires().keys())
             ]
-        )
+        ).reset_index(drop=True)
         return process_metadata
+
+    def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
+        raise NotImplementedError("Deriving classes need to implement this")
 
     def split_train_test_val(self, metadata: pd.DataFrame):
         """
@@ -278,15 +285,22 @@ class ExtractMetadata(WorkTask):
 
         # Depending on whether valid and test are already present, the percentage can
         # either be the predefined percentage or 0
-        valid_perc = VALIDATION_PERCENTAGE if "valid" in splits_to_sample else 0
-        test_perc = TEST_PERCENTAGE if "test" in splits_to_sample else 0
+        validation_percentage = (
+            VALIDATION_PERCENTAGE if "valid" in splits_to_sample else 0
+        )
+        test_percentage = TEST_PERCENTAGE if "test" in splits_to_sample else 0
 
+        metadata.reset_index(drop=True, inplace=True)
         metadata[metadata["split"] == "train"] = metadata[
             metadata["split"] == "train"
         ].assign(
             split=lambda df: df["split_key"].apply(
                 # Use the which set to split the train into the required splits
-                lambda split_key: which_set(split_key, valid_perc, test_perc)
+                lambda split_key: which_set(
+                    split_key,
+                    validation_percentage=validation_percentage,
+                    test_percentage=test_percentage,
+                )
             )
         )
         return metadata
@@ -314,6 +328,36 @@ class ExtractMetadata(WorkTask):
         assert (
             process_metadata["relpath"].nunique() == process_metadata["slug"].nunique()
         )
+
+        # Filter the files which actually exist in the data
+        exists = process_metadata["relpath"].apply(
+            lambda relpath: Path(relpath).exists()
+        )
+
+        # If any of the audio files in the metadata is missing, raise an error for the
+        # regular dataset. However, in case of small dataset, this is expected and we
+        # need to remove those entries from the metadata
+        if sum(exists) < len(process_metadata):
+            if self.task_config["version"].split("-")[-1] == "small":
+                print(
+                    "All files in metadata do not exist in the dataset. This is "
+                    "expected behavior when small task is running.\n"
+                    f"Removing {len(process_metadata) - sum(exists)} entries in the "
+                    "metadata"
+                )
+                process_metadata = process_metadata.loc[exists]
+                assert len(process_metadata) == sum(exists)
+                print(
+                    "We also modify the TEST_PERCENTAGE and VALIDATION_PERCENTAGE "
+                    "to make sure we have files in each split."
+                )
+                global TEST_PERCENTAGE, VALIDATION_PERCENTAGE
+                TEST_PERCENTAGE = 33
+                VALIDATION_PERCENTAGE = 33
+            else:
+                raise FileNotFoundError(
+                    "Files in the metadata are missing in the directory"
+                )
 
         # Split the metadata to create valid and test set from train if they are not
         # created explicitly in the get process metadata
@@ -351,28 +395,6 @@ class ExtractMetadata(WorkTask):
             raise ValueError(
                 "%s embedding_type unknown" % self.task_config["embedding_type"]
             )
-
-        # Filter the files which actually exists in the data
-        exists = process_metadata["relpath"].apply(
-            lambda relpath: Path(relpath).exists()
-        )
-
-        # If any of the audio files in the metadata is missing, raise an error for the
-        # regular dataset. However, in case of small dataset, this is expected and we
-        # need to remove those entries from the metadata
-        if sum(exists) < len(process_metadata):
-            if self.task_config["version"].split("-")[-1] == "small":
-                print(
-                    "All files in metadata do not exist in the dataset. This is "
-                    "expected behavior when small task is running."
-                    f"Removing {len(process_metadata) - sum(exists)} entries in the "
-                    "metadata"
-                )
-                process_metadata = process_metadata.loc[exists]
-            else:
-                raise FileNotFoundError(
-                    "Files in the metadata are missing in the directory"
-                )
 
         process_metadata.to_csv(
             self.workdir.joinpath(self.outfile),
@@ -422,6 +444,7 @@ class SubsampleSplit(WorkTask):
 
         # Since event detection metadata will have duplicates, we de-dup
         # TODO: We might consider different choices of subset
+        # FIXME
         metadata = (
             metadata.sort_values(by="subsample_key")
             # Drop duplicates as the subsample key is expected to be unique
@@ -458,8 +481,14 @@ class SubsampleSplit(WorkTask):
                 self.workdir.joinpath(f"{audio['slug']}{audiofile.suffix}")
             )
             # missing_ok is python >= 3.8
-            if newaudiofile.exists():
-                newaudiofile.unlink()
+            assert not newaudiofile.exists(), f"{newaudiofile} already exists! "
+            "We shouldn't have two files with the same name. If this is happening "
+            "because luigi is overwriting an incomplete output directory "
+            "we should write code to delete the output directory "
+            "before this tasks begins."
+            "If this is happening because different data dirs have the same "
+            "audio file name, we should include the data dir in the symlinked "
+            "filename."
             newaudiofile.symlink_to(audiofile.resolve())
 
         self.mark_complete()
