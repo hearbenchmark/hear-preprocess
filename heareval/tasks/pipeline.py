@@ -361,6 +361,12 @@ class ExtractMetadata(WorkTask):
             if self.task_config["prediction_type"] == "multiclass":
                 label_count = metadata.groupby("slug")["label"].aggregate(len)
                 assert (label_count == 1).all()
+        elif self.task_config["embedding_type"] == "event":
+            pass
+        else:
+            raise ValueError(
+                "%s embedding_type unknown" % self.task_config["embedding_type"]
+            )
 
         metadata.to_csv(
             self.workdir.joinpath(self.outfile),
