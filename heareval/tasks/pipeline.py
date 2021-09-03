@@ -299,7 +299,7 @@ class ExtractMetadata(WorkTask):
             train_percentage + valid_percentage + test_percentage == 100
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
 
-        relpaths = metadata["relpath"].unique()
+        relpaths = metadata[metadata.split == "train"]["relpath"].unique()
         rng = random.Random(0)
         rng.shuffle(relpaths)
         n = len(relpaths)
