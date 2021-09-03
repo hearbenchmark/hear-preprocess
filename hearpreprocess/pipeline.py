@@ -278,29 +278,23 @@ class ExtractMetadata(WorkTask):
         valid_percentage: float
         test_percentage: float
 
-        # If we want a 60/20/20 split, but we already have test
-        # then we want to do a 75/25/0 split so that train is still 3x validation
+        # If we want a 60/20/20 split, but we already have test and don't
+        # to partition one, we want to do a 75/25/0 split. i.e. we
+        # keep everything summing to one and the proportions the same.
         if splits_to_sample == set():
             return metadata
-        elif splits_to_sample == set("valid"):
-            tot = TRAIN_PERCENTAGE + TEST_PERCENTAGE
-            train_percentage = (
-                TRAIN_PERCENTAGE + TRAIN_PERCENTAGE * VALIDATION_PERCENTAGE / tot
-            )
-            valid_percentage = 0
-            test_percentage = (
-                TEST_PERCENTAGE + TEST_PERCENTAGE * VALIDATION_PERCENTAGE / tot
-            )
-        elif splits_to_sample == set("test"):
-            tot = TRAIN_PERCENTAGE + TEST_PERCENTAGE
-            train_percentage = (
-                TRAIN_PERCENTAGE + TRAIN_PERCENTAGE * TEST_PERCENTAGE / tot
-            )
-            valid_percentage = (
-                VALIDATION_PERCENTAGE + VALIDATION_PERCENTAGE * TEST_PERCENTAGE / tot
-            )
+        elif splits_to_sample == set(["valid"]):
+            tot = (TRAIN_PERCENTAGE + VALIDATION_PERCENTAGE) / 100
+            train_percentage = TRAIN_PERCENTAGE / tot
+            valid_percentage = VALIDATION_PERCENTAGE / tot
             test_percentage = 0
+        elif splits_to_sample == set(["test"]):
+            tot = (TRAIN_PERCENTAGE + TEST_PERCENTAGE) / 100
+            train_percentage = TRAIN_PERCENTAGE / tot
+            valid_percentage = 0
+            test_percentage = TEST_PERCENTAGE / tot
         else:
+            assert splits_to_sample == set(["valid", "test"])
             train_percentage = TRAIN_PERCENTAGE
             valid_percentage = VALIDATION_PERCENTAGE
             test_percentage = TEST_PERCENTAGE
@@ -308,7 +302,7 @@ class ExtractMetadata(WorkTask):
             train_percentage + valid_percentage + test_percentage == 100
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
 
-        split_keys = sorted(metadata["split_key"].unique())
+        split_keys = sorted(metadata[metadata.split == "train"]["split_key"].unique())
         rng = random.Random("split_train_test_val")
         rng.shuffle(split_keys)
         n = len(split_keys)
@@ -470,10 +464,12 @@ class SubsampleSplit(MetadataTask):
         if num_files > max_files:
             print(
                 f"{num_files} audio files in corpus."
-                f"Max files to subsample: {max_files}"
+                f"Max files to subsample in {self.split}: {max_files}"
             )
             subsampled_relpaths = set(relpaths[:max_files])
-            print(f"Files in split after resampling: f{len(subsampled_relpaths)}")
+            print(
+                f"Files in split {self.split} after resampling: f{len(subsampled_relpaths)}"
+            )
         else:
             subsampled_relpaths = relpaths
 
