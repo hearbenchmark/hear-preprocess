@@ -66,23 +66,30 @@ def resample_wav(in_file: str, out_file: str, out_sr: int):
     """
     Resample a wave file using SoX high quality mode
     """
-    ret = subprocess.call(
-        [
-            "ffmpeg",
-            "-y",
-            "-i",
-            in_file,
-            # "-af",
-            # "aresample=resampler=soxr",
-            "-ar",
-            str(out_sr),
-            out_file,
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    # Make sure the return code is 0 and the command was successful.
-    assert ret == 0
+    # Get the audio stats to get the sampling rate of the audio
+    audio_stats = get_audio_stats(in_file)
+    # If the sampling rate is the same as that of the original file, skip resampling
+    if audio_stats["sample_rate"] != out_sr:
+        try:
+            _ = (
+                ffmpeg.input(in_file)
+                .filter("aresample", resampler="soxr")
+                .output(out_file, ar=out_sr)
+                .overwrite_output()
+                .run(quiet=True)
+            )
+        except ffmpeg.Error as e:
+            print(
+                "Please check the console output for ffmpeg to debug the "
+                "error in resample_wav: ",
+                f"Error: {e}",
+            )
+            raise
+    else:
+        # If the audio has the expected sampling rate, make a synlink
+        if Path(out_file).exists():
+            Path(out_file).unlink()
+        Path(out_file).symlink_to(Path(in_file).absolute())
 
 
 def get_audio_stats(in_file: Union[str, Path]):
