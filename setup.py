@@ -28,7 +28,6 @@ setup(
     python_requires=">=3.7",
     entry_points={},
     install_requires=[
-        "boto3",
         "click",
         "luigi",
         "numpy==1.19.2",
