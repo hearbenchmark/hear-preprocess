@@ -555,9 +555,7 @@ class SubsampleSplit(MetadataTask):
             newaudiofile = Path(
                 # Add the current filetype suffix (mp3, webm, etc)
                 # to the unique filestem.
-                self.workdir.joinpath(
-                    self.metadata_task.unique_filestem + audiopath.suffix
-                )
+                self.workdir.joinpath(unique_filestem + audiopath.suffix)
             )
             assert not newaudiofile.exists(), f"{newaudiofile} already exists! "
             "We shouldn't have two files with the same name. If this is happening "
