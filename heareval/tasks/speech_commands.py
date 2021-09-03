@@ -12,7 +12,6 @@ import heareval.tasks.util.luigi as luigi_util
 import luigi
 import pandas as pd
 import soundfile as sf
-from slugify import slugify
 from tqdm import tqdm
 
 WORDS = ["down", "go", "left", "no", "off", "on", "right", "stop", "up", "yes"]
@@ -59,10 +58,11 @@ task_config = {
 
 class GenerateTrainDataset(luigi_util.WorkTask):
     """
-    Silence / background samples in the train (and, after split, validation) sets need to be
-    created by slicing up longer background samples into 1 sec slices.
-    This is the same method used in the TensorFlow dataset generator.
-    https://github.com/tensorflow/datasets/blob/79d56e662a15cd11e1fb3b679e0f978c8041566f/tensorflow_datasets/audio/speech_commands.py#L142
+    Silence / background samples in the train (and, after split,
+    validation) sets need to be created by slicing up longer
+    background samples into 1 sec slices.  This is the same method
+    used in the TensorFlow dataset generator.
+    https://github.com/tensorflow/datasets/blob/79d56e662a15cd11e1fb3b679e0f978c8041566f/tensorflow_datasets/audio/speech_commands.py#L142 # noqa
     """
 
     # Requires an extracted dataset task to be completed
@@ -144,7 +144,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
     @staticmethod
     def get_split_key(df: pd.DataFrame) -> pd.Series:
         """Get the speaker hash as the split key for speech_commands"""
-        return df["unique_filestem"].apply(self.speaker_hash)
+        return df["unique_filestem"].apply(ExtractMetadata.speaker_hash)
 
     @staticmethod
     def relpath_to_label(relpath: Path):

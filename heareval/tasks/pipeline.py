@@ -255,7 +255,7 @@ class ExtractMetadata(WorkTask):
         ).reset_index(drop=True)
         return metadata
 
-    ##### You don't need to override anything else
+    # ################  You don't need to override anything else
 
     def postprocess_all_metadata(self, metadata: pd.DataFrame) -> pd.DataFrame:
         """
@@ -278,16 +278,18 @@ class ExtractMetadata(WorkTask):
         )
 
         # Check if one unique_filestem is associated with only one relpath.
-        # Also implies there is a one to one correspondence between relpath and unique_filestem.
-        #  1. One unique_filestem to one relpath -- the bug which we were having is one unique_filestem for
-        #   two relpath(relpath with -6 as well as +6 having the same unique_filestem), groupby
-        #   by unique_filestem and see if one relpath is associated with one unique_filestem - this is done
-        #   in the assert statement.
-        #  2. One relpath to one unique_filestem -- always the case, because unique_filestemify is
-        #   a deterministic function.
-        #  3. relpath.nunique() == unique_filestem.nunique(), automatically holds if the above
-        #   two holds.
         assert metadata["relpath"].nunique() == metadata["unique_filestem"].nunique()
+        # Also implies there is a one to one correspondence between relpath
+        # and unique_filestem.
+        #  1. One unique_filestem to one relpath -- the bug which
+        #    we were having is one unique_filestem for two relpath(relpath
+        #    with -6 as well as +6 having the same unique_filestem),
+        #    groupby by unique_filestem and see if one relpath is
+        #    associated with one unique_filestem - this is done in the
+        #    assert statement.
+        #  2. One relpath to one unique_filestem -- always the case
+        #  3. relpath.nunique() == unique_filestem.nunique(), automatically
+        # holds if the above two holds.
         assert (
             metadata.groupby("unique_filestem")["relpath"].nunique() == 1
         ).all(), "One unique_filestem is associated with more than one relpath "
@@ -458,7 +460,7 @@ class ExtractMetadata(WorkTask):
 
         self.mark_complete()
 
-    ## UNUSED
+    # UNUSED
     def relpath_to_datapath(self, relpath: str) -> str:
         """
         Given the path to this audio file from the Python working
@@ -543,11 +545,13 @@ class SubsampleSplit(MetadataTask):
         max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
 
         print(
-            f"Files in split {self.split} before resampling: {len(split_filestem_relpaths)}"
+            f"Files in split {self.split} before resampling: "
+            f"{len(split_filestem_relpaths)}"
         )
         split_filestem_relpaths = split_filestem_relpaths[:max_files]
         print(
-            f"Files in split {self.split} after resampling: {len(split_filestem_relpaths)}"
+            f"Files in split {self.split} after resampling: "
+            f"{len(split_filestem_relpaths)}"
         )
 
         for unique_filestem, relpath in split_filestem_relpaths:
@@ -704,7 +708,8 @@ class SubcorpusMetadata(MetadataTask):
             )
 
             if self.task_config["embedding_type"] == "scene":
-                # Create a dictionary containing a list of metadata keyed on the unique_filestem.
+                # Create a dictionary containing a list of metadata
+                # keyed on the unique_filestem.
                 audiolabel_json = (
                     audiolabel_df[["unique_filename", "label"]]
                     .groupby("unique_filename")["label"]
