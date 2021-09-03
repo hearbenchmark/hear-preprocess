@@ -78,9 +78,7 @@ class ExtractArchive(WorkTask):
         visibility=luigi.parameter.ParameterVisibility.PRIVATE
     )
     # Outdir is the sub dir inside the workdir to extract the file.
-    # If set to None the file is extracted in the workdir without any
-    # subdir
-    outdir = luigi.Parameter(default=None)
+    outdir = luigi.Parameter()
 
     def requires(self):
         return {"download": self.download}
