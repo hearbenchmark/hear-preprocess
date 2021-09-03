@@ -461,7 +461,7 @@ class ExtractMetadata(WorkTask):
         self.mark_complete()
 
     # UNUSED
-    def relpath_to_datapath(self, relpath: str) -> str:
+    def relpath_to_datapath(self, relpath: Path) -> Path:
         """
         Given the path to this audio file from the Python working
         directory, strip all output_path from each required task.
@@ -477,7 +477,7 @@ class ExtractMetadata(WorkTask):
         datapath = Path(relpath)
         relatives = 0
         for base_path in base_paths:
-            if datapath.is_relative_to(base_path):
+            if datapath.is_relative_to(base_path):  # type: ignore
                 datapath = datapath.relative_to(base_path)
                 relatives += 1
         assert relatives == 1, f"relatives {relatives}. " + f"base_paths = {base_paths}"

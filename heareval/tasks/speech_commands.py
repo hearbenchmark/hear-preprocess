@@ -127,11 +127,12 @@ class ExtractMetadata(pipeline.ExtractMetadata):
     @staticmethod
     def unique_filestem(relpath: str) -> str:
         """
-        For speech command each speaker, include the command name
-        (parent directory) in the filename.
+        Include the label (parent directory) in the filestem.
         """
-        # Get the foldername which is the label and the filename
-        name = os.path.splitext(os.path.join(*Path(relpath).parts[-2:]))[0].stem
+        # Get the parent directory (label) and the filename
+        name = os.path.join(*Path(relpath).parts[-2:], "-")
+        # Remove the suffix
+        name = os.path.splitext(name)[0]
         return str(name)
 
     @staticmethod
