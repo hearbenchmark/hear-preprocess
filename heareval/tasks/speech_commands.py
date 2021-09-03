@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Pre-processing pipeline for Google Speech Commands
+Pre-processing pipeline for Google speech_commands
 """
 import os
 import re
@@ -125,25 +125,26 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         }
 
     @staticmethod
-    def unique_filename(relpath: str) -> str:
+    def unique_filestem(relpath: str) -> str:
         """
         For speech command each speaker, include the command name
         (parent directory) in the filename.
         """
         # Get the foldername which is the label and the filename
-        name = os.path.splitext(os.path.join(*Path(relpath).parts[-2:]))[0]
+        name = os.path.splitext(os.path.join(*Path(relpath).parts[-2:]))[0].stem
         return str(name)
 
     @staticmethod
-    def speaker_hash(unique_filename: str) -> str:
-        """Get the speaker hash as the Split key for Speech Commands"""
-        hsh = re.sub(r"-nohash-.*$", "", unique_filename)
-        assert hsh != unique_filename, "{unique_filename} has no speaker hash."
+    def speaker_hash(unique_filestem: str) -> str:
+        """Get the speaker hash as the Split key for speech_commands"""
+        hsh = re.sub(r"-nohash-.*$", "", unique_filestem)
+        assert hsh != unique_filestem, "{unique_filestem} has no speaker hash."
+        return hsh
 
     @staticmethod
     def get_split_key(df: pd.DataFrame) -> pd.Series:
-        """Get the speaker hash as the Split key for Speech Commands"""
-        return df["unique_filename"].apply(self.speaker_hash)
+        """Get the speaker hash as the split key for speech_commands"""
+        return df["unique_filestem"].apply(self.speaker_hash)
 
     @staticmethod
     def relpath_to_label(relpath: Path):
