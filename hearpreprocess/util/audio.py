@@ -95,7 +95,7 @@ def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
         Path(out_file).symlink_to(Path(in_file).absolute())
 
 
-def get_audio_stats(in_file: Union[str, Path]) -> Dict:
+def get_audio_stats(in_file: Union[str, Path]) -> Union[Dict, None]:
     """Produces summary for a single audio file"""
     try:
         audio_stream = ffmpeg.probe(in_file, select_streams="a")["streams"][0]
