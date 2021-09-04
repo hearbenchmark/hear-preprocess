@@ -73,7 +73,7 @@ def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
     audio_stats = get_audio_stats(in_file)
     # If the desired sampling rate is the same as that of the original file,
     # skip resampling and create symlink
-    if "sample_rate" in audio_stats and audio_stats["sample_rate"] != out_sr:
+    if audio_stats and audio_stats["sample_rate"] != out_sr:
         try:
             _ = (
                 ffmpeg.input(in_file)
@@ -95,7 +95,7 @@ def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
         Path(out_file).symlink_to(Path(in_file).absolute())
 
 
-def get_audio_stats(in_file: Union[str, Path]) -> Union[Dict, None]:
+def get_audio_stats(in_file: Union[str, Path]) -> Union[Dict[str, Any], Any]:
     """Produces summary for a single audio file"""
     try:
         audio_stream = ffmpeg.probe(in_file, select_streams="a")["streams"][0]
@@ -108,7 +108,7 @@ def get_audio_stats(in_file: Union[str, Path]) -> Union[Dict, None]:
         }
     except (ffmpeg.Error, KeyError):
         # Skipping audio file for stats calculation.
-        audio_stats = None
+        return None
     return audio_stats
 
 
