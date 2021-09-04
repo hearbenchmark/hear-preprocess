@@ -11,3 +11,4 @@ requests
 soundfile
 spotty
 tqdm
+ffmpeg-python
