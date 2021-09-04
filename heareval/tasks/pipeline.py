@@ -10,12 +10,14 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
 
-import heareval.tasks.util.audio as audio_util
 import luigi
 import pandas as pd
-from heareval.tasks.util.luigi import WorkTask, diagnostics, download_file, new_basedir
 from slugify import slugify
 from tqdm import tqdm
+
+import heareval.tasks.util.audio as audio_util
+from heareval.tasks.util.luigi import WorkTask, download_file, new_basedir
+from heareval.tasks.util.luigi import WorkTask, diagnostics, download_file, new_basedir
 
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
@@ -440,7 +442,8 @@ class SubsampleSplit(MetadataTask):
             )
             subsampled_relpaths = set(relpaths[:max_files])
             diagnostics.info(
-                f"Files in split {self.split} after resampling: {len(subsampled_relpaths)}"
+                f"Files in split {self.split} after resampling: "
+                f"{len(subsampled_relpaths)}"
             )
         else:
             subsampled_relpaths = relpaths
