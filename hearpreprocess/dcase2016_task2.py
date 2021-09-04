@@ -109,7 +109,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
 
         return pd.concat(metadatas).reset_index(drop=True)
 
-    def split_train_test_val(self, metadata: pd.DataFrame):
+    def split_train_test_val(self, metadata: pd.DataFrame) -> pd.DataFrame:
         """
         Because the training set is so small, manually partition it into a
         50/50 dev set that captures all hyperparameters in train and test.
