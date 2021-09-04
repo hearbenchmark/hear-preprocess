@@ -16,7 +16,7 @@ from tqdm.auto import tqdm
 # Set up a diagnostics logger
 diagnostics = logging.getLogger("diagnostics")
 diagnostics.setLevel(logging.DEBUG)
-fh = logging.FileHandler("hearpreprocess.log", "a")
+fh = logging.FileHandler("hearpreprocess.log")
 fh.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)

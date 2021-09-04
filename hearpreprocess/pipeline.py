@@ -100,7 +100,10 @@ class ExtractArchive(WorkTask):
             in_dir=self.output_path,
             out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
         )
-        diagnostics.info(f"{self.longname} {json.dumps(stats, indent=4)}")
+        diagnostics.info(
+            f"{self.longname} count={stats['audio_count']} "
+            f"duration_mean={stats['audio_mean_dur(sec)']}"
+        )
 
         self.mark_complete()
 
@@ -889,7 +892,10 @@ class ResampleSubcorpus(MetadataTask):
                 f"{self.split}_stats.json"
             ),
         )
-        diagnostics.info(f"{self.longname} {self.split} {json.dumps(stats, indent=4)}")
+        diagnostics.info(
+            f"{self.longname} {self.split} count={stats['audio_count']} "
+            f"duration_mean={stats['audio_mean_dur(sec)']}"
+        )
         self.mark_complete()
 
 
