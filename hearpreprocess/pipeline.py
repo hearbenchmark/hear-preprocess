@@ -459,7 +459,7 @@ class ExtractMetadata(WorkTask):
         metadata.loc[metadata["split_key"].isin(test_split_keys), "split"] = "test"
         return metadata
 
-    def trim_event_metadata(self, metadata: pd.DataFrame(), duration: float):
+    def trim_event_metadata(self, metadata: pd.DataFrame, duration: float):
         # Since the duration in the task config is in seconds convert to milliseconds
         duration_ms = duration * 1000.0
         assert "start" in metadata.columns
@@ -467,8 +467,8 @@ class ExtractMetadata(WorkTask):
         trimmed_metadata = metadata.loc[lambda df: df["end"] < duration_ms]
         assert (
             metadata["relpath"].nunique() == trimmed_metadata["relpath"].nunique()
-        ), "File are getting removed while trimming. This is unexpected and only events "
-        "from the end of the files should be removed"
+        ), "File are getting removed while trimming. This is "
+        "unexpected and only events from the end of the files should be removed"
 
         events_dropped = len(metadata) - len(trimmed_metadata)
         diagnostics.info(
