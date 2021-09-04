@@ -25,7 +25,7 @@ import luigi
 from tqdm import tqdm
 
 import hearpreprocess.pipeline as pipeline
-from hearpreprocess import dcase2016_task2, nsynth_pitch, office_events, speech_commands
+from hearpreprocess import nsynth_pitch, office_events, speech_commands
 from hearpreprocess.util.luigi import WorkTask
 
 logger = logging.getLogger("luigi-interface")
