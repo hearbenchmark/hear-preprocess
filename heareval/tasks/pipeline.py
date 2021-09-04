@@ -354,7 +354,7 @@ class ExtractMetadata(WorkTask):
         # Process metadata gets all metadata to be used for the task
         metadata = self.get_all_metadata()
 
-        metadata = postprocess_all_metadata(metadata)
+        metadata = self.postprocess_all_metadata(metadata)
 
         # Split the metadata to create valid and test set from train if they are not
         # created explicitly in get_all_metadata
