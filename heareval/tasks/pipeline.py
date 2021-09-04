@@ -667,10 +667,16 @@ class SubcorpusData(MetadataTask):
         }
 
     def run(self):
-        audiofiles = list(self.requires()["corpus"].workdir.glob("*.wav"))
-        assert len(audiofiles) == len(
-            self.metadata["unique_filestem"].drop_duplicates()
+        audiofiles = set(self.requires()["corpus"].workdir.glob("*.wav"))
+        unique_filestems = set(
+            self.metadata["unique_filestem"].drop_duplicates().values
         )
+        audiofilenames = set([Path(f).stem for f in unique_filestems])
+        assert (
+            audiofilenames == unique_filestems
+        ), f"{unique_filestems - audiofilenames},\n"
+        f"{audiofilenames - unique_filestems} "
+        assert len(unique_filestems) == len(audiofiles)
         for audiofile in audiofiles:
             # Compare the filename with the unique_filestem.
             # Note that the unique_filestem does not have a file extension
