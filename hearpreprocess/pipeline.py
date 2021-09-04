@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 import hearpreprocess.util.audio as audio_util
 from hearpreprocess import __version__
-from heareval.util.luigi import WorkTask, download_file, new_basedir, str2int
+from hearpreprocess.util.luigi import WorkTask, download_file, new_basedir, str2int
 
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
