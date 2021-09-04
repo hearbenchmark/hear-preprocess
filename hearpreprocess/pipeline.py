@@ -459,6 +459,24 @@ class ExtractMetadata(WorkTask):
         metadata.loc[metadata["split_key"].isin(test_split_keys), "split"] = "test"
         return metadata
 
+    def trim_event_metadata(self, metadata: pd.DataFrame(), duration: float):
+        # Since the duration in the task config is in seconds convert to milliseconds
+        duration_ms = duration * 1000.0
+        assert "start" in metadata.columns
+        assert "end" in metadata.columns
+        trimmed_metadata = metadata.loc[lambda df: df["end"] < duration_ms]
+        assert (
+            metadata["relpath"].nunique() == trimmed_metadata["relpath"].nunique()
+        ), "File are getting removed while trimming. This is unexpected and only events "
+        "from the end of the files should be removed"
+
+        events_dropped = len(metadata) - len(trimmed_metadata)
+        diagnostics.info(
+            f"{self.longname} - Events dropped due to trimming {events_dropped} "
+            "{}".format(round(events_dropped / len(metadata) * 100.0, 2))
+        )
+        return trimmed_metadata
+
     def get_requires_metadata_check(self, requires_key: str) -> pd.DataFrame:
         df = self.get_requires_metadata(requires_key)
         assert "relpath" in df.columns
@@ -488,7 +506,11 @@ class ExtractMetadata(WorkTask):
                 )
                 assert (label_count == 1).all()
         elif self.task_config["embedding_type"] == "event":
-            pass
+            # Trim the metadata to remove the events hapenning after the sample duration
+            # specified in the task config. The specified sample duration is in seconds
+            metadata = self.trim_event_metadata(
+                metadata, duration=self.task_config["sample_duration"]
+            )
         else:
             raise ValueError(
                 "%s embedding_type unknown" % self.task_config["embedding_type"]
