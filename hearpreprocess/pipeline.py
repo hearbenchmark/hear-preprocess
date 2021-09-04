@@ -710,9 +710,9 @@ class SubcorpusData(MetadataTask):
         if self.task_config["version"].split("-")[-1] == "small":
             # Many filestems in the metadata won't be in the
             # small corpus as audio.
-            assert len(audiofilenames) <= len(unique_filestems)
+            assert len(audiofiles) <= len(unique_filestems)
         else:
-            assert len(unique_filestems) == len(audiofiles)
+            assert len(audiofiles) == len(unique_filestems)
         for audiofile in audiofiles:
             # Compare the filename with the unique_filestem.
             # Note that the unique_filestem does not have a file extension
