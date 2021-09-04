@@ -161,4 +161,4 @@ def str2int(s: str) -> int:
     Convert string to int using hex hashing.
     https://stackoverflow.com/a/16008760/82733
     """
-    return int(hashlib.sha1(s.encode("utf-8")).hexdigest(), 16)
+    return int(hashlib.sha1(s.encode("utf-8")).hexdigest(), 16) % (2 ** 32 - 1)
