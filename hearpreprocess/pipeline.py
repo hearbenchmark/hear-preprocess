@@ -474,11 +474,35 @@ class ExtractMetadata(WorkTask):
         metadata = self.get_all_metadata()
         print(f"metadata length = {len(metadata)}")
 
+        def _log_metadata_split_size(metadata, event_str):
+            diagnostics.info(
+                f"{self.longname} - Files in each split {event_str} - "
+                "{}".format(metadata.groupby("split")["relpath"].nunique().to_dict())
+            )
+
+        _log_metadata_split_size(metadata, "Before Postprocessing")
         metadata = self.postprocess_all_metadata(metadata)
+        _log_metadata_split_size(metadata, "After Postprocessing")
 
         # Split the metadata to create valid and test set from train if they are not
         # created explicitly in get_all_metadata
         metadata = self.split_train_test_val(metadata)
+        _log_metadata_split_size(metadata, "After Splitting")
+
+        diagnostics.info(
+            f"{self.longname} - Existing Filepaths in metadata  for each split - "
+            "{}".format(
+                metadata.drop_duplicates(subset=["relpath"])
+                .assign(
+                    exists=lambda df: df["relpath"].apply(
+                        lambda relpath: Path(relpath).exists()
+                    )
+                )
+                .groupby("split")["exists"]
+                .sum()
+                .to_dict()
+            )
+        )
 
         if self.task_config["embedding_type"] == "scene":
             # Multiclass predictions should only have a single label per file
