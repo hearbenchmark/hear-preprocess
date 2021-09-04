@@ -296,9 +296,9 @@ class ExtractMetadata(WorkTask):
         ).all(), "One unique_filestem is associated with more than one relpath "
         "Please make sure unique_filestems are unique"
 
-        # If you use datapath, should do the above assertions
-        # for it too.
         if "datapath" in metadata.columns:
+            # If you use datapath, previous assertions check its
+            # uniqueness wrt relpaths.
             assert metadata["relpath"].nunique() == metadata["datapath"].nunique()
             assert (
                 metadata.groupby("datapath")["relpath"].nunique() == 1
