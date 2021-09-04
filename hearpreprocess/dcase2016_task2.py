@@ -128,7 +128,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
             "dev_1_ebr_6_nec_5_poly_1",
             "dev_1_ebr_0_nec_2_poly_0",
             "dev_1_ebr_0_nec_3_poly_1",
-            "dev_1_ebr_0_nec_5_poly_1",
+            "dev_1_ebr_0_nec_4_poly_1",
         }
 
         valid_stems = {
@@ -140,7 +140,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
             "dev_1_ebr_6_nec_4_poly_1",
             "dev_1_ebr_0_nec_1_poly_0",
             "dev_1_ebr_0_nec_3_poly_0",
-            "dev_1_ebr_0_nec_4_poly_1",
+            "dev_1_ebr_0_nec_5_poly_1",
         }
         assert len(train_stems) + len(valid_stems) == len(train_stems | valid_stems)
 
