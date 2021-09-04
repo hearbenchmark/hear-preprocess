@@ -14,17 +14,30 @@ from tqdm import tqdm
 
 def mono_wav_and_fix_duration(in_file: str, out_file: str, duration: float):
     """
-    Convert to WAV file and trim to be equal to or less than a specific length
+    This 
+    1. Pads and trims the audio to the desired input duration
+    2. Converts to mono if more than 1 stream is present
+    3. Converts the audio to wav format
+    All the above are only done when the input file doesnot match the required
+    conditions of duration, streams and extension.
+    In case, we are unable to get any audio stats, by default all the steps are done.
 
-    If the audio is already mono and has the required duration, the step is skipped
+    If the audio is already satisfies all the expected filters, the step is skipped
     and a symlink is created to the original file
     """
     # Get the audio stats for the audio file
     audio_stats = get_audio_stats(in_file)
-    # Get the filters to apply to the audio
-    duration_filter_flag = audio_stats["duration"] != duration
-    mono_filter_flag = not audio_stats["mono"]
-    ext_filter_flag = audio_stats["ext"].lower() != ".wav"
+    # Get the filters to apply to the audio. 
+    # If ffmpeg probe is unable to fetch the audio stats
+    # in which case the stats will be empty
+    # we will make all the filters as True
+    if audio_stats:
+        duration_filter_flag = audio_stats["duration"] != duration
+        mono_filter_flag = not audio_stats["mono"]
+    else:
+        duration_filter_flag = mono_filter_flag = True
+
+    ext_filter_flag = Path(in_file).suffix.lower() != ".wav"
 
     # If the audio has the desired duration and is already mono .wav all the flags will
     # be false, then we will move to the else part where we will just create a symlink
@@ -64,8 +77,9 @@ def resample_wav(in_file: str, out_file: str, out_sr: int):
     """
     # Get the audio stats to get the sampling rate of the audio
     audio_stats = get_audio_stats(in_file)
-    # If the sampling rate is the same as that of the original file, skip resampling
-    if audio_stats["sample_rate"] != out_sr:
+    # If the desired sampling rate is the same as that of the original file, 
+    # skip resampling and create symlink
+    if "sample_rate" in audio_stats and audio_stats["sample_rate"] != out_sr:
         try:
             _ = (
                 ffmpeg.input(in_file)
@@ -98,12 +112,8 @@ def get_audio_stats(in_file: Union[str, Path]):
             "duration": float(audio_stream["duration"]),
             "ext": Path(in_file).suffix,
         }
-    except ffmpeg.Error as e:
-        print(
-            "Skipping audio file for stats calculation. "
-            "Audio path: {file_path}"
-            f"Error: {e}"
-        )
+    except (ffmpeg.Error, KeyError):
+        #Skipping audio file for stats calculation.
         audio_stats = {}
     return audio_stats
 
