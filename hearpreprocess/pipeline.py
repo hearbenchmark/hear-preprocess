@@ -761,7 +761,7 @@ class SubcorpusData(MetadataTask):
     def run(self):
         audiofiles = set(self.requires()["corpus"].workdir.glob("*.wav"))
         split_count = {split: 0 for split in SPLITS}
-        for audiofile in audiofiles:
+        for audiofile in tqdm(audiofiles):
             # Compare the filename with the unique_filestem.
             # Note that the unique_filestem does not have a file extension
             splits = self.metadata.loc[
