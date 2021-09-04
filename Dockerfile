@@ -77,16 +77,16 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
 # ------------------------------------------------------------------
 
 RUN apt update
-RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
-    PIP_INSTALL="python3 -m pip --no-cache-dir install --upgrade" && \
-    GIT_CLONE="git clone --depth 10" && \
-    $APT_INSTALL software-properties-common
-RUN apt update
 RUN apt upgrade -y
 RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
     PIP_INSTALL="python3 -m pip --no-cache-dir install --upgrade" && \
     GIT_CLONE="git clone --depth 10" && \
-    $APT_INSTALL sox
+    $APT_INSTALL \
+        software-properties-common \
+        sox \
+        ffmpeg \
+        libvorbis-dev \
+        vorbis-tools
 
 ## For ffmpeg >= 4.2
 ## Could also build from source:
