@@ -199,12 +199,12 @@ class ExtractMetadata(WorkTask):
     @staticmethod
     def relpath_to_unique_filestem(relpath: str) -> str:
         """
-        Convert a relpath to a unique filename.
-        Default: The relpath's filename.
+        Convert a relpath to a unique filestem.
+        Default: The relpath's filestem.
         Override: e.g. for speech commands, we include the command
-        (parent directory) name so as not to clobber filenames.
+        (parent directory) name so as not to clobber filestems.
         """
-        return Path(relpath).name
+        return Path(relpath).stem
 
     @staticmethod
     def get_split_key(df: pd.DataFrame) -> pd.Series:
@@ -676,7 +676,9 @@ class SubcorpusData(MetadataTask):
         if self.task_config["version"].split("-")[-1] == "small":
             # Many filestems in the metadata won't be in the
             # small corpus as audio.
-            assert audiofilenames <= unique_filestems
+            assert (
+                audiofilenames <= unique_filestems
+            ), f"{list(audiofilenames - unique_filestems)[:10]} ({list(audiofilenames)[:3]}, {list(unique_filestems)[:3]})"
         else:
             assert audiofilenames == unique_filestems
             assert len(unique_filestems) == len(audiofiles)
