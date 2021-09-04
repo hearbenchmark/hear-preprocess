@@ -16,7 +16,7 @@ from tqdm.auto import tqdm
 # Set up a diagnostics logger
 diagnostics = logging.getLogger("diagnostics")
 diagnostics.setLevel(logging.DEBUG)
-fh = logging.FileHandler("hearpreprocess.log")
+fh = logging.FileHandler("hearpreprocess.log", "a")
 fh.setLevel(logging.INFO)
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
@@ -120,6 +120,30 @@ class WorkTask(luigi.Task):
             return 1 + max([task.stage_number for task in parentasks])
         else:
             raise ValueError(f"Unknown requires: {self.requires()}")
+
+    @property
+    def longname(self) -> str:
+        return f"{self.task_config['task_name']} {self.name}"
+
+    # This doesn't really log at all
+    """
+    def __setup_logging(self):
+        # Set up a diagnostics logger
+        self.diagnostics = logging.getLogger("diagnostics")
+        self.diagnostics.setLevel(logging.DEBUG)
+        fh = logging.FileHandler("hearpreprocess.log", "a")
+        fh.setLevel(logging.INFO)
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.INFO)
+        # create formatter and add it to the handlers
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - "
+        f"{self.task_config['task_name']} - {self.name} - %(message)s")
+        ch.setFormatter(formatter)
+        fh.setFormatter(formatter)
+        # add the handlers to diagnostics
+        self.diagnostics.addHandler(ch)
+        self.diagnostics.addHandler(fh)
+    """
 
 
 def download_file(url, local_filename, expected_md5):

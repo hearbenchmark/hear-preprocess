@@ -16,7 +16,6 @@ from slugify import slugify
 from tqdm import tqdm
 
 import heareval.tasks.util.audio as audio_util
-from heareval.tasks.util.luigi import WorkTask, download_file, new_basedir
 from heareval.tasks.util.luigi import WorkTask, diagnostics, download_file, new_basedir
 
 SPLITS = ["train", "valid", "test"]
@@ -83,10 +82,11 @@ class ExtractArchive(WorkTask):
         archive_path = archive_path.absolute()
         output_path = self.workdir.joinpath(self.outdir)
         shutil.unpack_archive(archive_path, output_path)
-        audio_util.audio_dir_stats_wav(
+        stats = audio_util.audio_dir_stats_wav(
             in_dir=output_path,
             out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
         )
+        diagnostics.info(f"{self.longname} {json.dumps(stats, indent=4)}")
 
         self.mark_complete()
 
@@ -255,7 +255,7 @@ class ExtractMetadata(WorkTask):
         assert "train" in splits_present, "Train split not found in metadata"
         splits_to_sample = set(SPLITS).difference(splits_present)
         diagnostics.info(
-            "Splits not already present in the dataset, "
+            f"{self.longname} - Splits not already present in the dataset, "
             + f"now sampled with split key are: {splits_to_sample}"
         )
 
@@ -341,6 +341,7 @@ class ExtractMetadata(WorkTask):
         if sum(exists) < len(metadata):
             if self.task_config["version"].split("-")[-1] == "small":
                 diagnostics.info(
+                    f"{self.longname} "
                     "All files in metadata do not exist in the dataset. This is "
                     "expected behavior when small task is running.\n"
                     f"Removing {len(metadata) - sum(exists)} entries in the "
@@ -437,11 +438,13 @@ class SubsampleSplit(MetadataTask):
 
         if num_files > max_files:
             diagnostics.info(
+                f"{self.longname} "
                 f"{num_files} audio files in corpus."
                 f"Max files to subsample in {self.split}: {max_files}"
             )
             subsampled_relpaths = set(relpaths[:max_files])
             diagnostics.info(
+                f"{self.longname} "
                 f"Files in split {self.split} after resampling: "
                 f"{len(subsampled_relpaths)}"
             )
@@ -524,9 +527,10 @@ class MonoWavTrimSubcorpus(MetadataTask):
         #   correct length and just create a symlink if that is this case.
         for audiofile in tqdm(list(self.requires()["corpus"].workdir.iterdir())):
             newaudiofile = self.workdir.joinpath(f"{audiofile.stem}.wav")
-            audio_util.mono_wav_and_fix_duration(
+            stats = audio_util.mono_wav_and_fix_duration(
                 audiofile, newaudiofile, duration=self.task_config["sample_duration"]
             )
+            diagnostics.info(f"{self.longname} {json.dumps(stats, indent=4)}")
 
         self.mark_complete()
 
@@ -708,12 +712,13 @@ class ResampleSubcorpus(MetadataTask):
             resampled_audiofile = new_basedir(audiofile, resample_dir)
             audio_util.resample_wav(audiofile, resampled_audiofile, self.sr)
 
-        audio_util.audio_dir_stats_wav(
+        stats = audio_util.audio_dir_stats_wav(
             in_dir=resample_dir,
             out_file=self.workdir.joinpath(str(self.sr)).joinpath(
                 f"{self.split}_stats.json"
             ),
         )
+        diagnostics.info(f"{self.longname} {json.dumps(stats, indent=4)}")
         self.mark_complete()
 
 
