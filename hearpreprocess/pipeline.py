@@ -96,7 +96,7 @@ class ExtractArchive(WorkTask):
         archive_path = self.requires()["download"].workdir.joinpath(self.infile)
         archive_path = archive_path.absolute()
         shutil.unpack_archive(archive_path, self.output_path)
-        stats = audio_util.audio_dir_stats_wav(
+        stats = audio_util.get_audio_dir_stats(
             in_dir=self.output_path,
             out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
         )
@@ -685,13 +685,10 @@ class MonoWavTrimSubcorpus(MetadataTask):
         }
 
     def run(self):
-        # TODO: First check to see if the audio is already a mono
-        # wav at the correct length and just create a symlink if that
-        # is this case.
         for audiofile in tqdm(list(self.requires()["corpus"].workdir.iterdir())):
             newaudiofile = self.workdir.joinpath(f"{audiofile.stem}.wav")
             audio_util.mono_wav_and_fix_duration(
-                audiofile, newaudiofile, duration=self.task_config["sample_duration"]
+                str(audiofile), str(newaudiofile), duration=self.task_config["sample_duration"]
             )
 
         self.mark_complete()
@@ -876,7 +873,7 @@ class ResampleSubcorpus(MetadataTask):
             resampled_audiofile = new_basedir(audiofile, resample_dir)
             audio_util.resample_wav(audiofile, resampled_audiofile, self.sr)
 
-        stats = audio_util.audio_dir_stats_wav(
+        stats = audio_util.get_audio_dir_stats(
             in_dir=resample_dir,
             out_file=self.workdir.joinpath(str(self.sr)).joinpath(
                 f"{self.split}_stats.json"
