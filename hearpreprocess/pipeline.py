@@ -101,7 +101,7 @@ class ExtractArchive(WorkTask):
             out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
         )
         diagnostics.info(
-            f"{self.longname} count={stats['audio_count']} "
+            f"{self.longname} - count={stats['audio_count']} "
             f"duration_mean={stats['audio_mean_dur(sec)']}"
         )
 
@@ -442,6 +442,17 @@ class ExtractMetadata(WorkTask):
             train_percentage + valid_percentage + test_percentage == 100
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
 
+        diagnostics.info(
+            f"{self.longname} - Split percentage from the original train set: "
+            "{}".format(
+                {
+                    "test": test_percentage,
+                    "train": train_percentage,
+                    "valid": valid_percentage,
+                }
+            )
+        )
+
         # Deterministically sort all unique split_keys.
         split_keys = sorted(metadata[metadata.split == "train"]["split_key"].unique())
         # Deterministically shuffle all unique split_keys.
@@ -471,12 +482,13 @@ class ExtractMetadata(WorkTask):
 
     def run(self):
         # Get all metadata to be used for the task
+        diagnostics.info("#############################")
         metadata = self.get_all_metadata()
         print(f"metadata length = {len(metadata)}")
 
         def _log_metadata_split_size(metadata, event_str):
             diagnostics.info(
-                f"{self.longname} - Files in each split {event_str} - "
+                f"{self.longname} - Files in each split {event_str}: "
                 "{}".format(metadata.groupby("split")["relpath"].nunique().to_dict())
             )
 
@@ -490,7 +502,7 @@ class ExtractMetadata(WorkTask):
         _log_metadata_split_size(metadata, "After Splitting")
 
         diagnostics.info(
-            f"{self.longname} - Existing Filepaths in metadata  for each split - "
+            f"{self.longname} - Existing Filepaths in metadata  for each split: "
             "{}".format(
                 metadata.drop_duplicates(subset=["relpath"])
                 .assign(
