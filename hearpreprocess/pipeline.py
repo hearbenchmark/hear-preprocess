@@ -688,7 +688,9 @@ class MonoWavTrimSubcorpus(MetadataTask):
         for audiofile in tqdm(list(self.requires()["corpus"].workdir.iterdir())):
             newaudiofile = self.workdir.joinpath(f"{audiofile.stem}.wav")
             audio_util.mono_wav_and_fix_duration(
-                str(audiofile), str(newaudiofile), duration=self.task_config["sample_duration"]
+                str(audiofile),
+                str(newaudiofile),
+                duration=self.task_config["sample_duration"],
             )
 
         self.mark_complete()
