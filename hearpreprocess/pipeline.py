@@ -706,14 +706,12 @@ class SubcorpusData(MetadataTask):
         unique_filestems = set(
             self.metadata["unique_filestem"].drop_duplicates().values
         )
-        audiofilenames = set([Path(f).stem for f in unique_filestems])
         # Gross, let's never do this again
         if self.task_config["version"].split("-")[-1] == "small":
             # Many filestems in the metadata won't be in the
             # small corpus as audio.
-            assert audiofilenames <= unique_filestems
+            assert len(audiofilenames) <= len(unique_filestems)
         else:
-            assert audiofilenames == unique_filestems
             assert len(unique_filestems) == len(audiofiles)
         for audiofile in audiofiles:
             # Compare the filename with the unique_filestem.
