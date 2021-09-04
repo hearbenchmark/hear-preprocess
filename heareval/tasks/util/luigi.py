@@ -3,6 +3,7 @@ Common Luigi classes and functions for evaluation tasks
 """
 
 import hashlib
+import logging
 import os
 import os.path
 from functools import partial
@@ -13,7 +14,7 @@ import requests
 from tqdm.auto import tqdm
 
 # Set up a diagnostics logger
-diagnostics = logging.getLogger("simple_example")
+diagnostics = logging.getLogger("diagnostics")
 diagnostics.setLevel(logging.DEBUG)
 fh = logging.FileHandler("hearpreprocess.log")
 fh.setLevel(logging.INFO)
