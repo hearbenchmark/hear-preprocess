@@ -280,6 +280,9 @@ class ExtractMetadata(WorkTask):
             split_key=self.get_split_key,
         )
 
+        # No slashes can be present in the filestems. They are files, not dirs.
+        assert not metadata["unique_filestem"].str.contains("/", regex=False).any()
+
         # Check if one unique_filestem is associated with only one relpath.
         assert metadata["relpath"].nunique() == metadata["unique_filestem"].nunique(), (
             f'{metadata["relpath"].nunique()} != '

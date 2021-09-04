@@ -127,12 +127,12 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         }
 
     @staticmethod
-    def unique_filestem(relpath: str) -> str:
+    def relpath_to_unique_filestem(relpath: str) -> str:
         """
         Include the label (parent directory) in the filestem.
         """
         # Get the parent directory (label) and the filename
-        name = os.path.join(*Path(relpath).parts[-2:], "-")
+        name = "_".join(Path(relpath).parts[-2:])
         # Remove the suffix
         name = os.path.splitext(name)[0]
         return str(name)
