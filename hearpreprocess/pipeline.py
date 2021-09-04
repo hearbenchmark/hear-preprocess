@@ -482,7 +482,6 @@ class ExtractMetadata(WorkTask):
 
     def run(self):
         # Get all metadata to be used for the task
-        diagnostics.info("#############################")
         metadata = self.get_all_metadata()
         print(f"metadata length = {len(metadata)}")
 
@@ -618,6 +617,10 @@ class SubsampleSplit(MetadataTask):
             .drop_duplicates()
             .sort_values("unique_filestem")
         )
+
+        assert split_filestem_relpaths["relpath"].nunique() == len(
+            split_filestem_relpaths
+        )
         # Deterministically shuffle the filestems
         split_filestem_relpaths = split_filestem_relpaths.sample(
             frac=1, random_state=str2int(f"SubsampleSplit({self.split})")
@@ -641,6 +644,12 @@ class SubsampleSplit(MetadataTask):
             max_files = len(split_filestem_relpaths)
         else:
             max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
+
+        diagnostics.info(
+            f"{self.longname} "
+            f"Max files to sample in split {self.split}: "
+            f"{max_files}"
+        )
 
         diagnostics.info(
             f"{self.longname} "
