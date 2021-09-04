@@ -5,7 +5,7 @@ Audio utility functions for evaluation task preparation
 import json
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import List, Optional, Union, Dict
+from typing import List, Optional, Union, Dict, Any
 
 import numpy as np
 import ffmpeg
@@ -162,6 +162,7 @@ def get_audio_dir_stats(
         },
         "audio_samplerate_count": unique_sample_rates,
         "mono_audio_count": mono_audio_count,
+        "audio_count": len(audio_paths),
         "audio_mean_dur(sec)": np.mean(durations),
         "audio_median_dur(sec)": np.median(durations),
         # Percentile duration of the audio
