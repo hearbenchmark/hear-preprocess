@@ -166,8 +166,10 @@ class ExtractMetadata(WorkTask):
             WITHOUT extension. This is because the audio might be
             in different formats, but ultimately we will convert
             it to wav.
-            They must be unique across all relpaths.
-            They should be fixed across each run.
+            They must be unique across all relpaths, over the
+            *entire* corpus. (Thus they imply a particular split.)
+            They should be fixed across each run of this
+            preprocessing pipeline.
         * split_key - See get_split_key [TODO: Move here]
     """
 
@@ -279,7 +281,10 @@ class ExtractMetadata(WorkTask):
         )
 
         # Check if one unique_filestem is associated with only one relpath.
-        assert metadata["relpath"].nunique() == metadata["unique_filestem"].nunique()
+        assert metadata["relpath"].nunique() == metadata["unique_filestem"].nunique(), (
+            f'{metadata["relpath"].nunique()} != '
+            + f'{metadata["unique_filestem"].nunique()}'
+        )
         # Also implies there is a one to one correspondence between relpath
         # and unique_filestem.
         #  1. One unique_filestem to one relpath -- the bug which
@@ -669,7 +674,8 @@ class SubcorpusData(MetadataTask):
             splits = self.metadata.loc[
                 self.metadata["unique_filestem"] == audiofile.stem, "split"
             ].drop_duplicates()
-            assert len(splits) == 1
+            assert len(splits) == 1, "unique_filestem should be unique"
+            "across the entire dataset and imply a particular split."
             split = splits.values[0]
             split_dir = self.workdir.joinpath(split)
             split_dir.mkdir(exist_ok=True)
