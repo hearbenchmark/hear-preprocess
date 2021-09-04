@@ -18,7 +18,13 @@ from tqdm import tqdm
 
 import hearpreprocess.util.audio as audio_util
 from hearpreprocess import __version__
-from hearpreprocess.util.luigi import WorkTask, download_file, new_basedir, str2int
+from hearpreprocess.util.luigi import (
+    WorkTask,
+    diagnostics,
+    download_file,
+    new_basedir,
+    str2int,
+)
 
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
@@ -90,10 +96,12 @@ class ExtractArchive(WorkTask):
         archive_path = self.requires()["download"].workdir.joinpath(self.infile)
         archive_path = archive_path.absolute()
         shutil.unpack_archive(archive_path, self.output_path)
-        audio_util.audio_dir_stats_wav(
+        stats = audio_util.audio_dir_stats_wav(
             in_dir=self.output_path,
+            in_dir=output_path,
             out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
         )
+        diagnostics.info(f"{self.longname} {json.dumps(stats, indent=4)}")
 
         self.mark_complete()
 
@@ -399,8 +407,8 @@ class ExtractMetadata(WorkTask):
         # from the train
         assert "train" in splits_present, "Train split not found in metadata"
         splits_to_sample = set(SPLITS).difference(splits_present)
-        print(
-            "Splits not already present in the dataset, "
+        diagnostics.info(
+            f"{self.longname} - Splits not already present in the dataset, "
             + f"now sampled with split key are: {splits_to_sample}"
         )
 
@@ -596,12 +604,14 @@ class SubsampleSplit(MetadataTask):
         else:
             max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
 
-        print(
+        diagnostics.info(
+            f"{self.longname} "
             f"Files in split {self.split} before resampling: "
             f"{len(split_filestem_relpaths)}"
         )
         split_filestem_relpaths = split_filestem_relpaths[:max_files]
-        print(
+        diagnostics.info(
+            f"{self.longname} "
             f"Files in split {self.split} after resampling: "
             f"{len(split_filestem_relpaths)}"
         )
@@ -874,12 +884,13 @@ class ResampleSubcorpus(MetadataTask):
             resampled_audiofile = new_basedir(audiofile, resample_dir)
             audio_util.resample_wav(audiofile, resampled_audiofile, self.sr)
 
-        audio_util.audio_dir_stats_wav(
+        stats = audio_util.audio_dir_stats_wav(
             in_dir=resample_dir,
             out_file=self.workdir.joinpath(str(self.sr)).joinpath(
                 f"{self.split}_stats.json"
             ),
         )
+        diagnostics.info(f"{self.longname} {self.split} {json.dumps(stats, indent=4)}")
         self.mark_complete()
 
 
