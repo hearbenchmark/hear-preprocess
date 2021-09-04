@@ -101,7 +101,7 @@ class ExtractArchive(WorkTask):
             out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
         )
         diagnostics.info(
-            f"{self.longname} - count={stats['audio_count']} "
+            f"{self.longname} - Dir {self.outdir} count={stats['audio_count']} "
             f"duration_mean={stats['audio_mean_dur(sec)']}"
         )
 
@@ -760,6 +760,7 @@ class SubcorpusData(MetadataTask):
 
     def run(self):
         audiofiles = set(self.requires()["corpus"].workdir.glob("*.wav"))
+        split_count = {split: 0 for split in SPLITS}
         for audiofile in audiofiles:
             # Compare the filename with the unique_filestem.
             # Note that the unique_filestem does not have a file extension
@@ -769,10 +770,16 @@ class SubcorpusData(MetadataTask):
             assert len(splits) == 1, "unique_filestem should be unique"
             "across the entire dataset and imply a particular split."
             split = splits.values[0]
+            split_count[split] += 1
             split_dir = self.workdir.joinpath(split)
             split_dir.mkdir(exist_ok=True)
             newaudiofile = new_basedir(audiofile, split_dir)
             os.symlink(os.path.realpath(audiofile), newaudiofile)
+
+        diagnostics.info(
+            f"{self.longname} - Files in each split after making split subcorpus: "
+            "{}".format(split_count)
+        )
 
         self.mark_complete()
 
