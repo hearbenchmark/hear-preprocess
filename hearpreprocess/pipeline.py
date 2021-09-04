@@ -715,9 +715,6 @@ class SubcorpusData(MetadataTask):
 
     def run(self):
         audiofiles = set(self.requires()["corpus"].workdir.glob("*.wav"))
-        unique_filestems = set(
-            self.metadata["unique_filestem"].drop_duplicates().values
-        )
         for audiofile in audiofiles:
             # Compare the filename with the unique_filestem.
             # Note that the unique_filestem does not have a file extension
