@@ -15,8 +15,8 @@ import pandas as pd
 from slugify import slugify
 from tqdm import tqdm
 
-import heareval.tasks.util.audio as audio_util
-from heareval.tasks.util.luigi import WorkTask, diagnostics, download_file, new_basedir
+import hearpreprocess.util.audio as audio_util
+from hearpreprocess.util.luigi import WorkTask, diagnostics, download_file, new_basedir
 
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
@@ -222,13 +222,18 @@ class ExtractMetadata(WorkTask):
     def get_split_key(df: pd.DataFrame) -> pd.Series:
         """
         Gets the split key.
+
+            We use the slug because, unlike the relpath, it doesn't
+            a possibly variable base directory. ExtractMetadata.run()
+        ensures that slugs are unique.
+
         A file should only be in one split, i.e. we shouldn't spread
         file events across splits. This is the default behavior.
         For some corpora, we might want to be even more restrictive:
         * An instrument cannot be split.
         * A speaker cannot be split.
         """
-        return df["relpath"]
+        return df["slug"]
 
     def split_train_test_val(self, metadata: pd.DataFrame):
         """
@@ -236,9 +241,25 @@ class ExtractMetadata(WorkTask):
         split if any of test or valid split is not found. We split
         based upon the split_key (see above).
 
-        If there is any data specific split, that will already be done in
-        get_all_metadata. This function is for automatic splitting if the splits
-        are not found.
+        If there is any data specific split, that will already be
+        done in get_all_metadata. This function is for automatic
+        splitting if the splits are not found.
+
+        Note that all files are shuffled and we pick exactly as
+        many as we want for each split. Unlike using modulus of the
+        hash of the split key (Google `which_set` method), the
+        filename does not uniquely determine the split, but the
+        entire set of audio data determines the split.
+        * The downside is that if a later version of the
+        dataset is released with more files, this method will not
+        preserve the split across dataset versions.
+        * The benefit is that, for small datasets, it correctly
+        stratifies the data according to the desired percentages.
+        For small datasets, unless the splits are predetermined
+        (e.g. in a key file), using the size of the data set to
+        stratify is unavoidable. If we do want to preserve splits
+        across versions, we can create key files for audio files
+        that were in previous versions.
 
         Three cases might arise -
         1. Validation split not found - Train will be split into valid and train
@@ -287,7 +308,7 @@ class ExtractMetadata(WorkTask):
             train_percentage + valid_percentage + test_percentage == 100
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
 
-        split_keys = metadata[metadata.split == "train"]["split_key"].unique()
+        split_keys = sorted(metadata[metadata.split == "train"]["split_key"].unique())
         rng = random.Random("split_train_test_val")
         rng.shuffle(split_keys)
         n = len(split_keys)
@@ -305,9 +326,6 @@ class ExtractMetadata(WorkTask):
     def run(self):
         # Process metadata gets all metadata to be used for the task
         metadata = self.get_all_metadata()
-
-        # Deterministically shuffle the metadata
-        metadata = metadata.sample(frac=1, random_state=0).reset_index(drop=True)
 
         metadata = metadata.assign(
             slug=lambda df: df.relpath.apply(self.slugify_file_name),
@@ -331,6 +349,17 @@ class ExtractMetadata(WorkTask):
 
         # Assertion sanity check -- one to one mapping between the relpaths and slugs
         assert metadata["relpath"].nunique() == metadata["slug"].nunique()
+
+        # First, put the metadata into a deterministic order.
+        if "start" in metadata.columns:
+            metadata.sort_values(
+                ["slug", "start", "end", "label"], inplace=True, kind="stable"
+            )
+        else:
+            metadata.sort_values(["slug", "label"], inplace=True, kind="stable")
+
+        # Now, deterministically shuffle the metadata
+        metadata = metadata.sample(frac=1, random_state=0).reset_index(drop=True)
 
         # Filter the files which actually exist in the data
         exists = metadata["relpath"].apply(lambda relpath: Path(relpath).exists())
@@ -425,7 +454,16 @@ class SubsampleSplit(MetadataTask):
 
     def run(self):
         split_metadata = self.metadata[self.metadata["split"] == self.split]
-        relpaths = split_metadata["relpath"].unique()
+        # Deterministically sort by the slugs, then deterministically
+        # shuffle their relpaths.
+        # See get_split_key for a description of why we use slugs,
+        # not relpaths, for sorting.
+        slug_relpaths = [
+            (slug, relpath)
+            for slug, relpath in split_metadata[["slug", "relpath"]].values
+        ]
+        slug_relpaths = sorted(list(set(slug_relpaths)))
+        relpaths = [relpath for slug, relpath in slug_relpaths]
         rng = random.Random("SubsampleSplit")
         rng.shuffle(relpaths)
         num_files = len(relpaths)

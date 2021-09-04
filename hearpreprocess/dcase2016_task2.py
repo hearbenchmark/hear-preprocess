@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-Task adapted from DCASE 2016 task 2: office sound event detection.
+Pre-processing pipeline for DCASE 2016 task 2 task (sound event
+detection).
 
 The HEAR 2021 variation of DCASE 2016 Task 2 is that we ignore the
-monophonic training data. We mix the dev and eval data, and
-re-partition ourselves, to reduce variance between the partitions.
-
+monophonic training data and use the dev data for train.
 We also allow training data outside this task.
 """
 
@@ -13,28 +12,27 @@ import logging
 from pathlib import Path
 from typing import List
 
-import heareval.tasks.pipeline as pipeline
 import luigi
 import pandas as pd
 from slugify import slugify
 
+import hearpreprocess.pipeline as pipeline
+
 logger = logging.getLogger("luigi-interface")
 
 task_config = {
-    "task_name": "office_events",
+    "task_name": "dcase2016_task2",
     "version": "hear2021",
     "embedding_type": "event",
     "prediction_type": "multilabel",
     "download_urls": [
         {
             "split": "train",
-            "name": "dev",
             "url": "https://archive.org/download/dcase2016_task2_train_dev/dcase2016_task2_train_dev.zip",  # noqa: E501
             "md5": "4e1b5e8887159193e8624dec801eb9e7",
         },
         {
-            "split": "train",
-            "name": "eval",
+            "split": "test",
             "url": "https://archive.org/download/dcase2016_task2_test_public/dcase2016_task2_test_public.zip",  # noqa: E501
             "md5": "ac98768b39a08fc0c6c2ddd15a981dd7",
         },
@@ -44,13 +42,11 @@ task_config = {
         "download_urls": [
             {
                 "split": "train",
-                "name": "dev",
                 "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_train_dev-small.zip",  # noqa: E501
                 "md5": "aa9b43c40e9d496163caab83becf972e",
             },
             {
-                "split": "train",
-                "name": "eval",
+                "split": "test",
                 "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_test_public-small.zip",  # noqa: E501
                 "md5": "14539d85dec03cb7ac75eb62dd1dd21e",
             },
@@ -66,11 +62,11 @@ task_config = {
 
 
 class ExtractMetadata(pipeline.ExtractMetadata):
-    train_dev = luigi.TaskParameter()
-    train_eval = luigi.TaskParameter()
+    train = luigi.TaskParameter()
+    test = luigi.TaskParameter()
 
     def requires(self):
-        return {"train_eval": self.train_eval, "train_dev": self.train_dev}
+        return {"train": self.train, "test": self.test}
 
     @staticmethod
     def slugify_file_name(relative_path: str):
@@ -89,28 +85,27 @@ class ExtractMetadata(pipeline.ExtractMetadata):
     """
     DCASE 2016 uses funny pathing, so we just hardcode the desired
     (paths)
+    Note that for our training data, we only use DCASE 2016 dev data.
+    Their training data is short monophonic events.
     """
-    requires_key_to_path_str = {
-        "train_dev": "train/dev/dcase2016_task2_train_dev/dcase2016_task2_dev/",
-        "train_eval": "train/eval/dcase2016_task2_test_public/",
+    split_to_path_str = {
+        "train": "dcase2016_task2_train_dev/dcase2016_task2_dev/",
+        "test": "dcase2016_task2_test_public/",
     }
 
-    def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
-        logger.info(f"Preparing metadata for {requires_key}")
+    def get_requires_metadata(self, split: str) -> pd.DataFrame:
+        logger.info(f"Preparing metadata for {split}")
 
-        assert requires_key.startswith("train_")
-
-        requires_path = Path(self.requires()[requires_key].workdir).joinpath(
-            self.requires_key_to_path_str[requires_key]
+        split_path = (
+            Path(self.requires()[split].workdir)
+            .joinpath(split)
+            .joinpath(self.split_to_path_str[split])
         )
 
         metadatas = []
-        for annotation_file in requires_path.glob("annotation/*.txt"):
+        for annotation_file in split_path.glob("annotation/*.txt"):
             metadata = pd.read_csv(
-                annotation_file,
-                sep="\t",
-                header=None,
-                names=["start", "end", "label"],
+                annotation_file, sep="\t", header=None, names=["start", "end", "label"]
             )
             # Convert start and end times to milliseconds
             metadata["start"] *= 1000
@@ -122,7 +117,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
             )
             metadata = metadata.assign(
                 relpath=sound_file,
-                split=lambda df: "train",
+                split=lambda df: split,
             )
 
             metadatas.append(metadata)
