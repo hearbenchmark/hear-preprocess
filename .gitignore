@@ -152,6 +152,5 @@ dmypy.json
 #spotty configured file
 spotty.yaml
 
-./tasks/
 lightning_logs/
 wandb/

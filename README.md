@@ -1,124 +1,35 @@
-# hear2021-eval-kit
+# hear-preprocess
 
-Evaluation kit for HEAR 2021 NeurIPS competition
+Dataset preprocessing code for the HEAR 2021 NeurIPS competition.
+
+Unless you are a HEAR organizer or want to contribute a task,
+you won't need this repo. Use
+[hear-eval-kit](https://github.com/neuralaudio/hear-eval-kit/) to
+evaluate your embedding models on these tasks.
 
 ## Installation
 
 ```
-pip3 install heareval
+pip3 install hearpreprocess
 ```
 
 Tested with Python 3.7 and 3.8. Python 3.9 is not officially supported
 because pip3 installs are very finicky, but it might work.
 
-You can use our preprocessed datasets. Otherwise, see "Development > Preprocessing"
-
-
-## Evaluation
-
-The easiest way to do evaluation is to launch a Spotty GCP instance.
-
-Prepare a `spotty.yaml` file with the provided template file:
-```
-cp spotty.yaml.tmpl spotty.yaml
-```
-Change the instance name in the copied file. Specifically, change `"USERNAME"` 
-suffix in `instances: name` to allow for multiple users in the same project 
-to make separate gcp instances and volumes to avoid conflicts within the project.
-
-Run spotty:
-```
-spotty start
-spotty sh
-```
-
-This requires the heareval Docker image, which is pre-built and
-published on Dockerhub for your convenience.
-
-Please refer to `README.spotty` for more details.
-
-### Computing embeddings
-
-Once a set of tasks has been generated, embeddings can be computed
-using any audio embedding model that follows the [HEAR
-API](https://neuralaudio.ai/hear2021-holistic-evaluation-of-audio-representations.html#common-api).
-
-To compute embeddings using the [HEAR
-baseline](https://github.com/neuralaudio/hear-baseline):
-
-1) Install the hearbaseline and download the model weights:
-```
-pip3 install hearbaseline
-wget https://github.com/neuralaudio/hear-baseline/raw/main/saved_models/naive_baseline.pt
-```
-
-If you want to use your pip HEAR module, substitute `hearbaseline`
-and `./naive_baseline.pt` below with your pip module name and model
-weight path.
-
-2) Compute the embeddings for all the tasks ("all") or one task:
-```
-python3 -m heareval.embeddings.runner hearbaseline --model ./naive_baseline.pt
-    [--tasks-dir tasks]
-    [--task task]
-    [--embeddings-dir embeddings]
-```
-
-This assumes that your current working directory contains a folder
-called `tasks` produced by `heareval.tasks.runner`. If this directory
-is in a different location or named something different you can use
-the option `--tasks-dir`. 
-
-By default embeddings will be computed in a folder named `embeddings`
-in the current working directory. To generate in a different location
-use the option `--embeddings-dir`.
-
-### Downstream Evaluation
-
-For evaluation of each task, a shallow model will be trained on the
-embeddings followed by task specific evaluations. The names of the
-scoring functions used for these task specific evalutions can be
-found in the `task_metadata.json` inside every task directory.
-
-1) Train the shallow model and generate the test set predictions
-for all tasks or one task:
-```
-python3 -m heareval.predictions.runner hearbaseline --model ./naive_baseline.pt \
-    [--embeddings-dir embeddings]
-    [--task task]
-    [--gpus INT]
-```
-
-2) Evaluate the generated predictions for the test set for one or
-all modules and for one or all tasks:
-```
-python3 -m heareval.evaluation.runner \
-    [module]
-    [--embeddings-dir embeddings]
-    [--task task]
-```
-
-By default, both the steps above assume a folder named `embeddings`,
-generated in the compute embeddings step. If this directory is
-different, the option `--embeddings-dir` can be used.
-
-Running the above will generate `evaluation_results.json` in the
-current working directory containing the evalution scores for each
-task.
-
 ## Development
 
 Clone repo:
 ```
-git clone https://github.com/neuralaudio/hear2021-eval-kit
-cd hear2021-eval-kit
+git clone https://github.com/neuralaudio/hear-preprocess
+cd hear-preprocess
 ```
 Add secret task submodule:
 ```
 git submodule init
 git submodule update
 ```
-**_NOTE_**: Secret tasks are not available to participants. They should skip the above step. 
+**_NOTE_**: Secret tasks are not available to participants. You
+should skip the above step.
 
 Install in development mode:
 ```
@@ -154,18 +65,24 @@ into a common format for downstream evaluation.
 
 To run the preprocessing pipeline for all available tasks:
 ```
-python3 -m heareval.tasks.runner all
+python3 -m hearpreprocess.runner all
 ```
 
 You can also just run individual tasks:
 ```
-python3 -m heareval.tasks.runner [speech_commands|nsynth_pitch|dcase2016_task2]
+python3 -m hearpreprocess.runner [speech_commands|nsynth_pitch|dcase2016_task2]
 ```
-**_NOTE__**: To run the pipeline on secret tasks please ensure to initialise, update and install the `hearsecrettasks` submodule. This repository is not available for participants. If the submodule is set up :
-- Both the aforementioned commands will work for secret tasks as well. 
-- Running with the `all` option will trigger all the available set of open and secret tasks. 
-- To run individual tasks, please use the corresponding `task` name. The secret task names are are also hidden and listed in the `hearsecrettasks` submodule.
-
+**_NOTE__**: To run the pipeline on secret tasks please ensure to
+initialize, update, and install the `hear2021-secret-tasks` submodule.
+This repository is not available for participants. If the submodule
+is set up:
+- The aforementioned commands will work for secret tasks as
+well.
+- Running with the `all` option will trigger all the available set
+of open and secret tasks.
+- To run individual tasks, please use the corresponding `task` name.
+The secret task names are are also hidden and listed in the
+`hear2021-secret-tasks` submodule.
 
 Each pipeline will download and preprocess each dataset according
 to the following DAG:
@@ -173,9 +90,9 @@ to the following DAG:
 * ExtractArchive
 * ExtractMetadata: Create splits over the entire corpus and find
 the label metadata for them.
-* SubsampleSplit (subsample each split) => MonoWavTrimCorpus => SubsampledData (symlinks)
-* SubsampledData => {SubsampledMetadata, ResampleSubcorpus}
-* SubsampledMetadata => MetadataVocabulary
+* SubcorpusSplit (subsample each split) => MonoWavTrimCorpus => SubcorpusData (symlinks)
+* SubcorpusData => {SubcorpusMetadata, ResampleSubcorpus}
+* SubcorpusMetadata => MetadataVocabulary
 * FinalizeCorpus
 
 In terms of sampling:
@@ -210,12 +127,13 @@ Options:
                          module root directory.
 
   --tasks-dir   STRING   Path to dir to store the final task outputs.
-                         By default this is set to tasks in the module root directory
+			             By default this is set to tasks in the
+           			     module root directory
 ```
 
 To check the stats of an audio directory:
 ```
-python3 -m heareval.tasks.audio_dir_stats {input folder} {output json file}
+python3 -m hearpreprocess.audio_dir_stats {input folder} {output json file}
 ```
 Stats include: audio_count, audio_samplerate_count, mean meadian
 and certain (10, 25, 75, 90) percentile durations.  This is helpful
@@ -243,20 +161,8 @@ pipeline.
 These small versions of the data can be generated
 deterministically with the following command:
 ```
-python3 -m heareval.tasks.sampler <taskname>
+python3 -m hearpreprocess.sampler <taskname>
 ```
 
 **_NOTE_** : The `--small` flag which is used to run the task on a
 small version of the dataset for development.
-
-### End to end testing
-
-To test the pipeline with small version of each task(currently only running on 
-speech_commands.py), please run the following bash scripts
-```
-bash run-small.sh <path/to/temorary_dir>
-```
-All the required subfolders will be generated in the `temporary directory` provided above.
-## DEPRECATED
-
-See [ROADMAP](ROADMAP.md).

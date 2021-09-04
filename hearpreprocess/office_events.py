@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Pre-processing pipeline for DCASE 2016 task 2 task (sound event
-detection).
+Task adapted from DCASE 2016 task 2: office sound event detection.
 
 The HEAR 2021 variation of DCASE 2016 Task 2 is that we ignore the
 monophonic training data. We mix the dev and eval data, and
@@ -14,10 +13,11 @@ import logging
 from pathlib import Path
 from typing import List
 
-import heareval.tasks.pipeline as pipeline
 import luigi
 import pandas as pd
 from slugify import slugify
+
+import hearpreprocess.pipeline as pipeline
 
 logger = logging.getLogger("luigi-interface")
 

@@ -12,10 +12,11 @@ import logging
 from pathlib import Path
 from typing import List
 
-import heareval.tasks.pipeline as pipeline
 import luigi
 import pandas as pd
 from slugify import slugify
+
+import hearpreprocess.pipeline as pipeline
 
 logger = logging.getLogger("luigi-interface")
 
