@@ -21,7 +21,7 @@ from heareval.tasks.util.luigi import (
     diagnostics,
     download_file,
     new_basedir,
-    str2in,
+    str2int,
 )
 
 SPLITS = ["train", "valid", "test"]
