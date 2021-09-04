@@ -93,7 +93,6 @@ class ExtractArchive(WorkTask):
         shutil.unpack_archive(archive_path, self.output_path)
         stats = audio_util.audio_dir_stats_wav(
             in_dir=self.output_path,
-            in_dir=output_path,
             out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
         )
         diagnostics.info(f"{self.longname} {json.dumps(stats, indent=4)}")
