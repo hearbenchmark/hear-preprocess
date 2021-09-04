@@ -138,7 +138,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
     @staticmethod
     def speaker_hash(unique_filestem: str) -> str:
         """Get the speaker hash as the Split key for speech_commands"""
-        hsh = re.sub(r"-nohash-.*$", "", unique_filestem)
+        hsh = re.sub(r"_nohash_.*$", "", unique_filestem)
         assert hsh != unique_filestem, f"{unique_filestem} has no speaker hash."
         return hsh
 
