@@ -504,7 +504,7 @@ class ExtractMetadata(WorkTask):
         # created explicitly in get_all_metadata
         metadata = self.split_train_test_val(metadata)
 
-        #Each split should have unique files and no file should be across splits
+        # Each split should have unique files and no file should be across splits
         assert (
             len(
                 set.intersection(
