@@ -676,9 +676,7 @@ class SubcorpusData(MetadataTask):
         if self.task_config["version"].split("-")[-1] == "small":
             # Many filestems in the metadata won't be in the
             # small corpus as audio.
-            assert (
-                audiofilenames <= unique_filestems
-            ), f"{list(audiofilenames - unique_filestems)[:10]} ({list(audiofilenames)[:3]}, {list(unique_filestems)[:3]})"
+            assert audiofilenames <= unique_filestems
         else:
             assert audiofilenames == unique_filestems
             assert len(unique_filestems) == len(audiofiles)
