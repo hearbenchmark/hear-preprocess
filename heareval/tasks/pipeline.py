@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 import heareval.tasks.util.audio as audio_util
 import luigi
 import pandas as pd
-from heareval.tasks.util.luigi import WorkTask, download_file, new_basedir
+from heareval.tasks.util.luigi import WorkTask, diagnostics, download_file, new_basedir
 from slugify import slugify
 from tqdm import tqdm
 
@@ -252,7 +252,7 @@ class ExtractMetadata(WorkTask):
         # from the train
         assert "train" in splits_present, "Train split not found in metadata"
         splits_to_sample = set(SPLITS).difference(splits_present)
-        print(
+        diagnostics.info(
             "Splits not already present in the dataset, "
             + f"now sampled with split key are: {splits_to_sample}"
         )
@@ -338,7 +338,7 @@ class ExtractMetadata(WorkTask):
         # need to remove those entries from the metadata
         if sum(exists) < len(metadata):
             if self.task_config["version"].split("-")[-1] == "small":
-                print(
+                diagnostics.info(
                     "All files in metadata do not exist in the dataset. This is "
                     "expected behavior when small task is running.\n"
                     f"Removing {len(metadata) - sum(exists)} entries in the "
@@ -434,12 +434,12 @@ class SubsampleSplit(MetadataTask):
         max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
 
         if num_files > max_files:
-            print(
+            diagnostics.info(
                 f"{num_files} audio files in corpus."
                 f"Max files to subsample in {self.split}: {max_files}"
             )
             subsampled_relpaths = set(relpaths[:max_files])
-            print(
+            diagnostics.info(
                 f"Files in split {self.split} after resampling: {len(subsampled_relpaths)}"
             )
         else:
