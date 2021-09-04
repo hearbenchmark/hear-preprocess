@@ -175,14 +175,14 @@ class ExtractMetadata(WorkTask):
 
     """
     You should define one for every (split, name) task.
+    `ExtractArchive` is usually enough.
 
-    `ExtractArchive` is usually enough, but it's more fancy for
-    speech_commands where postprocessing is applied by task
-    `GenerateTrainDataset`.
-
-    Custom postprocessing tasks should have `output_path` TaskParameter
-    (like `ExtractArchive`)`, which is the path to the (split,name)
-    subdir inside the workdir where the audio files reside.
+    However, custom downstream processing may be required. For
+    example, `speech_commands.GenerateTrainDataset` adds silence
+    and background noise instances to the train split.  Custom
+    downstream tasks beyond ExtractArchive should have `output_path`
+    property, like `self.ExtractArchive` or
+    `speech_commands.GenerateTrainDataset`
 
     e.g.
     """
@@ -212,8 +212,9 @@ class ExtractMetadata(WorkTask):
         A file should only be in one split, i.e. we shouldn't spread
         file events across splits. This is the default behavior, and
         the split key is the filename itself.
-        We use datapath because it is fixed for a particular archive.
-        (We could also unique_filestem)
+        We use unique_filestem because it is fixed for a particular
+        archive.
+        (We could also use datapath.)
 
         Override: For some corpora:
         * An instrument cannot be split (nsynth)
