@@ -427,6 +427,8 @@ class ExtractMetadata(WorkTask):
 
         metadata = self.postprocess_all_metadata(metadata)
 
+        metadata = postprocess_all_metadata(metadata)
+
         # Split the metadata to create valid and test set from train if they are not
         # created explicitly in get_all_metadata
         metadata = self.split_train_test_val(metadata)
