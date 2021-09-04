@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 import hearpreprocess.util.audio as audio_util
 from hearpreprocess import __version__
-from hearpreprocess.util.luigi import WorkTask, download_file, new_basedir
+from heareval.tasks.util.luigi import WorkTask, download_file, new_basedir, str2int
 
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
@@ -332,7 +332,9 @@ class ExtractMetadata(WorkTask):
             )
 
         # Now, deterministically shuffle the metadata
-        metadata = metadata.sample(frac=1, random_state=0).reset_index(drop=True)
+        metadata = metadata.sample(
+            frac=1, random_state=str2int("postprocess_all_metadata")
+        ).reset_index(drop=True)
 
         # Filter the files which actually exist in the data
         exists = metadata["relpath"].apply(lambda relpath: Path(relpath).exists())
@@ -572,7 +574,7 @@ class SubsampleSplit(MetadataTask):
         )
         # Deterministically shuffle the filestems
         split_filestem_relpaths = split_filestem_relpaths.sample(
-            frac=1, random_state=1
+            frac=1, random_state=str2int(f"SubsampleSplit({self.split})")
         ).values
 
         # This might round badly for small corpora with long audio :\
