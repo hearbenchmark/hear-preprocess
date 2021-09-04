@@ -897,7 +897,9 @@ class MetadataVocabulary(MetadataTask):
                 ).open("w"),
                 indent=True,
             )
-            labelset = labelset | set(labeldf["label"].unique().tolist())
+            split_labelset = set(labeldf["label"].unique().tolist())
+            assert len(split_labelset) != 0
+            labelset = labelset | split_labelset
 
         # Build the label idx csv and save it
         labelcsv = pd.DataFrame(
@@ -950,7 +952,9 @@ class ResampleSubcorpus(MetadataTask):
         )
         diagnostics.info(
             f"{self.longname} {self.split} count={stats['audio_count']} "
-            f"duration_mean={stats['audio_mean_dur(sec)']}"
+            f"sr desired = {self.sr} "
+            f"sr count in dir = {stats['audio_samplerate_count']} "
+            f"duration mean={stats['audio_mean_dur(sec)']}"
         )
         self.mark_complete()
 
