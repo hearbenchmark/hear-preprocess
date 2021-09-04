@@ -148,7 +148,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         if self.task_config["version"].split("-")[-1] == "small":
             assert train_stems | valid_stems >= set(
                 metadata[metadata.split == "train"]["unique_filestem"].unique()
-            ), f'{train_stems | valid_stems} != {set(metadata[metadata.split == "train"]["unique_filestem"].unique())}'
+            )
         else:
             assert train_stems | valid_stems == set(
                 metadata[metadata.split == "train"]["unique_filestem"].unique()
