@@ -67,7 +67,7 @@ def mono_wav_and_fix_duration(in_file: str, out_file: str, duration: float) -> N
         Path(out_file).symlink_to(Path(in_file).absolute())
 
 
-def resample_wav(in_file: str, out_file: str, out_sr: int)->None:
+def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
     """Resample a wave file using SoX high quality mode"""
     # Get the audio stats to get the sampling rate of the audio
     audio_stats = get_audio_stats(in_file)
