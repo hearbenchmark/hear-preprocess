@@ -430,7 +430,15 @@ class ExtractMetadata(WorkTask):
             train_percentage + valid_percentage + test_percentage == 100
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
 
+        # Deterministically sort all unique split_keys.
         split_keys = sorted(metadata[metadata.split == "train"]["split_key"].unique())
+        # Deterministically shuffle all unique split_keys.
+        rng = random.Random("split_train_test_val")
+        rng.shuffle(split_keys)
+        n = len(split_keys)
+
+        n_valid = int(round(n * valid_percentage / 100))
+        n_test = int(round(n * test_percentage / 100))
         assert n_valid > 0 or valid_percentage == 0
         assert n_test > 0 or test_percentage == 0
         valid_split_keys = set(split_keys[:n_valid])
@@ -582,7 +590,7 @@ class SubsampleSplit(MetadataTask):
         else:
             max_split_duration = MAX_TASK_DURATION_BY_SPLIT[self.split]
         if max_split_duration is None:
-            max_files = num_files
+            max_files = len(split_filestem_relpaths)
         else:
             max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
 
