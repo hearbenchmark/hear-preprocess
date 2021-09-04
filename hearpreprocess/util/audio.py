@@ -12,9 +12,9 @@ import ffmpeg
 from tqdm import tqdm
 
 
-def mono_wav_and_fix_duration(in_file: str, out_file: str, duration: float):
+def mono_wav_and_fix_duration(in_file: str, out_file: str, duration: float) -> None:
     """
-    This 
+    This
     1. Pads and trims the audio to the desired input duration
     2. Converts to mono if more than 1 stream is present
     3. Converts the audio to wav format
@@ -27,36 +27,34 @@ def mono_wav_and_fix_duration(in_file: str, out_file: str, duration: float):
     """
     # Get the audio stats for the audio file
     audio_stats = get_audio_stats(in_file)
-    # Get the filters to apply to the audio. 
+    # Get the filters to apply to the audio.
     # If ffmpeg probe is unable to fetch the audio stats
     # in which case the stats will be empty
     # we will make all the filters as True
     if audio_stats:
-        duration_filter_flag = audio_stats["duration"] != duration
-        mono_filter_flag = not audio_stats["mono"]
+        duration_filter_incorrect = audio_stats["duration"] != duration
+        mono_filter_incorrect = not audio_stats["mono"]
     else:
-        duration_filter_flag = mono_filter_flag = True
+        duration_filter_incorrect = mono_filter_flag = True
 
-    ext_filter_flag = Path(in_file).suffix.lower() != ".wav"
+    ext_filter_incorrect = Path(in_file).suffix.lower() != ".wav"
 
     # If the audio has the desired duration and is already mono .wav all the flags will
     # be false, then we will move to the else part where we will just create a symlink
-    if duration_filter_flag or mono_filter_flag or ext_filter_flag:
+    if duration_filter_incorrect or mono_filter_incorrect or ext_filter_incorrect:
         # create a ffmpeg command chain to take the input
         cmd_chain = ffmpeg.input(in_file).audio
         # Add duration commands if required
-        if duration_filter_flag:
+        if duration_filter_incorrect:
             cmd_chain = cmd_chain.filter("apad", whole_dur=duration).filter(
                 "atrim", end=duration
             )
-        # Add mono flag if required
-        if mono_filter_flag:
-            cmd_chain = cmd_chain.output(out_file, f="wav", acodec="pcm_f32le", ac=1)
-        else:
-            cmd_chain = cmd_chain.output(out_file, f="wav", acodec="pcm_f32le")
-
         try:
-            _ = cmd_chain.overwrite_output().run(quiet=True)
+            _ = (
+                cmd_chain.output(out_file, f="wav", acodec="pcm_f32le", ac=1)
+                .overwrite_output()
+                .run(quiet=True)
+            )
         except ffmpeg.Error as e:
             print(
                 "Please check the console output for ffmpeg to debug the "
@@ -66,24 +64,21 @@ def mono_wav_and_fix_duration(in_file: str, out_file: str, duration: float):
             raise
     else:
         # If the file already has the desired duration and is mono wav, make a symlink
-        if Path(out_file).exists():
-            Path(out_file).unlink()
+        assert not Path(out_file).exists()
         Path(out_file).symlink_to(Path(in_file).absolute())
 
 
 def resample_wav(in_file: str, out_file: str, out_sr: int):
-    """
-    Resample a wave file using SoX high quality mode
-    """
+    """Resample a wave file using SoX high quality mode"""
     # Get the audio stats to get the sampling rate of the audio
     audio_stats = get_audio_stats(in_file)
-    # If the desired sampling rate is the same as that of the original file, 
+    # If the desired sampling rate is the same as that of the original file,
     # skip resampling and create symlink
     if "sample_rate" in audio_stats and audio_stats["sample_rate"] != out_sr:
         try:
             _ = (
                 ffmpeg.input(in_file)
-                .filter("aresample", resampler="soxr")
+                # .filter("aresample", resampler="soxr")
                 .output(out_file, ar=out_sr)
                 .overwrite_output()
                 .run(quiet=True)
@@ -97,12 +92,12 @@ def resample_wav(in_file: str, out_file: str, out_sr: int):
             raise
     else:
         # If the audio has the expected sampling rate, make a synlink
-        if Path(out_file).exists():
-            Path(out_file).unlink()
+        assert not Path(out_file).exists()
         Path(out_file).symlink_to(Path(in_file).absolute())
 
 
-def get_audio_stats(in_file: Union[str, Path]):
+def get_audio_stats(in_file: Union[str, Path]) -> Dict:
+    """Produces summary for a single audio file"""
     try:
         audio_stream = ffmpeg.probe(in_file, select_streams="a")["streams"][0]
         audio_stats = {
@@ -113,8 +108,8 @@ def get_audio_stats(in_file: Union[str, Path]):
             "ext": Path(in_file).suffix,
         }
     except (ffmpeg.Error, KeyError):
-        #Skipping audio file for stats calculation.
-        audio_stats = {}
+        # Skipping audio file for stats calculation.
+        audio_stats = None
     return audio_stats
 
 
@@ -174,7 +169,8 @@ def get_audio_dir_stats(
         **{
             f"{str(p)}th percentile dur(sec)": np.percentile(durations, p)
             for p in [10, 25, 75, 90]
-        }
-    )
-    json.dump(stats, open(out_file, "w"), indent=True)
-    return stats
+        },
+    }
+
+    json.dump(summary_stats, open(out_file, "w"), indent=True)
+    return summary_stats
