@@ -21,17 +21,18 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import click
-import heareval.tasks.pipeline as pipeline
 import luigi
-from heareval.tasks import dcase2016_task2, nsynth_pitch, office_events, speech_commands
-from heareval.tasks.util.luigi import WorkTask
 from tqdm import tqdm
+
+import hearpreprocess.pipeline as pipeline
+from hearpreprocess import dcase2016_task2, nsynth_pitch, office_events, speech_commands
+from hearpreprocess.util.luigi import WorkTask
 
 logger = logging.getLogger("luigi-interface")
 # Currently the sampler is only allowed to run for open tasks
 # The secret tasks module will not be available for participants
 try:
-    from heareval.tasks.secrettasks import hearsecrettasks
+    from hearpreprocess.secrettasks import hearsecrettasks
 
     secret_config = hearsecrettasks.sampler_config
 except ModuleNotFoundError as e:
@@ -60,29 +61,10 @@ configs = {
         "audio_sample_size": 100,
         "necessary_keys": [],
     },
-    "dcase2016_task2": {
-        "task_config": dcase2016_task2.task_config,
-        "audio_sample_size": 4,
-        # Put two files from the dev and train split so that those splits are
-        # made
-        # dev_1_ebr_6_nec_2_poly_0.wav -> 1 train file in valid split
-        # dev_1_ebr_6_nec_3_poly_0.wav -> 1 valid file in valid split
-        "necessary_keys": [
-            "dev_1_ebr_6_nec_2_poly_0.wav",
-            "dev_1_ebr_6_nec_3_poly_0.wav",
-        ],
-    },
     "office_events": {
         "task_config": office_events.task_config,
         "audio_sample_size": 4,
-        # Put two files from the dev and train split so that those splits are
-        # made
-        # dev_1_ebr_6_nec_2_poly_0.wav -> 1 train file in valid split
-        # dev_1_ebr_6_nec_3_poly_0.wav -> 1 valid file in valid split
-        "necessary_keys": [
-            "dev_1_ebr_6_nec_2_poly_0.wav",
-            "dev_1_ebr_6_nec_3_poly_0.wav",
-        ],
+        "necessary_keys": [],
     },
     # Add the sampler config for the secrets task if the secret task config was found.
     # Not available for participants
