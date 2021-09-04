@@ -35,7 +35,7 @@ def mono_wav_and_fix_duration(in_file: str, out_file: str, duration: float) -> N
         duration_filter_incorrect = audio_stats["duration"] != duration
         mono_filter_incorrect = not audio_stats["mono"]
     else:
-        duration_filter_incorrect = mono_filter_flag = True
+        duration_filter_incorrect = mono_filter_incorrect = True
 
     ext_filter_incorrect = Path(in_file).suffix.lower() != ".wav"
 
