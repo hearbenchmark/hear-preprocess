@@ -12,6 +12,21 @@ import luigi
 import requests
 from tqdm.auto import tqdm
 
+# Set up a diagnostics logger
+diagnostics = logging.getLogger("simple_example")
+diagnostics.setLevel(logging.DEBUG)
+fh = logging.FileHandler("hearpreprocess.log")
+fh.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+# create formatter and add it to the handlers
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+ch.setFormatter(formatter)
+fh.setFormatter(formatter)
+# add the handlers to diagnostics
+diagnostics.addHandler(ch)
+diagnostics.addHandler(fh)
+
 
 class WorkTask(luigi.Task):
     """
