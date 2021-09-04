@@ -21,11 +21,12 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import click
-import hearpreprocess.pipeline as pipeline
 import luigi
-from hearpreprocess import nsynth_pitch, office_events, speech_commands
-from hearpreprocess.util.luigi import WorkTask
 from tqdm import tqdm
+
+import hearpreprocess.pipeline as pipeline
+from hearpreprocess import dcase2016_task2, nsynth_pitch, office_events, speech_commands
+from hearpreprocess.util.luigi import WorkTask
 
 logger = logging.getLogger("luigi-interface")
 # Currently the sampler is only allowed to run for open tasks
