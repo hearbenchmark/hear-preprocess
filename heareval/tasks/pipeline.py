@@ -527,10 +527,9 @@ class MonoWavTrimSubcorpus(MetadataTask):
         #   correct length and just create a symlink if that is this case.
         for audiofile in tqdm(list(self.requires()["corpus"].workdir.iterdir())):
             newaudiofile = self.workdir.joinpath(f"{audiofile.stem}.wav")
-            stats = audio_util.mono_wav_and_fix_duration(
+            audio_util.mono_wav_and_fix_duration(
                 audiofile, newaudiofile, duration=self.task_config["sample_duration"]
             )
-            diagnostics.info(f"{self.longname} {json.dumps(stats, indent=4)}")
 
         self.mark_complete()
 
@@ -718,7 +717,7 @@ class ResampleSubcorpus(MetadataTask):
                 f"{self.split}_stats.json"
             ),
         )
-        diagnostics.info(f"{self.longname} {json.dumps(stats, indent=4)}")
+        diagnostics.info(f"{self.longname} {self.split} {json.dumps(stats, indent=4)}")
         self.mark_complete()
 
 

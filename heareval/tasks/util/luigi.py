@@ -17,7 +17,7 @@ from tqdm.auto import tqdm
 diagnostics = logging.getLogger("diagnostics")
 diagnostics.setLevel(logging.DEBUG)
 fh = logging.FileHandler("hearpreprocess.log", "a")
-fh.setLevel(logging.INFO)
+fh.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
 # create formatter and add it to the handlers
