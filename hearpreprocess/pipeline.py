@@ -358,11 +358,11 @@ class ExtractMetadata(WorkTask):
 
         # First, put the metadata into a deterministic order.
         if "start" in metadata.columns:
-            metadata.sort_values(
+            metadata = metadata.sort_values(
                 ["slug", "start", "end", "label"], inplace=True, kind="stable"
-            ).reset_index(drop=True)
+            ).reset_index(inplace=True)
         else:
-            metadata.sort_values(
+            metadata = metadata.sort_values(
                 ["slug", "label"], inplace=True, kind="stable"
             ).reset_index(drop=True)
 
