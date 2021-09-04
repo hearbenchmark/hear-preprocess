@@ -798,12 +798,6 @@ class SubcorpusMetadata(MetadataTask):
                 indent=True,
             )
 
-            labelcsv.to_csv(
-                self.workdir.joinpath("labelvocabulary.csv"),
-                columns=["idx", "label"],
-                index=False,
-            )
-
         self.mark_complete()
 
 
