@@ -101,7 +101,8 @@ class ExtractArchive(WorkTask):
             out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
         )
         diagnostics.info(
-            f"{self.longname} - Dir {self.outdir} count={stats['audio_count']} "
+            f"{self.longname} extractdir {self.outdir} "
+            f"audiocount={stats['audio_count']} "
             f"duration_mean={stats['audio_mean_dur(sec)']}"
         )
 
@@ -410,7 +411,7 @@ class ExtractMetadata(WorkTask):
         assert "train" in splits_present, "Train split not found in metadata"
         splits_to_sample = set(SPLITS).difference(splits_present)
         diagnostics.info(
-            f"{self.longname} - Splits not already present in the dataset, "
+            f"{self.longname} Splits not already present in the dataset, "
             + f"now sampled with split key are: {splits_to_sample}"
         )
 
@@ -443,7 +444,7 @@ class ExtractMetadata(WorkTask):
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
 
         diagnostics.info(
-            f"{self.longname} - Split percentage from the original train set: "
+            f"{self.longname} Split percentage for the splitting: "
             "{}".format(
                 {
                     "test": test_percentage,
@@ -485,23 +486,38 @@ class ExtractMetadata(WorkTask):
         metadata = self.get_all_metadata()
         print(f"metadata length = {len(metadata)}")
 
-        def _log_metadata_split_size(metadata, event_str):
+        def _log_metadata_split_size_label(metadata, event_str):
             diagnostics.info(
-                f"{self.longname} - Files in each split {event_str}: "
+                f"{self.longname} Files in each split {event_str}: "
                 "{}".format(metadata.groupby("split")["relpath"].nunique().to_dict())
             )
+            diagnostics.info(
+                f"{self.longname} Unique labels in each split {event_str}: "
+                "{}".format(metadata.groupby("split")["label"].nunique().to_dict())
+            )
 
-        _log_metadata_split_size(metadata, "Before Postprocessing")
+        _log_metadata_split_size_label(metadata, "Before Postprocessing")
         metadata = self.postprocess_all_metadata(metadata)
-        _log_metadata_split_size(metadata, "After Postprocessing")
+        _log_metadata_split_size_label(metadata, "After Postprocessing")
 
         # Split the metadata to create valid and test set from train if they are not
         # created explicitly in get_all_metadata
         metadata = self.split_train_test_val(metadata)
-        _log_metadata_split_size(metadata, "After Splitting")
+
+        #Each split should have unique files and no file should be across splits
+        assert (
+            len(
+                set.intersection(
+                    *map(set, metadata.groupby("split")["relpath"].apply(list).tolist())
+                )
+            )
+            == 0
+        ), "Relpath is not unique across split"
+
+        _log_metadata_split_size_label(metadata, "After Splitting")
 
         diagnostics.info(
-            f"{self.longname} - Existing Filepaths in metadata  for each split: "
+            f"{self.longname} Existing Filepaths in metadata  for each split: "
             "{}".format(
                 metadata.drop_duplicates(subset=["relpath"])
                 .assign(
@@ -647,7 +663,7 @@ class SubsampleSplit(MetadataTask):
 
         diagnostics.info(
             f"{self.longname} "
-            f"Max files to sample in split {self.split}: "
+            f"Max number of files to sample in split {self.split}: "
             f"{max_files}"
         )
 
@@ -777,7 +793,7 @@ class SubcorpusData(MetadataTask):
             os.symlink(os.path.realpath(audiofile), newaudiofile)
 
         diagnostics.info(
-            f"{self.longname} - Files in each split after making split subcorpus: "
+            f"{self.longname} Files in each split after making split subcorpus: "
             "{}".format(split_count)
         )
 
