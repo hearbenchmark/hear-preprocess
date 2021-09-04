@@ -6,16 +6,19 @@ import json
 import os
 import random
 import shutil
+import tarfile
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
 
-import heareval.tasks.util.audio as audio_util
 import luigi
 import pandas as pd
-from heareval.tasks.util.luigi import WorkTask, download_file, new_basedir
 from slugify import slugify
 from tqdm import tqdm
+
+import hearpreprocess.util.audio as audio_util
+from hearpreprocess import __version__
+from hearpreprocess.util.luigi import WorkTask, diagnostics, download_file, new_basedir
 
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
@@ -25,6 +28,9 @@ TEST_PERCENTAGE = 20
 TRAIN_PERCENTAGE = 100 - VALIDATION_PERCENTAGE - TEST_PERCENTAGE
 
 # We want no more than 5 hours of audio per task.
+# This can be overriden in the task config.
+# e.g. speech_commands test set.
+# If None, no limit is used.
 MAX_TASK_DURATION_BY_SPLIT = {
     "train": 3 * 3600,
     "valid": 1 * 3600,
@@ -81,10 +87,11 @@ class ExtractArchive(WorkTask):
         archive_path = archive_path.absolute()
         output_path = self.workdir.joinpath(self.outdir)
         shutil.unpack_archive(archive_path, output_path)
-        audio_util.audio_dir_stats_wav(
+        stats = audio_util.audio_dir_stats_wav(
             in_dir=output_path,
             out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
         )
+        diagnostics.info(f"{self.longname} {json.dumps(stats, indent=4)}")
 
         self.mark_complete()
 
@@ -274,9 +281,25 @@ class ExtractMetadata(WorkTask):
         split if any of test or valid split is not found. We split
         based upon the split_key (see above).
 
-        If there is any data specific split, that will already be done in
-        get_all_metadata. This function is for automatic splitting if the splits
-        are not found.
+        If there is any data specific split, that will already be
+        done in get_all_metadata. This function is for automatic
+        splitting if the splits are not found.
+
+        Note that all files are shuffled and we pick exactly as
+        many as we want for each split. Unlike using modulus of the
+        hash of the split key (Google `which_set` method), the
+        filename does not uniquely determine the split, but the
+        entire set of audio data determines the split.
+        * The downside is that if a later version of the
+        dataset is released with more files, this method will not
+        preserve the split across dataset versions.
+        * The benefit is that, for small datasets, it correctly
+        stratifies the data according to the desired percentages.
+        For small datasets, unless the splits are predetermined
+        (e.g. in a key file), using the size of the data set to
+        stratify is unavoidable. If we do want to preserve splits
+        across versions, we can create key files for audio files
+        that were in previous versions.
 
         Three cases might arise -
         1. Validation split not found - Train will be split into valid and train
@@ -292,8 +315,8 @@ class ExtractMetadata(WorkTask):
         # from the train
         assert "train" in splits_present, "Train split not found in metadata"
         splits_to_sample = set(SPLITS).difference(splits_present)
-        print(
-            "Splits not already present in the dataset, "
+        diagnostics.info(
+            f"{self.longname} - Splits not already present in the dataset, "
             + f"now sampled with split key are: {splits_to_sample}"
         )
 
@@ -325,7 +348,7 @@ class ExtractMetadata(WorkTask):
             train_percentage + valid_percentage + test_percentage == 100
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
 
-        split_keys = metadata[metadata.split == "train"]["split_key"].unique()
+        split_keys = sorted(metadata[metadata.split == "train"]["split_key"].unique())
         rng = random.Random("split_train_test_val")
         rng.shuffle(split_keys)
         n = len(split_keys)
@@ -380,7 +403,7 @@ class ExtractMetadata(WorkTask):
         # Save the label count for each split
         for split, split_df in metadata.groupby("split"):
             json.dump(
-                split_df["label"].value_counts().to_dict(),
+                split_df["label"].value_counts(normalize=True).to_dict(),
                 self.workdir.joinpath(f"labelcount_{split}.json").open("w"),
                 indent=True,
             )
@@ -426,7 +449,16 @@ class SubsampleSplit(MetadataTask):
 
     def run(self):
         split_metadata = self.metadata[self.metadata["split"] == self.split]
-        relpaths = split_metadata["relpath"].unique()
+        # Deterministically sort by the slugs, then deterministically
+        # shuffle their relpaths.
+        # See get_split_key for a description of why we use slugs,
+        # not relpaths, for sorting.
+        slug_relpaths = [
+            (slug, relpath)
+            for slug, relpath in split_metadata[["slug", "relpath"]].values
+        ]
+        slug_relpaths = sorted(list(set(slug_relpaths)))
+        relpaths = [relpath for slug, relpath in slug_relpaths]
         rng = random.Random("SubsampleSplit")
         rng.shuffle(relpaths)
         num_files = len(relpaths)
@@ -435,15 +467,30 @@ class SubsampleSplit(MetadataTask):
         # But we aren't going to use audio that is more than a couple
         # minutes or the timestamp embeddings will explode
         sample_duration = self.task_config["sample_duration"]
-        max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
+
+        if (
+            "max_task_duration_by_split" in self.task_config
+            and self.split in self.task_config["max_task_duration_by_split"]
+        ):
+            max_split_duration = self.task_config["max_task_duration_by_split"][
+                self.split
+            ]
+        else:
+            max_split_duration = MAX_TASK_DURATION_BY_SPLIT[self.split]
+        if max_split_duration is None:
+            max_files = num_files
+        else:
+            max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
 
         if num_files > max_files:
-            print(
+            diagnostics.info(
+                f"{self.longname} "
                 f"{num_files} audio files in corpus."
                 f"Max files to subsample in {self.split}: {max_files}"
             )
             subsampled_relpaths = set(relpaths[:max_files])
-            print(
+            diagnostics.info(
+                f"{self.longname} "
                 f"Files in split {self.split} after resampling: "
                 f"{len(subsampled_relpaths)}"
             )
@@ -659,7 +706,7 @@ class MetadataVocabulary(MetadataTask):
         ):
             labeldf = pd.read_csv(subcorpus_metadata)
             json.dump(
-                labeldf["label"].value_counts().to_dict(),
+                labeldf["label"].value_counts(normalize=True).to_dict(),
                 self.workdir.joinpath(
                     f"labelcount_{subcorpus_metadata.stem}.json"
                 ).open("w"),
@@ -710,12 +757,13 @@ class ResampleSubcorpus(MetadataTask):
             resampled_audiofile = new_basedir(audiofile, resample_dir)
             audio_util.resample_wav(audiofile, resampled_audiofile, self.sr)
 
-        audio_util.audio_dir_stats_wav(
+        stats = audio_util.audio_dir_stats_wav(
             in_dir=resample_dir,
             out_file=self.workdir.joinpath(str(self.sr)).joinpath(
                 f"{self.split}_stats.json"
             ),
         )
+        diagnostics.info(f"{self.longname} {self.split} {json.dumps(stats, indent=4)}")
         self.mark_complete()
 
 
@@ -754,13 +802,15 @@ class ResampleSubcorpuses(MetadataTask):
         self.mark_complete()
 
 
-class FinalizeCorpus(MetadataTask):
+class FinalCombine(MetadataTask):
     """
-    Create a final corpus, no longer in _workdir but in the top-level
-    at directory config.TASKNAME.
+    Create a final dataset, no longer in _workdir but in directory
+    tasks_dir.
+
     Parameters:
-        sample_rates (list(int)): The list of sampling rates in which the corpus
-            is required
+            sample_rates (list(int)): The list of sampling rates in
+                which the corpus is required.
+        tasks_dir str: Directory to put the combined dataset.
     Requires:
         resample (List(ResampleSubCorpus)): task which resamples
                 the entire subcorpus
@@ -789,7 +839,7 @@ class FinalizeCorpus(MetadataTask):
         }
 
     # We overwrite workdir here, because we want the output to be
-    # the finalized top-level task directory
+    # the finalized task directory
     @property
     def workdir(self):
         return Path(self.tasks_dir).joinpath(self.versioned_task_name)
@@ -826,6 +876,55 @@ class FinalizeCorpus(MetadataTask):
             json.dump(
                 self.task_config, fp, indent=True, cls=luigi.parameter._DictParamEncoder
             )
+
+        self.mark_complete()
+
+
+class FinalizeCorpus(MetadataTask):
+    """
+    Tar the final dataset.
+
+    TODO: Secret tasks should go into another directory,
+    so we don't accidentally copy them to the public bucket.
+
+    Parameters:
+            sample_rates (list(int)): The list of sampling rates in
+                which the corpus is required.
+        tasks_dir str: Directory to put the combined dataset.
+        tar_dir str: Directory to put the tar-files.
+    Requires:
+        final_combine (FinalCombine): Final combined dataset.
+    """
+
+    sample_rates = luigi.ListParameter()
+    tasks_dir = luigi.Parameter()
+    tar_dir = luigi.Parameter()
+
+    def requires(self):
+        return {
+            "combined": FinalCombine(
+                sample_rates=self.sample_rates,
+                tasks_dir=self.tasks_dir,
+                metadata_task=self.metadata_task,
+                task_config=self.task_config,
+            )
+        }
+
+    def create_tar(self, sample_rate: str):
+        tarname = f"hear-{__version__}-{self.versioned_task_name}-{sample_rate}.tar.gz"
+        source_dir = str(self.requires()["combined"].workdir)
+        arcname = source_dir.replace(self.tasks_dir, "tasks").replace(
+            "tasks//", "tasks/"
+        )
+        assert (
+            self.tasks_dir in ("tasks", "tasks/") or arcname != source_dir
+        ), f"{arcname} == {source_dir}"
+        with tarfile.open(Path(self.tar_dir).joinpath(tarname), "w:gz") as tar:
+            tar.add(source_dir, arcname)
+
+    def run(self):
+        for sample_rate in self.sample_rates:
+            self.create_tar(sample_rate)
 
         self.mark_complete()
 

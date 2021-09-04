@@ -8,17 +8,17 @@ import multiprocessing
 from typing import Optional
 
 import click
-import heareval.tasks.dcase2016_task2 as dcase2016_task2
-import heareval.tasks.nsynth_pitch as nsynth_pitch
-import heareval.tasks.office_events as office_events
-import heareval.tasks.pipeline as pipeline
-import heareval.tasks.speech_commands as speech_commands
+
+import hearpreprocess.nsynth_pitch as nsynth_pitch
+import hearpreprocess.office_events as office_events
+import hearpreprocess.pipeline as pipeline
+import hearpreprocess.speech_commands as speech_commands
 
 logger = logging.getLogger("luigi-interface")
 # Currently the runner is only allowed to run for open tasks
 # The secret tasks module will be not be available for the participants
 try:
-    from heareval.tasks.secrettasks import hearsecrettasks
+    from hearpreprocess.secrettasks import hearsecrettasks
 
     secret_tasks = hearsecrettasks.tasks
 
@@ -34,9 +34,8 @@ except ImportError as e:
 tasks = {
     "speech_commands": [speech_commands],
     "nsynth_pitch": [nsynth_pitch],
-    "dcase2016_task2": [dcase2016_task2],
     "office_events": [office_events],
-    "all": [speech_commands, nsynth_pitch, dcase2016_task2, office_events]
+    "all": [speech_commands, nsynth_pitch, office_events]
     + secret_tasks.pop("all-secrets", []),
     # Add the task config for the secrets task if the secret task config was found.
     # Not available for participants
@@ -64,13 +63,20 @@ tasks = {
     "--tmp-dir",
     default="_workdir",
     help="Temporary directory to save all the "
-    + "intermediate tasks (will not be deleted afterwords)",
+    "intermediate tasks (will not be deleted afterwords). "
+    "(default: _workdir/)",
     type=str,
 )
 @click.option(
     "--tasks-dir",
     default="tasks",
-    help="Directory to save the final task output",
+    help="Directory to save the final task output (default: tasks/)",
+    type=str,
+)
+@click.option(
+    "--tar-dir",
+    default=".",
+    help="Directory to save the tar'ed output (default: .)",
     type=str,
 )
 @click.option(
@@ -85,6 +91,7 @@ def run(
     sample_rate: Optional[int] = None,
     tmp_dir: Optional[str] = "_workdir",
     tasks_dir: Optional[str] = "tasks",
+    tar_dir: Optional[str] = ".",
     small: bool = False,
 ):
 
@@ -102,6 +109,7 @@ def run(
             sample_rates=sample_rates,
             tmp_dir=tmp_dir,
             tasks_dir=tasks_dir,
+            tar_dir=tar_dir,
             small=small,
         )
         for task_script in tasks[task]
