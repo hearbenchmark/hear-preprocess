@@ -30,6 +30,8 @@ task_config = {
     # their secondary score.
     # However, we announced that onset F1 would be our primary score.
     "evaluation": ["event_onset_200ms_fms", "segment_1s_er"],
+    # The test set is 1.8 hours, so we use the entire thing
+    "max_task_duration_by_split": {"test": None},
     "download_urls": [
         {
             "split": "train",
