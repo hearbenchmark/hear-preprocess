@@ -74,6 +74,10 @@ class GenerateTrainDataset(luigi_util.WorkTask):
     def requires(self):
         return {"train": self.train_data}
 
+    @property
+    def output_path(self):
+        return self.workdir
+
     def run(self):
         train_path = Path(self.requires()["train"].workdir).joinpath("train")
         background_audio = list(train_path.glob(f"{BACKGROUND_NOISE}/*.wav"))
@@ -103,15 +107,13 @@ class GenerateTrainDataset(luigi_util.WorkTask):
         for file_obj in train_path.iterdir():
             if file_obj.is_dir() and file_obj.name != BACKGROUND_NOISE:
                 linked_folder = Path(os.path.join(self.workdir, file_obj.name))
-                if linked_folder.exists():
-                    linked_folder.unlink()
+                assert not linked_folder.exists()
                 linked_folder.symlink_to(file_obj.absolute(), target_is_directory=True)
 
             # Also need the testing and validation splits
             if file_obj.name in ["testing_list.txt", "validation_list.txt"]:
                 linked_file = Path(os.path.join(self.workdir, file_obj.name))
-                if linked_file.exists():
-                    linked_file.unlink()
+                assert not linked_file.exists()
                 linked_file.symlink_to(file_obj.absolute())
 
         self.mark_complete()
@@ -128,12 +130,12 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         }
 
     @staticmethod
-    def unique_filestem(relpath: str) -> str:
+    def relpath_to_unique_filestem(relpath: str) -> str:
         """
         Include the label (parent directory) in the filestem.
         """
         # Get the parent directory (label) and the filename
-        name = os.path.join(*Path(relpath).parts[-2:], "-")
+        name = "_".join(Path(relpath).parts[-2:])
         # Remove the suffix
         name = os.path.splitext(name)[0]
         return str(name)
@@ -142,7 +144,6 @@ class ExtractMetadata(pipeline.ExtractMetadata):
     def speaker_hash(unique_filestem: str) -> str:
         """Get the speaker hash as the Split key for speech_commands"""
         hsh = re.sub(r"_nohash_.*$", "", unique_filestem)
-        assert hsh != unique_filestem, f"{unique_filestem} has no speaker hash."
         return hsh
 
     @staticmethod

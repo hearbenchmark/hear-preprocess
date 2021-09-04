@@ -172,8 +172,10 @@ class ExtractMetadata(WorkTask):
             WITHOUT extension. This is because the audio might be
             in different formats, but ultimately we will convert
             it to wav.
-            They must be unique across all relpaths.
-            They should be fixed across each run.
+            They must be unique across all relpaths, over the
+            *entire* corpus. (Thus they imply a particular split.)
+            They should be fixed across each run of this
+            preprocessing pipeline.
         * split_key - See get_split_key [TODO: Move here]
     """
 
@@ -181,14 +183,14 @@ class ExtractMetadata(WorkTask):
 
     """
     You should define one for every (split, name) task.
+    `ExtractArchive` is usually enough.
 
-    `ExtractArchive` is usually enough, but it's more fancy for
-    speech_commands where postprocessing is applied by task
-    `GenerateTrainDataset`.
-
-    Custom postprocessing tasks should have `output_path` TaskParameter
-    (like `ExtractArchive`)`, which is the path to the (split,name)
-    subdir inside the workdir where the audio files reside.
+    However, custom downstream processing may be required. For
+    example, `speech_commands.GenerateTrainDataset` adds silence
+    and background noise instances to the train split.  Custom
+    downstream tasks beyond ExtractArchive should have `output_path`
+    property, like `self.ExtractArchive` or
+    `speech_commands.GenerateTrainDataset`
 
     e.g.
     """
@@ -218,8 +220,9 @@ class ExtractMetadata(WorkTask):
         A file should only be in one split, i.e. we shouldn't spread
         file events across splits. This is the default behavior, and
         the split key is the filename itself.
-        We use datapath because it is fixed for a particular archive.
-        (We could also unique_filestem)
+        We use unique_filestem because it is fixed for a particular
+        archive.
+        (We could also use datapath.)
 
         Override: For some corpora:
         * An instrument cannot be split (nsynth)
@@ -283,8 +286,14 @@ class ExtractMetadata(WorkTask):
             split_key=self.get_split_key,
         )
 
+        # No slashes can be present in the filestems. They are files, not dirs.
+        assert not metadata["unique_filestem"].str.contains("/", regex=False).any()
+
         # Check if one unique_filestem is associated with only one relpath.
-        assert metadata["relpath"].nunique() == metadata["unique_filestem"].nunique()
+        assert metadata["relpath"].nunique() == metadata["unique_filestem"].nunique(), (
+            f'{metadata["relpath"].nunique()} != '
+            + f'{metadata["unique_filestem"].nunique()}'
+        )
         # Also implies there is a one to one correspondence between relpath
         # and unique_filestem.
         #  1. One unique_filestem to one relpath -- the bug which
@@ -301,8 +310,14 @@ class ExtractMetadata(WorkTask):
         ).all(), "One unique_filestem is associated with more than one relpath "
         "Please make sure unique_filestems are unique"
 
-        # If you use datapath, you should do the above assertions
-        # for it too.
+        if "datapath" in metadata.columns:
+            # If you use datapath, previous assertions check its
+            # uniqueness wrt relpaths.
+            assert metadata["relpath"].nunique() == metadata["datapath"].nunique()
+            assert (
+                metadata.groupby("datapath")["relpath"].nunique() == 1
+            ).all(), "One datapath is associated with more than one relpath "
+            "Please make sure datapaths are unique"
 
         # First, put the metadata into a deterministic order.
         if "start" in metadata.columns:
@@ -677,17 +692,27 @@ class SubcorpusData(MetadataTask):
         }
 
     def run(self):
-        audiofiles = list(self.requires()["corpus"].workdir.glob("*.wav"))
-        assert len(audiofiles) == len(
-            self.metadata["unique_filestem"].drop_duplicates()
+        audiofiles = set(self.requires()["corpus"].workdir.glob("*.wav"))
+        unique_filestems = set(
+            self.metadata["unique_filestem"].drop_duplicates().values
         )
+        audiofilenames = set([Path(f).stem for f in unique_filestems])
+        # Gross, let's never do this again
+        if self.task_config["version"].split("-")[-1] == "small":
+            # Many filestems in the metadata won't be in the
+            # small corpus as audio.
+            assert audiofilenames <= unique_filestems
+        else:
+            assert audiofilenames == unique_filestems
+            assert len(unique_filestems) == len(audiofiles)
         for audiofile in audiofiles:
             # Compare the filename with the unique_filestem.
             # Note that the unique_filestem does not have a file extension
             splits = self.metadata.loc[
                 self.metadata["unique_filestem"] == audiofile.stem, "split"
             ].drop_duplicates()
-            assert len(splits) == 1
+            assert len(splits) == 1, "unique_filestem should be unique"
+            "across the entire dataset and imply a particular split."
             split = splits.values[0]
             split_dir = self.workdir.joinpath(split)
             split_dir.mkdir(exist_ok=True)
