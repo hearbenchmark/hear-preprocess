@@ -78,7 +78,7 @@ def resample_wav(in_file: str, out_file: str, out_sr: int):
         try:
             _ = (
                 ffmpeg.input(in_file)
-                # .filter("aresample", resampler="soxr")
+                .filter("aresample", resampler="soxr")
                 .output(out_file, ar=out_sr)
                 .overwrite_output()
                 .run(quiet=True)
