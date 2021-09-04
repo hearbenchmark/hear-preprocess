@@ -115,8 +115,13 @@ def get_audio_stats(in_file: Union[str, Path]) -> Dict:
 
 def get_audio_dir_stats(
     in_dir: Union[str, Path], out_file: str, exts: Optional[List[str]] = None
+<<<<<<< HEAD
 ) -> Dict[str, Any]:
     """Produce summary by recursively searching a directory for wav files"""
+=======
+) -> Dict:
+    """Produce summary by recursively searching a directory for audio files"""
+>>>>>>> 282af7eba68024b5444ce81840cad1ea80f2f725
     if exts is None:
         exts = [".wav", ".mp3", ".ogg", ".webm"]
 
