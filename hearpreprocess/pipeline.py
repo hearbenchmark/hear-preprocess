@@ -801,6 +801,7 @@ class SubcorpusMetadata(MetadataTask):
         }
 
     def run(self):
+        split_label_count = {key: 0 for key in SPLITS}
         for split_path in self.requires()["data"].workdir.iterdir():
             audiodf = pd.DataFrame(
                 [(a.stem, a.suffix) for a in list(split_path.glob("*.wav"))],
@@ -850,11 +851,18 @@ class SubcorpusMetadata(MetadataTask):
                 indent=True,
             )
 
-            labelcsv.to_csv(
-                self.workdir.joinpath("labelvocabulary.csv"),
-                columns=["idx", "label"],
+            # Save the slug and the label in as the split metadata
+            audiolabel_df.to_csv(
+                self.workdir.joinpath(f"{split_path.stem}.csv"),
                 index=False,
             )
+
+            split_label_count[f"{split_path.stem}"] += audiolabel_df["label"].nunique()
+
+        diagnostics.info(
+            f"{self.longname} - Unique labels in each split: "
+            "{}".format(split_label_count)
+        )
 
         self.mark_complete()
 
