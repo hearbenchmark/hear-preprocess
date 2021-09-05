@@ -3,6 +3,7 @@ Audio utility functions for evaluation task preparation
 """
 
 import json
+import random
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import List, Optional, Union, Dict, Any
@@ -116,6 +117,8 @@ def get_audio_dir_stats(
     in_dir: Union[str, Path], out_file: str, exts: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """Produce summary by recursively searching a directory for wav files"""
+    MAX = 1000
+
     if exts is None:
         exts = [".wav", ".mp3", ".ogg", ".webm"]
 
@@ -127,6 +130,11 @@ def get_audio_dir_stats(
             Path(in_dir).absolute().rglob("*"),
         )
     )
+    rng = random.Random(0)
+    rng.shuffle(audio_paths)
+
+    orig_count = len(audio_paths)
+    audio_paths = audio_paths[:MAX]
 
     # Count the number of successful and failed statistics extraction to be
     # added the output stats file
@@ -153,20 +161,29 @@ def get_audio_dir_stats(
     )
     mono_audio_count = sum(stats["mono"] for stats in audio_dir_stats)
 
-    summary_stats = {
-        "count": len(audio_paths),
-        "duration_mean": round(np.mean(durations), 2),
-        "duration_var": round(np.var(durations), 2),
-        "duration_min": round(np.min(durations), 2),
-        "duration_max": round(np.max(durations), 2),
-        # Percentile duration of the audio
-        **{
-            f"duration_{p}th": round(np.percentile(durations, p), 2)
-            for p in [10, 25, 50, 75, 90]
-        },
+    summary_stats: Dict[str, Any] = {"count": orig_count}
+    if len(audio_paths) != orig_count:
+        summary_stats.update({"count_sample": len(audio_paths)})
+
+    duration = {
+        "mean": round(np.mean(durations), 2),
+        "var": round(np.var(durations), 2),
     }
+    if np.var(durations) > 0.0:
+        duration.update(
+            {
+                "min": round(np.min(durations), 2),
+                "max": round(np.max(durations), 2),
+                # Percentile duration of the audio
+                **{
+                    f"{p}th": round(np.percentile(durations, p), 2)
+                    for p in [10, 25, 50, 75, 90]
+                },
+            }
+        )
     summary_stats.update(
         {
+            "duration": duration,
             "samplerates": unique_sample_rates,
             "count_mono": mono_audio_count,
             # Count of no of success and failure for audio summary extraction for each
