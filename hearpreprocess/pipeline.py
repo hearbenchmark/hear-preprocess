@@ -44,7 +44,9 @@ MAX_TASK_DURATION_BY_SPLIT = {
 }
 
 
-def _diagnose_split_labels(taskname, event_str, df, filename_col):
+def _diagnose_split_labels(
+    taskname: str, event_str: str, df: pd.DataFrame, filename_col
+):
     """Makes split and label diagnostics"""
     assert "split" in df.columns
     assert "label" in df.columns
