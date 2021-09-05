@@ -844,9 +844,8 @@ class SubcorpusMetadata(MetadataTask):
 
     def run(self):
         split_label_dfs = []
-        for split_path in self.requires()["data"].workdir.iterdir():
-            split = split_path.stem
-            assert split in SPLITS
+        for split in SPLITS:
+            split_path = self.requires()["data"].workdir.joinpath(split)
             audiodf = pd.DataFrame(
                 [(a.stem, a.suffix) for a in list(split_path.glob("*.wav"))],
                 columns=["unique_filestem", "ext"],
