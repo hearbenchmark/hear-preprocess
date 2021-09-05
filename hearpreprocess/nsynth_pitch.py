@@ -89,7 +89,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         """
         The instrument is the split key.
         """
-        return df["slug"].apply(lambda slug: slug.split("-")[0])
+        return df["unique_filestem"].apply(lambda filename: filename.split("-")[0])
 
     def get_requires_metadata(self, split: str) -> pd.DataFrame:
         logger.info(f"Preparing metadata for {split}")

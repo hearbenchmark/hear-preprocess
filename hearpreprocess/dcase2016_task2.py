@@ -14,7 +14,6 @@ from typing import List
 
 import luigi
 import pandas as pd
-from slugify import slugify
 
 import hearpreprocess.pipeline as pipeline
 
@@ -25,6 +24,14 @@ task_config = {
     "version": "hear2021",
     "embedding_type": "event",
     "prediction_type": "multilabel",
+    "sample_duration": 120.0,
+    # DCASE2016 task 2 used the segment-based total error rate as
+    # their main score and then the onset only event based F1 as
+    # their secondary score.
+    # However, we announced that onset F1 would be our primary score.
+    "evaluation": ["event_onset_200ms_fms", "segment_1s_er"],
+    # The test set is 1.8 hours, so we use the entire thing
+    "max_task_duration_by_split": {"test": None},
     "download_urls": [
         {
             "split": "train",
@@ -37,7 +44,6 @@ task_config = {
             "md5": "ac98768b39a08fc0c6c2ddd15a981dd7",
         },
     ],
-    "sample_duration": 120.0,
     "small": {
         "download_urls": [
             {
@@ -53,11 +59,6 @@ task_config = {
         ],
         "version": "hear2021-small",
     },
-    # DCASE2016 task 2 used the segment-based total error rate as
-    # their main score and then the onset only event based F1 as
-    # their secondary score.
-    # However, we announced that onset F1 would be our primary score.
-    "evaluation": ["event_onset_200ms_fms", "segment_1s_er"],
 }
 
 
@@ -67,20 +68,6 @@ class ExtractMetadata(pipeline.ExtractMetadata):
 
     def requires(self):
         return {"train": self.train, "test": self.test}
-
-    @staticmethod
-    def slugify_file_name(relative_path: str):
-        """
-        Overriding slugify method for dcase files. Normally, slugify will remove
-        extra hyphens(-) and this will create ambiguity for positive and negative
-        decibles in dcase file names as they also have decible information in the
-        file names (example 6 and -6 will be slugified to being 6, which is not
-        expected)
-        """
-        slug_text = str(Path(relative_path).stem)
-        # Replace all the '-' to '_negative_'
-        slug_text = slug_text.replace("-", "_negative_")
-        return f"{slugify(slug_text)}"
 
     """
     DCASE 2016 uses funny pathing, so we just hardcode the desired
@@ -124,11 +111,74 @@ class ExtractMetadata(pipeline.ExtractMetadata):
 
         return pd.concat(metadatas).reset_index(drop=True)
 
+    def split_train_test_val(self, metadata: pd.DataFrame) -> pd.DataFrame:
+        """
+        Because the training set is so small, manually partition it into a
+        50/50 dev set that captures all hyperparameters in train and test.
+        """
+
+        splits_present = metadata["split"].unique()
+        assert set(splits_present) == {"train", "test"}
+
+        # Manually split into train + dev to try to balance the hyperparams
+        train_stems = {
+            "dev_1_ebr_-6_nec_1_poly_0",
+            "dev_1_ebr_-6_nec_3_poly_0",
+            "dev_1_ebr_-6_nec_4_poly_1",
+            "dev_1_ebr_6_nec_2_poly_0",
+            "dev_1_ebr_6_nec_3_poly_1",
+            "dev_1_ebr_6_nec_5_poly_1",
+            "dev_1_ebr_0_nec_2_poly_0",
+            "dev_1_ebr_0_nec_3_poly_1",
+            "dev_1_ebr_0_nec_4_poly_1",
+        }
+
+        valid_stems = {
+            "dev_1_ebr_-6_nec_2_poly_0",
+            "dev_1_ebr_-6_nec_3_poly_1",
+            "dev_1_ebr_-6_nec_5_poly_1",
+            "dev_1_ebr_6_nec_1_poly_0",
+            "dev_1_ebr_6_nec_3_poly_0",
+            "dev_1_ebr_6_nec_4_poly_1",
+            "dev_1_ebr_0_nec_1_poly_0",
+            "dev_1_ebr_0_nec_3_poly_0",
+            "dev_1_ebr_0_nec_5_poly_1",
+        }
+        assert len(train_stems) + len(valid_stems) == len(train_stems | valid_stems)
+
+        # Gross, let's never do this again
+        if self.task_config["version"].split("-")[-1] == "small":
+            assert train_stems | valid_stems >= set(
+                metadata[metadata.split == "train"]["unique_filestem"].unique()
+            )
+        else:
+            assert train_stems | valid_stems == set(
+                metadata[metadata.split == "train"]["unique_filestem"].unique()
+            )
+        metadata.reset_index(drop=True, inplace=True)
+        metadata.loc[metadata["unique_filestem"].isin(valid_stems), "split"] = "valid"
+        if self.task_config["version"].split("-")[-1] == "small":
+            assert train_stems >= set(
+                metadata[metadata.split == "train"]["unique_filestem"].unique()
+            )
+            assert valid_stems >= set(
+                metadata[metadata.split == "valid"]["unique_filestem"].unique()
+            )
+        else:
+            assert train_stems == set(
+                metadata[metadata.split == "train"]["unique_filestem"].unique()
+            )
+            assert valid_stems == set(
+                metadata[metadata.split == "valid"]["unique_filestem"].unique()
+            )
+        return metadata
+
 
 def main(
     sample_rates: List[int],
     tmp_dir: str,
     tasks_dir: str,
+    tar_dir: str,
     small: bool = False,
 ):
     if small:
@@ -144,6 +194,7 @@ def main(
     final_task = pipeline.FinalizeCorpus(
         sample_rates=sample_rates,
         tasks_dir=tasks_dir,
+        tar_dir=tar_dir,
         metadata_task=extract_metadata,
         task_config=task_config,
     )
