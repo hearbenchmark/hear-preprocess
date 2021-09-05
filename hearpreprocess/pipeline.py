@@ -1213,7 +1213,7 @@ class FinalizeCorpus(MetadataTask):
 
         # tarfile is pure python and very slow
         # But it's easy to precisely control, so we use it
-        with tarfile.open(Path(self.tar_dir).joinpath(tarname), "w:gz") as tar:
+        with tarfile.open(self.workdir.joinpath(tarname), "w:gz") as tar:
             # First, add all files in the task
             for source_file in Path(source_dir).glob("*"):
                 if source_file.is_file():
@@ -1230,7 +1230,10 @@ class FinalizeCorpus(MetadataTask):
                     self.source_to_archive_path(sample_rate_source, datestr),
                     filter=lambda tarinfo: self.tar_filter(tarinfo, pbar),
                 )
-        shutil.copyfile(tarname, tarname_latest)
+        shutil.copyfile(self.workdir.joinpath(tarname), Path(tar_dir).joinpath(tarname))
+        shutil.copyfile(
+            self.workdir.joinpath(tarname), Path(tar_dir).joinpath(tarname_latest)
+        )
 
     def run(self):
         for sample_rate in self.sample_rates:
