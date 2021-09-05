@@ -165,26 +165,25 @@ def get_audio_dir_stats(
     if len(audio_paths) != orig_count:
         summary_stats.update({"count_sample": len(audio_paths)})
 
-    summary_stats.update(
-        {
-            "duration_mean": round(np.mean(durations), 2),
-            "duration_var": round(np.var(durations), 2),
-        }
-    )
+    duration = {
+        "mean": round(np.mean(durations), 2),
+        "var": round(np.var(durations), 2),
+    }
     if np.var(durations) > 0.0:
-        summary_stats.update(
+        duration.update(
             {
-                "duration_min": round(np.min(durations), 2),
-                "duration_max": round(np.max(durations), 2),
+                "min": round(np.min(durations), 2),
+                "max": round(np.max(durations), 2),
                 # Percentile duration of the audio
                 **{
-                    f"duration_{p}th": round(np.percentile(durations, p), 2)
+                    f"{p}th": round(np.percentile(durations, p), 2)
                     for p in [10, 25, 50, 75, 90]
                 },
             }
         )
     summary_stats.update(
         {
+            "duration": duration,
             "samplerates": unique_sample_rates,
             "count_mono": mono_audio_count,
             # Count of no of success and failure for audio summary extraction for each
