@@ -44,27 +44,20 @@ MAX_TASK_DURATION_BY_SPLIT = {
 }
 
 
-def _diagnose_split_labels(
-    taskname: str, event_str: str, df: pd.DataFrame, filename_col
-):
+def _diagnose_split_labels(taskname: str, event_str: str, df: pd.DataFrame):
     """Makes split and label diagnostics"""
     assert "split" in df.columns
     assert "label" in df.columns
-    assert filename_col in df.columns
-    diagnostics.info(
-        f"{taskname} File count in each split {event_str}: "
-        "{}".format(df.groupby("split")[filename_col].nunique().to_dict())
-    )
-    # Get the unique labels in each split
-    split_label = df.groupby("split")["label"].nunique().to_dict()
+
+    split_file_count = df.groupby("split")["relpath"].nunique().to_dict()
     # Get fraction of rows with a particular label for each split
     split_label_frac = {
         split: split_df["label"].value_counts(normalize=True)
         for split, split_df in df.groupby("split")
     }
-    # Get percentage of rows with a particular label for each split
-    split_label_percentage = {
-        split: (round(split_df * 100.0, 2)).to_dict()
+    # Get frequency of a particular label for each split
+    split_label_freq = {
+        split: (round(split_df, 3)).to_dict().items()
         for split, split_df in split_label_frac.items()
     }
     # Get labels which are missing for a particular split
@@ -72,18 +65,34 @@ def _diagnose_split_labels(
         split: set(df["label"].unique()) - set(labels)
         for split, labels in df.groupby("split")["label"].apply(set).to_dict().items()
     }
-    diagnostics.info(
-        f"{taskname} Unique label counts in each split {event_str}: "
-        "{}".format(split_label)
-    )
-    diagnostics.info(
-        f"{taskname} Label percentage in each split {event_str}: "
-        "{}".format(split_label_percentage)
-    )
-    diagnostics.info(
-        f"{taskname} Missing labels in each split {event_str}: "
-        "{}".format(split_label_missing)
-    )
+    for split in SPLITS:
+        if split in split_file_count:
+            diagnostics.info(
+                "{} {} file count {:5s}: {}".format(
+                    taskname, event_str, split, split_file_count[split]
+                )
+            )
+    for split in SPLITS:
+        if split in split_label_freq:
+            diagnostics.info(
+                "{} {} label freq (descending) {:5s}: {}".format(
+                    taskname, event_str, split, split_label_freq[split]
+                )
+            )
+    for split in SPLITS:
+        if split in split_label_freq:
+            diagnostics.info(
+                "{} {} label freq (alphabetical) {:5s}: {}".format(
+                    taskname, event_str, split, sorted(split_label_freq[split])
+                )
+            )
+    for split in SPLITS:
+        if split in split_label_missing and split_label_missing[split]:
+            diagnostics.info(
+                "{} {} MISSING LABELS {:5s}: {}".format(
+                    taskname, event_str, split, split_label_missing[split]
+                )
+            )
 
 
 class DownloadCorpus(WorkTask):
@@ -531,13 +540,9 @@ class ExtractMetadata(WorkTask):
         metadata = self.get_all_metadata()
         print(f"metadata length = {len(metadata)}")
 
-        _diagnose_split_labels(
-            self.longname, "Before Postprocessing", metadata, "relpath"
-        )
+        _diagnose_split_labels(self.longname, "original", metadata)
         metadata = self.postprocess_all_metadata(metadata)
-        _diagnose_split_labels(
-            self.longname, "After Postprocessing", metadata, "relpath"
-        )
+        _diagnose_split_labels(self.longname, "postprocessed", metadata)
 
         # Split the metadata to create valid and test set from train if they are not
         # created explicitly in get_all_metadata
@@ -551,7 +556,7 @@ class ExtractMetadata(WorkTask):
             metadata.groupby("unique_filestem")["split"].nunique() == 1
         ).all(), "One unique_filestem is associated with more than one split"
 
-        _diagnose_split_labels(self.longname, "After Splitting", metadata, "relpath")
+        _diagnose_split_labels(self.longname, "split", metadata)
 
         if self.task_config["embedding_type"] == "scene":
             # Multiclass predictions should only have a single label per file
@@ -897,7 +902,9 @@ class SubcorpusMetadata(MetadataTask):
             )
             split_label_dfs.append(audiolabel_df)
 
-        _diagnose_split_labels(self.longname, "", pd.concat(split_label_dfs), "relpath")
+        _diagnose_split_labels(
+            self.longname, "", pd.concat(split_label_dfs).reset_index(drop=True)
+        )
         self.mark_complete()
 
 
@@ -1166,6 +1173,7 @@ def run(task: Union[List[luigi.Task], luigi.Task], num_workers: int):
     if isinstance(task, luigi.Task):
         task = [task]
 
+    diagnostics.info("LUIGI START")
     luigi_run_result = luigi.build(
         task,
         workers=num_workers,
@@ -1173,6 +1181,7 @@ def run(task: Union[List[luigi.Task], luigi.Task], num_workers: int):
         log_level="INFO",
         detailed_summary=True,
     )
+    diagnostics.info("LUIGI END")
     assert luigi_run_result.status in [
         luigi.execution_summary.LuigiStatusCode.SUCCESS,
         luigi.execution_summary.LuigiStatusCode.SUCCESS_WITH_RETRY,
