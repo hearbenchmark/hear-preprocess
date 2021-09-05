@@ -63,7 +63,7 @@ def _diagnose_split_labels(taskname: str, event_str: str, df: pd.DataFrame):
     # Get labels which are missing for a particular split
     split_label_missing = {
         split: set(df["label"].unique()) - set(labels)
-        for split, labels in df.groupby("split")["label"].apply(set).to_dict().items()
+        for split, labels in df.groupby("split")["label"].apply(set).to_dict()
     }
     for split in SPLITS:
         if split in split_file_count:
@@ -83,7 +83,7 @@ def _diagnose_split_labels(taskname: str, event_str: str, df: pd.DataFrame):
         if split in split_label_freq:
             diagnostics.info(
                 "{} {} label freq (alphabetical) {:5s}: {}".format(
-                    taskname, event_str, split, sorted(split_label_freq[split])
+                    taskname, event_str, split, sorted(split_label_freq[split].items())
                 )
             )
     for split in SPLITS:
@@ -147,11 +147,6 @@ class ExtractArchive(WorkTask):
         archive_path = self.requires()["download"].workdir.joinpath(self.infile)
         archive_path = archive_path.absolute()
         shutil.unpack_archive(archive_path, self.output_path)
-        stats = audio_util.get_audio_dir_stats(
-            in_dir=self.output_path,
-            out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
-        )
-        diagnostics.info(f"{self.longname} extractdir {self.outdir} stats {stats}")
 
         self.mark_complete()
 
@@ -564,6 +559,16 @@ class ExtractMetadata(WorkTask):
         return df
 
     def run(self):
+        # Output stats for every input directory
+        for key, requires in self.requires().items():
+            stats = audio_util.get_audio_dir_stats(
+                in_dir=requires.output_path,
+                out_file=self.workdir.joinpath(
+                    f"{slugify(requires.outdir)}_stats.json"
+                ),
+            )
+            diagnostics.info(f"{self.longname} extractdir {key} stats {stats}")
+
         # Get all metadata to be used for the task
         metadata = self.get_all_metadata()
         print(f"metadata length = {len(metadata)}")

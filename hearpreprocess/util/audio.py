@@ -155,11 +155,16 @@ def get_audio_dir_stats(
 
     summary_stats = {
         "count": len(audio_paths),
-        "duration_mean": np.mean(durations),
-        "duration_var": np.var(durations),
-        "duration_median": np.median(durations),
+        "duration_mean": round(np.mean(durations), 2),
+        "duration_var": round(np.var(durations), 2),
+        "duration_median": round(np.median(durations), 2),
+        "duration_min": round(np.min(durations), 2),
+        "duration_max": round(np.max(durations), 2),
         # Percentile duration of the audio
-        **{f"duration_{p}th": np.percentile(durations, p) for p in [10, 25, 75, 90]},
+        **{
+            f"duration_{p}th": round(np.percentile(durations, p), 2)
+            for p in [10, 25, 75, 90]
+        },
     }
     summary_stats.update(
         {
@@ -168,8 +173,8 @@ def get_audio_dir_stats(
             # Count of no of success and failure for audio summary extraction for each
             # extension type
             "summary": {
-                "successfully_extracted": success_counter,
-                "failed_to_extract": failure_counter,
+                "successfully_extracted": dict(success_counter),
+                "failed_to_extract": dict(failure_counter),
             },
         }
     )
