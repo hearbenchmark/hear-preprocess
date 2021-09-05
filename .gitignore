@@ -149,8 +149,5 @@ dmypy.json
 # vscode
 .vscode
 
-#spotty configured file
-spotty.yaml
-
 lightning_logs/
 wandb/

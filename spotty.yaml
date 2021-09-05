@@ -1,0 +1,56 @@
+# You must delete disks manually on GCP :\
+# https://console.cloud.google.com/compute/disks?project=hear2021-evaluation
+
+project:
+  name: hearpreprocess
+  syncFilters:
+    - exclude:
+        - '*/__pycache__/*'
+        - .git/*
+        - .idea/*
+        - .mypy_cache/*
+        - _workdir/*
+        - hear-2021*.tar.gz
+        - hear-2021*/
+        - hearpreprocess.egg-info/*
+        - tasks/*
+
+containers:
+  - projectDir: /workspace/project
+    #image: turian/hearpreprocess
+    image: turian/heareval
+    volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+    runtimeParameters: ['--shm-size', '20G']
+
+instances:
+  - name: hearpreprocess-i1-joseph
+    provider: gcp
+    parameters:
+      zone: europe-west4-a
+      #machineType: c2-standard-16
+      machineType: n1-standard-4
+      preemptibleInstance: False
+      # TODO: REMOVEME
+      gpu:
+        type: nvidia-tesla-v100
+        count: 1
+      # gcloud compute images list 
+      # https://console.cloud.google.com/compute/images?project=hear2021-evaluation
+      #imageUri: projects/ubuntu-os-cloud/global/images/ubuntu-2004-focal-v20210825
+      imageUri: projects/ml-images/global/images/c0-deeplearning-common-cu110-v20210818-debian-10
+      volumes:
+        - name: workspace
+          parameters:
+            # Be careful to delete this if you're not using it!
+            size: 2000
+# Not implemented for GCP, all volumes will be retained
+#            deletionPolicy: retain
+            mountDir: /workspace
+
+scripts:
+  clean: |
+    bash clean.sh
+  run: |
+    python3 -m hearpreprocess.runner all
