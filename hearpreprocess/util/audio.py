@@ -157,13 +157,12 @@ def get_audio_dir_stats(
         "count": len(audio_paths),
         "duration_mean": round(np.mean(durations), 2),
         "duration_var": round(np.var(durations), 2),
-        "duration_median": round(np.median(durations), 2),
         "duration_min": round(np.min(durations), 2),
         "duration_max": round(np.max(durations), 2),
         # Percentile duration of the audio
         **{
             f"duration_{p}th": round(np.percentile(durations, p), 2)
-            for p in [10, 25, 75, 90]
+            for p in [10, 25, 50, 75, 90]
         },
     }
     summary_stats.update(
