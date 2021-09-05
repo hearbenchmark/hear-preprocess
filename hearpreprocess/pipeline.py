@@ -464,19 +464,31 @@ class ExtractMetadata(WorkTask):
         duration_ms = duration * 1000.0
         assert "start" in metadata.columns
         assert "end" in metadata.columns
+
+        #Drop the events starting after the sample duration
         trimmed_metadata = metadata.loc[lambda df: df["start"] < duration_ms]
+        events_dropped = len(metadata) - len(trimmed_metadata)
+
+        #Trime the events starting before but extending beyond the sample duration
+        events_trimmed = len(trimmed_metadata.loc[lambda df: df["end"] > duration_ms])
         trimmed_metadata.loc[lambda df: df["end"] > duration_ms] = duration_ms
+
         assert (trimmed_metadata["start"] <= duration_ms).all()
         assert (trimmed_metadata["end"] <= duration_ms).all()
+        assert (len(trimmed_metadata) <= len(metadata))
         assert (
             metadata["relpath"].nunique() == trimmed_metadata["relpath"].nunique()
         ), "File are getting removed while trimming. This is "
         "unexpected and only events from the end of the files should be removed"
 
-        events_dropped = len(metadata) - len(trimmed_metadata)
+        
         diagnostics.info(
-            f"{self.longname} - Events dropped due to trimming {events_dropped} "
-            "({}%)".format(round(events_dropped / len(metadata) * 100.0, 2))
+            f"{self.longname} - Events dropped count {events_dropped} "
+            "percetage {}%".format(round(events_dropped / len(metadata) * 100.0, 2))
+        )
+        diagnostics.info(
+            f"{self.longname} - Events trimmed count {events_trimmed} "
+            "percetage {}%".format(round(events_dropped / len(metadata) * 100.0, 2))
         )
         return trimmed_metadata
 
@@ -509,8 +521,11 @@ class ExtractMetadata(WorkTask):
                 )
                 assert (label_count == 1).all()
         elif self.task_config["embedding_type"] == "event":
-            # Trim the metadata to remove the events hapenning after the sample duration
-            # specified in the task config. The specified sample duration is in seconds
+            # Remove the events starting after the sample duration, and trim 
+            # the events starting before but extending beyond the sample
+            # duration
+            # sample duration is specified in the task config. 
+            # The specified sample duration is in seconds
             metadata = self.trim_event_metadata(
                 metadata, duration=self.task_config["sample_duration"]
             )
