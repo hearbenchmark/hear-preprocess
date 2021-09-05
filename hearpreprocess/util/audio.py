@@ -102,7 +102,7 @@ def get_audio_stats(in_file: Union[str, Path]) -> Union[Dict[str, Any], Any]:
         audio_stats = {
             "sample_rate": int(audio_stream["sample_rate"]),
             "samples": int(audio_stream["duration_ts"]),
-            "mono": True if audio_stream["channels"] == 1 else False,
+            "mono": audio_stream["channels"] == 1,
             "duration": float(audio_stream["duration"]),
             "ext": Path(in_file).suffix,
         }
