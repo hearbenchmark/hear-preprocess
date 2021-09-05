@@ -33,7 +33,7 @@ cd hear-preprocess
 Add secret task submodule:
 ```
 git submodule init
-git submodule update
+git submodule update --remote
 ```
 **_NOTE_**: Secret tasks are not available to participants. You
 should skip the above step.

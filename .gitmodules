@@ -1,3 +1,4 @@
 [submodule "hearpreprocess/secrettasks"]
 	path = hearpreprocess/secrettasks
 	url = git@github.com:neuralaudio/hear2021-secret-tasks
+    branch = main
