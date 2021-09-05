@@ -342,6 +342,8 @@ class ExtractMetadata(WorkTask):
             )
 
         # Now, deterministically shuffle the metadata
+        # If we are going to drop things or subselect, we don't
+        # want to do it according to alphabetical or filesystem order.
         metadata = metadata.sample(
             frac=1, random_state=str2int("postprocess_all_metadata")
         ).reset_index(drop=True)
