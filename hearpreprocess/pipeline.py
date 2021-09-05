@@ -2,7 +2,6 @@
 Generic pipelines for datasets
 """
 
-import glob
 import json
 import os
 import random
@@ -1041,7 +1040,7 @@ class FinalizeCorpus(MetadataTask):
         )
         assert (
             self.tasks_dir in ("tasks", "tasks/") or archive_path != source_path
-        ), f"{archive_path} == {source_dir}"
+        ), f"{archive_path} == {source_path}"
         assert archive_path.startswith("tasks")
         archive_path = f"hear-{__version__}/{archive_path}"
         return archive_path
@@ -1055,7 +1054,6 @@ class FinalizeCorpus(MetadataTask):
     def create_tar(self, sample_rate: int):
         tarname = f"hear-{__version__}-{self.versioned_task_name}-{sample_rate}.tar.gz"
         source_dir = str(self.requires()["combined"].workdir)
-        archive_path = self.source_to_archive_path(source_dir)
 
         # Compute the audio files to be tar'ed
         files = set()
