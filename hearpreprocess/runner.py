@@ -9,8 +9,8 @@ from typing import Optional
 
 import click
 
+import hearpreprocess.dcase2016_task2 as dcase2016_task2
 import hearpreprocess.nsynth_pitch as nsynth_pitch
-import hearpreprocess.office_events as office_events
 import hearpreprocess.pipeline as pipeline
 import hearpreprocess.speech_commands as speech_commands
 
@@ -34,8 +34,8 @@ except ImportError as e:
 tasks = {
     "speech_commands": [speech_commands],
     "nsynth_pitch": [nsynth_pitch],
-    "office_events": [office_events],
-    "all": [speech_commands, nsynth_pitch, office_events]
+    "dcase2016_task2": [dcase2016_task2],
+    "all": [speech_commands, nsynth_pitch, dcase2016_task2]
     + secret_tasks.pop("all-secrets", []),
     # Add the task config for the secrets task if the secret task config was found.
     # Not available for participants
