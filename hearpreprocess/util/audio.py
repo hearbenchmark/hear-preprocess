@@ -137,7 +137,7 @@ def get_audio_dir_stats(
     audio_dir_stats = []
     for audio_path in tqdm(audio_paths):
         audio_stats = get_audio_stats(audio_path)
-        if audio_stats:
+        if audio_stats is not None:
             audio_dir_stats.append(audio_stats)
             success_counter[audio_path.suffix] += 1
         else:
