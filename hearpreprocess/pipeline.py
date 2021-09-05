@@ -526,19 +526,13 @@ class ExtractMetadata(WorkTask):
         metadata = self.get_all_metadata()
         print(f"metadata length = {len(metadata)}")
 
-        def _log_metadata_split_size_label(metadata, event_str):
-            diagnostics.info(
-                f"{self.longname} Files in each split {event_str}: "
-                "{}".format(metadata.groupby("split")["relpath"].nunique().to_dict())
-            )
-            diagnostics.info(
-                f"{self.longname} Unique labels in each split {event_str}: "
-                "{}".format(metadata.groupby("split")["label"].nunique().to_dict())
-            )
-
-        _log_metadata_split_size_label(metadata, "Before Postprocessing")
+        _diagnose_split_labels(
+            self.longname, "Before Postprocessing", metadata, "relpath"
+        )
         metadata = self.postprocess_all_metadata(metadata)
-        _log_metadata_split_size_label(metadata, "After Postprocessing")
+        _diagnose_split_labels(
+            self.longname, "After Postprocessing", metadata, "relpath"
+        )
 
         # Split the metadata to create valid and test set from train if they are not
         # created explicitly in get_all_metadata
@@ -548,28 +542,18 @@ class ExtractMetadata(WorkTask):
         assert (
             len(
                 set.intersection(
-                    *map(set, metadata.groupby("split")["relpath"].apply(list).tolist())
+                    *map(
+                        set,
+                        metadata.groupby("split")["unique_filestem"]
+                        .apply(list)
+                        .tolist(),
+                    )
                 )
             )
             == 0
         ), "Relpath is not unique across split"
 
-        _log_metadata_split_size_label(metadata, "After Splitting")
-
-        diagnostics.info(
-            f"{self.longname} Existing Filepaths in metadata  for each split: "
-            "{}".format(
-                metadata.drop_duplicates(subset=["relpath"])
-                .assign(
-                    exists=lambda df: df["relpath"].apply(
-                        lambda relpath: Path(relpath).exists()
-                    )
-                )
-                .groupby("split")["exists"]
-                .sum()
-                .to_dict()
-            )
-        )
+        _diagnose_split_labels(self.longname, "After Splitting", metadata, "relpath")
 
         if self.task_config["embedding_type"] == "scene":
             # Multiclass predictions should only have a single label per file
