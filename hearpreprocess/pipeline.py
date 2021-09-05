@@ -1197,7 +1197,10 @@ class FinalizeCorpus(MetadataTask):
 
     def create_tar(self, sample_rate: int):
         datestr = datetime.today().strftime("%Y%m%d")
-        tarname = f"hear-{datestr}-{__version__}-{self.versioned_task_name}-{sample_rate}.tar.gz"
+        tarname = (
+            f"hear-{datestr}-{__version__}-"
+            + f"{self.versioned_task_name}-{sample_rate}.tar.gz"
+        )
         tarname_latest = f"hear-LATEST-{self.versioned_task_name}-{sample_rate}.tar.gz"
         source_dir = str(self.requires()["combined"].workdir)
 
@@ -1227,7 +1230,7 @@ class FinalizeCorpus(MetadataTask):
                     self.source_to_archive_path(sample_rate_source, datestr),
                     filter=lambda tarinfo: self.tar_filter(tarinfo, pbar),
                 )
-        shutil.copyfile(tarfile, tarfile_latest)
+        shutil.copyfile(tarname, tarname_latest)
 
     def run(self):
         for sample_rate in self.sample_rates:
