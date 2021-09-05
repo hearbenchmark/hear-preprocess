@@ -5,13 +5,14 @@ project:
   name: hearpreprocess
   syncFilters:
     - exclude:
-        - .idea/*
-        - .git/*
         - '*/__pycache__/*'
-        - _workdir/*
-        - tasks/*
+        - .git/*
+        - .idea/*
         - .mypy_cache/*
+        - _workdir/*
+        - hear-2021*.tar.gz
         - hearpreprocess.egg-info/*
+        - tasks/*
 
 containers:
   - projectDir: /workspace/project

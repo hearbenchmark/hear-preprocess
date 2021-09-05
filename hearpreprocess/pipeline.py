@@ -1072,17 +1072,52 @@ class FinalizeCorpus(MetadataTask):
             )
         }
 
-    def create_tar(self, sample_rate: str):
-        tarname = f"hear-{__version__}-{self.versioned_task_name}-{sample_rate}.tar.gz"
-        source_dir = str(self.requires()["combined"].workdir)
-        arcname = source_dir.replace(self.tasks_dir, "tasks").replace(
+    def source_to_archive_path(self, source_path: Union[str, Path]) -> str:
+        source_path = str(source_path)
+        archive_path = source_path.replace(self.tasks_dir, "tasks").replace(
             "tasks//", "tasks/"
         )
         assert (
-            self.tasks_dir in ("tasks", "tasks/") or arcname != source_dir
-        ), f"{arcname} == {source_dir}"
+            self.tasks_dir in ("tasks", "tasks/") or archive_path != source_path
+        ), f"{archive_path} == {source_path}"
+        assert archive_path.startswith("tasks")
+        archive_path = f"hear-{__version__}/{archive_path}"
+        return archive_path
+
+    @staticmethod
+    def tar_filter(tarinfo: tarfile.TarInfo, pbar: tqdm) -> Optional[tarfile.TarInfo]:
+        """tarfile with progress bar"""
+        pbar.update(1)
+        return tarinfo
+
+    def create_tar(self, sample_rate: int):
+        tarname = f"hear-{__version__}-{self.versioned_task_name}-{sample_rate}.tar.gz"
+        source_dir = str(self.requires()["combined"].workdir)
+
+        # Compute the audio files to be tar'ed
+        files = set()
+        for split in SPLITS:
+            files |= set(
+                json.load(open(os.path.join(source_dir, f"{split}.json"))).keys()
+            )
+
+        # tarfile is pure python and very slow
+        # But it's easy to precisely control, so we use it
         with tarfile.open(Path(self.tar_dir).joinpath(tarname), "w:gz") as tar:
-            tar.add(source_dir, arcname)
+            # First, add all files in the task
+            for source_file in Path(source_dir).glob("*"):
+                if source_file.is_file():
+                    tar.add(source_file, self.source_to_archive_path(source_file))
+            # Now add audio files for this sample rate
+            sample_rate_source = os.path.join(source_dir, str(sample_rate))
+            with tqdm(
+                desc=f"tar {self.task_name} {sample_rate}", total=len(files)
+            ) as pbar:
+                tar.add(
+                    sample_rate_source,
+                    self.source_to_archive_path(sample_rate_source),
+                    filter=lambda tarinfo: self.tar_filter(tarinfo, pbar),
+                )
 
     def run(self):
         for sample_rate in self.sample_rates:
