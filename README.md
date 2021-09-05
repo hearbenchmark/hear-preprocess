@@ -77,7 +77,7 @@ python3 -m hearpreprocess.runner all
 
 Upload to private bucket:
 ```
-gsutil -m cp hear-2021*.tar.gz gs://hear2021-private/
+gsutil -m cp hear-*.tar.gz gs://hear2021-private/
 ```
 
 You can also just run individual tasks:
