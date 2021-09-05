@@ -55,15 +55,15 @@ def _diagnose_split_labels(taskname, event_str, df, filename_col):
     )
     # Get the unique labels in each split
     split_label = df.groupby("split")["label"].nunique().to_dict()
+    # Get fraction of rows with a particular label for each split
+    split_label_frac = {
+        split: split_df["label"].value_counts(normalize=True)
+        for split, split_df in df.groupby("split")
+    }
     # Get percentage of rows with a particular label for each split
     split_label_percentage = {
-        split: (
-            round(
-                split_df["label"].value_counts(normalize=True) * 100.0,
-                2,
-            )
-        ).to_dict()
-        for split, split_df in df.groupby("split")
+        split: (round(split_df * 100.0, 2)).to_dict()
+        for split, split_df in split_label_frac.items()
     }
     # Get labels which are missing for a particular split
     split_label_missing = {
@@ -486,7 +486,8 @@ class ExtractMetadata(WorkTask):
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
 
         diagnostics.info(
-            f"{self.longname} Split percentage for the splitting: "
+            f"{self.longname} Split percentage for splitting the train set to "
+            "generate other sets: "
             "{}".format(
                 {
                     "test": test_percentage,
@@ -553,7 +554,7 @@ class ExtractMetadata(WorkTask):
                 )
             )
             == 0
-        ), "Relpath is not unique across split"
+        ), "Filestems are not unique across split"
 
         _diagnose_split_labels(self.longname, "After Splitting", metadata, "relpath")
 
