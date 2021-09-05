@@ -154,23 +154,29 @@ def get_audio_dir_stats(
     mono_audio_count = sum(stats["mono"] for stats in audio_dir_stats)
 
     summary_stats = {
-        # Count of no of success and failure for audio summary extraction for each
-        # extension type
-        "audio_summary_from": {
-            "successfully_extracted": success_counter,
-            "failed_to_extract": failure_counter,
-        },
-        "audio_samplerate_count": unique_sample_rates,
-        "mono_audio_count": mono_audio_count,
-        "audio_count": len(audio_paths),
-        "audio_mean_dur(sec)": np.mean(durations),
-        "audio_median_dur(sec)": np.median(durations),
+        "count": len(audio_paths),
+        "duration_mean": round(np.mean(durations), 2),
+        "duration_var": round(np.var(durations), 2),
+        "duration_min": round(np.min(durations), 2),
+        "duration_max": round(np.max(durations), 2),
         # Percentile duration of the audio
         **{
-            f"{str(p)}th percentile dur(sec)": np.percentile(durations, p)
-            for p in [10, 25, 75, 90]
+            f"duration_{p}th": round(np.percentile(durations, p), 2)
+            for p in [10, 25, 50, 75, 90]
         },
     }
+    summary_stats.update(
+        {
+            "samplerates": unique_sample_rates,
+            "count_mono": mono_audio_count,
+            # Count of no of success and failure for audio summary extraction for each
+            # extension type
+            "summary": {
+                "successfully_extracted": dict(success_counter),
+                "failed_to_extract": dict(failure_counter),
+            },
+        }
+    )
 
     json.dump(summary_stats, open(out_file, "w"), indent=True)
     return summary_stats

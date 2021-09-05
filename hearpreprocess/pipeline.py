@@ -44,6 +44,57 @@ MAX_TASK_DURATION_BY_SPLIT = {
 }
 
 
+def _diagnose_split_labels(taskname: str, event_str: str, df: pd.DataFrame):
+    """Makes split and label diagnostics"""
+    assert "split" in df.columns
+    assert "label" in df.columns
+
+    split_file_count = df.groupby("split")["relpath"].nunique().to_dict()
+    # Get fraction of rows with a particular label for each split
+    split_label_frac = {
+        split: split_df["label"].value_counts(normalize=True)
+        for split, split_df in df.groupby("split")
+    }
+    # Get frequency of a particular label for each split
+    split_label_freq = {
+        split: list((round(split_df, 3)).to_dict().items())
+        for split, split_df in split_label_frac.items()
+    }
+    # Get labels which are missing for a particular split
+    split_label_missing = {
+        split: set(df["label"].unique()) - set(labels)
+        for split, labels in df.groupby("split")["label"].apply(set).to_dict().items()
+    }
+    for split in SPLITS:
+        if split in split_file_count:
+            diagnostics.info(
+                "{} {} file count {:5s}: {}".format(
+                    taskname, event_str, split, split_file_count[split]
+                )
+            )
+    for split in SPLITS:
+        if split in split_label_freq:
+            diagnostics.info(
+                "{} {} label freq (descending) {:5s}: {}".format(
+                    taskname, event_str, split, split_label_freq[split]
+                )
+            )
+    for split in SPLITS:
+        if split in split_label_freq:
+            diagnostics.info(
+                "{} {} label freq (alphabetical) {:5s}: {}".format(
+                    taskname, event_str, split, sorted(split_label_freq[split])
+                )
+            )
+    for split in SPLITS:
+        if split in split_label_missing and split_label_missing[split]:
+            diagnostics.info(
+                "{} {} MISSING LABELS {:5s}: {}".format(
+                    taskname, event_str, split, split_label_missing[split]
+                )
+            )
+
+
 class DownloadCorpus(WorkTask):
     """
     Downloads from the url and saveds it in the workdir with name
@@ -96,14 +147,6 @@ class ExtractArchive(WorkTask):
         archive_path = self.requires()["download"].workdir.joinpath(self.infile)
         archive_path = archive_path.absolute()
         shutil.unpack_archive(archive_path, self.output_path)
-        stats = audio_util.get_audio_dir_stats(
-            in_dir=self.output_path,
-            out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
-        )
-        diagnostics.info(
-            f"{self.longname} count={stats['audio_count']} "
-            f"duration_mean={stats['audio_mean_dur(sec)']}"
-        )
 
         self.mark_complete()
 
@@ -412,7 +455,7 @@ class ExtractMetadata(WorkTask):
         assert "train" in splits_present, "Train split not found in metadata"
         splits_to_sample = set(SPLITS).difference(splits_present)
         diagnostics.info(
-            f"{self.longname} - Splits not already present in the dataset, "
+            f"{self.longname} Splits not already present in the dataset, "
             + f"now sampled with split key are: {splits_to_sample}"
         )
 
@@ -443,6 +486,18 @@ class ExtractMetadata(WorkTask):
         assert (
             train_percentage + valid_percentage + test_percentage == 100
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
+
+        diagnostics.info(
+            f"{self.longname} Split percentage for splitting the train set to "
+            "generate other sets: "
+            "{}".format(
+                {
+                    "test": test_percentage,
+                    "train": train_percentage,
+                    "valid": valid_percentage,
+                }
+            )
+        )
 
         # Deterministically sort all unique split_keys.
         split_keys = sorted(metadata[metadata.split == "train"]["split_key"].unique())
@@ -504,15 +559,32 @@ class ExtractMetadata(WorkTask):
         return df
 
     def run(self):
+        # Output stats for every input directory
+        for key, requires in self.requires().items():
+            stats = audio_util.get_audio_dir_stats(
+                in_dir=requires.output_path,
+                out_file=self.workdir.joinpath(f"{key}_stats.json"),
+            )
+            diagnostics.info(f"{self.longname} extractdir {key} stats {stats}")
+
         # Get all metadata to be used for the task
         metadata = self.get_all_metadata()
         print(f"metadata length = {len(metadata)}")
 
+        _diagnose_split_labels(self.longname, "original", metadata)
         metadata = self.postprocess_all_metadata(metadata)
+        _diagnose_split_labels(self.longname, "postprocessed", metadata)
 
         # Split the metadata to create valid and test set from train if they are not
         # created explicitly in get_all_metadata
         metadata = self.split_train_test_val(metadata)
+
+        # Each split should have unique files and no file should be across splits
+        assert (
+            metadata.groupby("unique_filestem")["split"].nunique() == 1
+        ).all(), "One unique_filestem is associated with more than one split"
+
+        _diagnose_split_labels(self.longname, "split", metadata)
 
         if self.task_config["embedding_type"] == "scene":
             # Multiclass predictions should only have a single label per file
@@ -623,6 +695,10 @@ class SubsampleSplit(MetadataTask):
             .drop_duplicates()
             .sort_values("unique_filestem")
         )
+
+        assert split_filestem_relpaths["relpath"].nunique() == len(
+            split_filestem_relpaths
+        )
         # Deterministically shuffle the filestems
         split_filestem_relpaths = split_filestem_relpaths.sample(
             frac=1, random_state=str2int(f"SubsampleSplit({self.split})")
@@ -646,6 +722,12 @@ class SubsampleSplit(MetadataTask):
             max_files = len(split_filestem_relpaths)
         else:
             max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
+
+        diagnostics.info(
+            f"{self.longname} "
+            f"Max number of files to sample in split {self.split}: "
+            f"{max_files}"
+        )
 
         diagnostics.info(
             f"{self.longname} "
@@ -706,6 +788,7 @@ class SubsampleSplits(MetadataTask):
         # for all the requires so just grab the first one.
         key = list(self.requires().keys())[0]
         workdir.symlink_to(Path(self.requires()[key].workdir).absolute())
+
         self.mark_complete()
 
 
@@ -727,6 +810,8 @@ class MonoWavTrimSubcorpus(MetadataTask):
 
     def run(self):
         for audiofile in tqdm(list(self.requires()["corpus"].workdir.iterdir())):
+            if audiofile.suffix == ".json":
+                continue
             newaudiofile = self.workdir.joinpath(f"{audiofile.stem}.wav")
             audio_util.mono_wav_and_fix_duration(
                 str(audiofile),
@@ -755,7 +840,8 @@ class SubcorpusData(MetadataTask):
 
     def run(self):
         audiofiles = set(self.requires()["corpus"].workdir.glob("*.wav"))
-        for audiofile in audiofiles:
+        split_count = {split: 0 for split in SPLITS}
+        for audiofile in tqdm(audiofiles):
             # Compare the filename with the unique_filestem.
             # Note that the unique_filestem does not have a file extension
             splits = self.metadata.loc[
@@ -764,10 +850,24 @@ class SubcorpusData(MetadataTask):
             assert len(splits) == 1, "unique_filestem should be unique"
             "across the entire dataset and imply a particular split."
             split = splits.values[0]
+            split_count[split] += 1
             split_dir = self.workdir.joinpath(split)
             split_dir.mkdir(exist_ok=True)
             newaudiofile = new_basedir(audiofile, split_dir)
             os.symlink(os.path.realpath(audiofile), newaudiofile)
+
+        diagnostics.info(
+            f"{self.longname} Files in each split after making split subcorpus: "
+            "{}".format(split_count)
+        )
+
+        # Output stats for every input directory
+        for split in SPLITS:
+            stats = audio_util.get_audio_dir_stats(
+                in_dir=self.workdir.joinpath(split),
+                out_file=self.workdir.joinpath(f"{split}_stats.json"),
+            )
+            diagnostics.info(f"{self.longname} {split} stats {stats}")
 
         self.mark_complete()
 
@@ -789,7 +889,9 @@ class SubcorpusMetadata(MetadataTask):
         }
 
     def run(self):
-        for split_path in self.requires()["data"].workdir.iterdir():
+        split_label_dfs = []
+        for split in SPLITS:
+            split_path = self.requires()["data"].workdir.joinpath(split)
             audiodf = pd.DataFrame(
                 [(a.stem, a.suffix) for a in list(split_path.glob("*.wav"))],
                 columns=["unique_filestem", "ext"],
@@ -834,10 +936,20 @@ class SubcorpusMetadata(MetadataTask):
             # Save the json used for training purpose
             json.dump(
                 audiolabel_json,
-                self.workdir.joinpath(f"{split_path.stem}.json").open("w"),
+                self.workdir.joinpath(f"{split}.json").open("w"),
                 indent=True,
             )
 
+            # Save the slug and the label in as the split metadata
+            audiolabel_df.to_csv(
+                self.workdir.joinpath(f"{split}.csv"),
+                index=False,
+            )
+            split_label_dfs.append(audiolabel_df)
+
+        _diagnose_split_labels(
+            self.longname, "", pd.concat(split_label_dfs).reset_index(drop=True)
+        )
         self.mark_complete()
 
 
@@ -860,18 +972,18 @@ class MetadataVocabulary(MetadataTask):
     def run(self):
         labelset = set()
         # Save statistics about each subcorpus metadata
-        for subcorpus_metadata in list(
-            self.requires()["subcorpus_metadata"].workdir.glob("*.csv")
-        ):
-            labeldf = pd.read_csv(subcorpus_metadata)
+        for split in SPLITS:
+            labeldf = pd.read_csv(
+                self.requires()["subcorpus_metadata"].workdir.joinpath(f"{split}.csv")
+            )
             json.dump(
                 labeldf["label"].value_counts(normalize=True).to_dict(),
-                self.workdir.joinpath(
-                    f"labelcount_{subcorpus_metadata.stem}.json"
-                ).open("w"),
+                self.workdir.joinpath(f"labelcount_{split}.json").open("w"),
                 indent=True,
             )
-            labelset = labelset | set(labeldf["label"].unique().tolist())
+            split_labelset = set(labeldf["label"].unique().tolist())
+            assert len(split_labelset) != 0
+            labelset = labelset | split_labelset
 
         # Build the label idx csv and save it
         labelcsv = pd.DataFrame(
@@ -916,16 +1028,6 @@ class ResampleSubcorpus(MetadataTask):
             resampled_audiofile = new_basedir(audiofile, resample_dir)
             audio_util.resample_wav(audiofile, resampled_audiofile, self.sr)
 
-        stats = audio_util.get_audio_dir_stats(
-            in_dir=resample_dir,
-            out_file=self.workdir.joinpath(str(self.sr)).joinpath(
-                f"{self.split}_stats.json"
-            ),
-        )
-        diagnostics.info(
-            f"{self.longname} {self.split} count={stats['audio_count']} "
-            f"duration_mean={stats['audio_mean_dur(sec)']}"
-        )
         self.mark_complete()
 
 
@@ -1139,6 +1241,7 @@ def run(task: Union[List[luigi.Task], luigi.Task], num_workers: int):
     if isinstance(task, luigi.Task):
         task = [task]
 
+    diagnostics.info("LUIGI START")
     luigi_run_result = luigi.build(
         task,
         workers=num_workers,
@@ -1146,6 +1249,7 @@ def run(task: Union[List[luigi.Task], luigi.Task], num_workers: int):
         log_level="INFO",
         detailed_summary=True,
     )
+    diagnostics.info("LUIGI END")
     assert luigi_run_result.status in [
         luigi.execution_summary.LuigiStatusCode.SUCCESS,
         luigi.execution_summary.LuigiStatusCode.SUCCESS_WITH_RETRY,
