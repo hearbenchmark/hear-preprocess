@@ -57,13 +57,13 @@ def _diagnose_split_labels(taskname: str, event_str: str, df: pd.DataFrame):
     }
     # Get frequency of a particular label for each split
     split_label_freq = {
-        split: (round(split_df, 3)).to_dict().items()
+        split: list((round(split_df, 3)).to_dict().items())
         for split, split_df in split_label_frac.items()
     }
     # Get labels which are missing for a particular split
     split_label_missing = {
         split: set(df["label"].unique()) - set(labels)
-        for split, labels in df.groupby("split")["label"].apply(set).to_dict()
+        for split, labels in df.groupby("split")["label"].apply(set).to_dict().items()
     }
     for split in SPLITS:
         if split in split_file_count:
@@ -83,7 +83,7 @@ def _diagnose_split_labels(taskname: str, event_str: str, df: pd.DataFrame):
         if split in split_label_freq:
             diagnostics.info(
                 "{} {} label freq (alphabetical) {:5s}: {}".format(
-                    taskname, event_str, split, sorted(split_label_freq[split].items())
+                    taskname, event_str, split, sorted(split_label_freq[split])
                 )
             )
     for split in SPLITS:
@@ -563,9 +563,7 @@ class ExtractMetadata(WorkTask):
         for key, requires in self.requires().items():
             stats = audio_util.get_audio_dir_stats(
                 in_dir=requires.output_path,
-                out_file=self.workdir.joinpath(
-                    f"{slugify(requires.outdir)}_stats.json"
-                ),
+                out_file=self.workdir.joinpath(f"{key}_stats.json"),
             )
             diagnostics.info(f"{self.longname} extractdir {key} stats {stats}")
 
@@ -790,6 +788,7 @@ class SubsampleSplits(MetadataTask):
         # for all the requires so just grab the first one.
         key = list(self.requires().keys())[0]
         workdir.symlink_to(Path(self.requires()[key].workdir).absolute())
+
         self.mark_complete()
 
 
@@ -811,6 +810,8 @@ class MonoWavTrimSubcorpus(MetadataTask):
 
     def run(self):
         for audiofile in tqdm(list(self.requires()["corpus"].workdir.iterdir())):
+            if audiofile.suffix == ".json":
+                continue
             newaudiofile = self.workdir.joinpath(f"{audiofile.stem}.wav")
             audio_util.mono_wav_and_fix_duration(
                 str(audiofile),
@@ -859,6 +860,14 @@ class SubcorpusData(MetadataTask):
             f"{self.longname} Files in each split after making split subcorpus: "
             "{}".format(split_count)
         )
+
+        # Output stats for every input directory
+        for split in SPLITS:
+            stats = audio_util.get_audio_dir_stats(
+                in_dir=self.workdir.joinpath(split),
+                out_file=self.workdir.joinpath(f"{split}_stats.json"),
+            )
+            diagnostics.info(f"{self.longname} {split} stats {stats}")
 
         self.mark_complete()
 
@@ -1019,13 +1028,6 @@ class ResampleSubcorpus(MetadataTask):
             resampled_audiofile = new_basedir(audiofile, resample_dir)
             audio_util.resample_wav(audiofile, resampled_audiofile, self.sr)
 
-        stats = audio_util.get_audio_dir_stats(
-            in_dir=resample_dir,
-            out_file=self.workdir.joinpath(str(self.sr)).joinpath(
-                f"{self.split}_stats.json"
-            ),
-        )
-        diagnostics.info(f"{self.longname} {self.split} stats {stats}")
         self.mark_complete()
 
 
