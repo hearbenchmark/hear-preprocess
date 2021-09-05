@@ -118,7 +118,8 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         """
 
         splits_present = metadata["split"].unique()
-        assert set(splits_present) == {"train", "test"}
+        if set(splits_present) != {"train", "test"}:
+            raise AssertionError
 
         # Manually split into train + dev to try to balance the hyperparams
         train_stems = {
@@ -144,33 +145,40 @@ class ExtractMetadata(pipeline.ExtractMetadata):
             "dev_1_ebr_0_nec_3_poly_0",
             "dev_1_ebr_0_nec_5_poly_1",
         }
-        assert len(train_stems) + len(valid_stems) == len(train_stems | valid_stems)
+        if len(train_stems) + len(valid_stems) != len(train_stems | valid_stems):
+            raise AssertionError
 
         # Gross, let's never do this again
         if self.task_config["version"].split("-")[-1] == "small":
-            assert train_stems | valid_stems >= set(
+            if train_stems | valid_stems < set(
                 metadata[metadata.split == "train"]["unique_filestem"].unique()
-            )
+            ):
+                raise AssertionError
         else:
-            assert train_stems | valid_stems == set(
+            if train_stems | valid_stems != set(
                 metadata[metadata.split == "train"]["unique_filestem"].unique()
-            )
+            ):
+                raise AssertionError
         metadata.reset_index(drop=True, inplace=True)
         metadata.loc[metadata["unique_filestem"].isin(valid_stems), "split"] = "valid"
         if self.task_config["version"].split("-")[-1] == "small":
-            assert train_stems >= set(
+            if train_stems < set(
                 metadata[metadata.split == "train"]["unique_filestem"].unique()
-            )
-            assert valid_stems >= set(
+            ):
+                raise AssertionError
+            if valid_stems < set(
                 metadata[metadata.split == "valid"]["unique_filestem"].unique()
-            )
+            ):
+                raise AssertionError
         else:
-            assert train_stems == set(
+            if train_stems != set(
                 metadata[metadata.split == "train"]["unique_filestem"].unique()
-            )
-            assert valid_stems == set(
+            ):
+                raise AssertionError
+            if valid_stems != set(
                 metadata[metadata.split == "valid"]["unique_filestem"].unique()
-            )
+            ):
+                raise AssertionError
         return metadata
 
 

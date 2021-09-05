@@ -174,9 +174,10 @@ def download_file(url, local_filename, expected_md5):
                 f.write(chunk)
                 pbar.update(chunk_size)
             pbar.close()
-    assert (
-        md5sum(local_filename) == expected_md5
-    ), f"md5sum for url: {url} is: {md5sum(local_filename)}"
+    if (
+        md5sum(local_filename) != expected_md5
+    ):
+        raise AssertionError(f"md5sum for url: {url} is: {md5sum(local_filename)}")
     "It should be {expected_md5}"
     return local_filename
 

@@ -81,7 +81,8 @@ class GenerateTrainDataset(luigi_util.WorkTask):
     def run(self):
         train_path = Path(self.requires()["train"].workdir).joinpath("train")
         background_audio = list(train_path.glob(f"{BACKGROUND_NOISE}/*.wav"))
-        assert len(background_audio) > 0
+        if len(background_audio) <= 0:
+            raise AssertionError
 
         # Read all the background audio files and split into 1 second segments,
         # save all the segments into a folder called _silence_
@@ -91,7 +92,8 @@ class GenerateTrainDataset(luigi_util.WorkTask):
         print("Generating silence files from background sounds ...")
         for audio_path in tqdm(background_audio):
             audio, sr = sf.read(str(audio_path))
-            assert audio.ndim == 1
+            if audio.ndim != 1:
+                raise AssertionError
 
             basename = os.path.basename(audio_path)
             name, ext = os.path.splitext(basename)
@@ -107,13 +109,15 @@ class GenerateTrainDataset(luigi_util.WorkTask):
         for file_obj in train_path.iterdir():
             if file_obj.is_dir() and file_obj.name != BACKGROUND_NOISE:
                 linked_folder = Path(os.path.join(self.workdir, file_obj.name))
-                assert not linked_folder.exists()
+                if linked_folder.exists():
+                    raise AssertionError
                 linked_folder.symlink_to(file_obj.absolute(), target_is_directory=True)
 
             # Also need the testing and validation splits
             if file_obj.name in ["testing_list.txt", "validation_list.txt"]:
                 linked_file = Path(os.path.join(self.workdir, file_obj.name))
-                assert not linked_file.exists()
+                if linked_file.exists():
+                    raise AssertionError
                 linked_file.symlink_to(file_obj.absolute())
 
         self.mark_complete()
@@ -209,7 +213,8 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         train_df = pd.DataFrame(train_rel_paths, columns=["relpath"]).assign(
             split=lambda df: "train"
         )
-        assert len(train_df.merge(validation_df, on="relpath")) == 0
+        if len(train_df.merge(validation_df, on="relpath")) != 0:
+            raise AssertionError
 
         return pd.concat([test_df, validation_df, train_df]).reset_index(drop=True)
 

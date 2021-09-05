@@ -46,8 +46,10 @@ MAX_TASK_DURATION_BY_SPLIT = {
 
 def _diagnose_split_labels(taskname: str, event_str: str, df: pd.DataFrame):
     """Makes split and label diagnostics"""
-    assert "split" in df.columns
-    assert "label" in df.columns
+    if "split" not in df.columns:
+        raise AssertionError
+    if "label" not in df.columns:
+        raise AssertionError
 
     split_file_count = df.groupby("split")["relpath"].nunique().to_dict()
     # Get fraction of rows with a particular label for each split
@@ -171,7 +173,8 @@ def get_download_and_extract_tasks(task_config: Dict) -> Dict[str, WorkTask]:
             outdir = f"{split}/{name}"
         else:
             outdir = f"{split}"
-        assert outdir not in outdirs, f"{outdir} in {outdirs}. If you are downloading "
+        if outdir in outdirs:
+            raise AssertionError(f"{outdir} in {outdirs}. If you are downloading ")
         "multiple archives into one split, they should have different 'name's."
         outdirs.add(outdir)
         task = ExtractArchive(
@@ -340,13 +343,15 @@ class ExtractMetadata(WorkTask):
         )
 
         # No slashes can be present in the filestems. They are files, not dirs.
-        assert not metadata["unique_filestem"].str.contains("/", regex=False).any()
+        if metadata["unique_filestem"].str.contains("/", regex=False).any():
+            raise AssertionError
 
         # Check if one unique_filestem is associated with only one relpath.
-        assert metadata["relpath"].nunique() == metadata["unique_filestem"].nunique(), (
-            f'{metadata["relpath"].nunique()} != '
-            + f'{metadata["unique_filestem"].nunique()}'
-        )
+        if metadata["relpath"].nunique() != metadata["unique_filestem"].nunique():
+            raise AssertionError(
+                f'{metadata["relpath"].nunique()} != '
+                + f'{metadata["unique_filestem"].nunique()}'
+            )
         # Also implies there is a one to one correspondence between relpath
         # and unique_filestem.
         #  1. One unique_filestem to one relpath -- the bug which
@@ -358,18 +363,21 @@ class ExtractMetadata(WorkTask):
         #  2. One relpath to one unique_filestem -- always the case
         #  3. relpath.nunique() == unique_filestem.nunique(), automatically
         # holds if the above two holds.
-        assert (
+        if not (
             metadata.groupby("unique_filestem")["relpath"].nunique() == 1
-        ).all(), "One unique_filestem is associated with more than one relpath "
+        ).all():
+            raise AssertionError("One unique_filestem is associated with more than one relpath ")
         "Please make sure unique_filestems are unique"
 
         if "datapath" in metadata.columns:
             # If you use datapath, previous assertions check its
             # uniqueness wrt relpaths.
-            assert metadata["relpath"].nunique() == metadata["datapath"].nunique()
-            assert (
+            if metadata["relpath"].nunique() != metadata["datapath"].nunique():
+                raise AssertionError
+            if not (
                 metadata.groupby("datapath")["relpath"].nunique() == 1
-            ).all(), "One datapath is associated with more than one relpath "
+            ).all():
+                raise AssertionError("One datapath is associated with more than one relpath ")
             "Please make sure datapaths are unique"
 
         # First, put the metadata into a deterministic order.
@@ -407,7 +415,8 @@ class ExtractMetadata(WorkTask):
                 )
                 metadata = metadata.loc[exists]
                 metadata.reset_index(drop=True, inplace=True)
-                assert len(metadata) == sum(exists)
+                if len(metadata) != sum(exists):
+                    raise AssertionError
             else:
                 raise FileNotFoundError(
                     "Files in the metadata are missing in the directory"
@@ -452,7 +461,8 @@ class ExtractMetadata(WorkTask):
         # The metadata should at least have the train split
         # test and valid if not found in the metadata can be sampled
         # from the train
-        assert "train" in splits_present, "Train split not found in metadata"
+        if "train" not in splits_present:
+            raise AssertionError("Train split not found in metadata")
         splits_to_sample = set(SPLITS).difference(splits_present)
         diagnostics.info(
             f"{self.longname} Splits not already present in the dataset, "
@@ -479,13 +489,15 @@ class ExtractMetadata(WorkTask):
             valid_percentage = 0
             test_percentage = TEST_PERCENTAGE / tot
         else:
-            assert splits_to_sample == set(["valid", "test"])
+            if splits_to_sample != set(["valid", "test"]):
+                raise AssertionError
             train_percentage = TRAIN_PERCENTAGE
             valid_percentage = VALIDATION_PERCENTAGE
             test_percentage = TEST_PERCENTAGE
-        assert (
-            train_percentage + valid_percentage + test_percentage == 100
-        ), f"{train_percentage + valid_percentage + test_percentage} != 100"
+        if (
+            train_percentage + valid_percentage + test_percentage != 100
+        ):
+            raise AssertionError(f"{train_percentage + valid_percentage + test_percentage} != 100")
 
         diagnostics.info(
             f"{self.longname} Split percentage for splitting the train set to "
@@ -508,8 +520,10 @@ class ExtractMetadata(WorkTask):
 
         n_valid = int(round(n * valid_percentage / 100))
         n_test = int(round(n * test_percentage / 100))
-        assert n_valid > 0 or valid_percentage == 0
-        assert n_test > 0 or test_percentage == 0
+        if not (n_valid > 0 or valid_percentage == 0):
+            raise AssertionError
+        if not (n_test > 0 or test_percentage == 0):
+            raise AssertionError
         valid_split_keys = set(split_keys[:n_valid])
         test_split_keys = set(split_keys[n_valid : n_valid + n_test])
         metadata.loc[metadata["split_key"].isin(valid_split_keys), "split"] = "valid"
@@ -519,8 +533,10 @@ class ExtractMetadata(WorkTask):
     def trim_event_metadata(self, metadata: pd.DataFrame, duration: float):
         # Since the duration in the task config is in seconds convert to milliseconds
         duration_ms = duration * 1000.0
-        assert "start" in metadata.columns
-        assert "end" in metadata.columns
+        if "start" not in metadata.columns:
+            raise AssertionError
+        if "end" not in metadata.columns:
+            raise AssertionError
 
         # Drop the events starting after the sample duration
         trimmed_metadata = metadata.loc[lambda df: df["start"] < duration_ms]
@@ -530,12 +546,16 @@ class ExtractMetadata(WorkTask):
         events_trimmed = len(trimmed_metadata.loc[lambda df: df["end"] > duration_ms])
         trimmed_metadata.loc[lambda df: df["end"] > duration_ms] = duration_ms
 
-        assert (trimmed_metadata["start"] < duration_ms).all()
-        assert (trimmed_metadata["end"] <= duration_ms).all()
-        assert len(trimmed_metadata) <= len(metadata)
-        assert (
-            metadata["relpath"].nunique() == trimmed_metadata["relpath"].nunique()
-        ), "File are getting removed while trimming. This is "
+        if not (trimmed_metadata["start"] < duration_ms).all():
+            raise AssertionError
+        if not (trimmed_metadata["end"] <= duration_ms).all():
+            raise AssertionError
+        if len(trimmed_metadata) > len(metadata):
+            raise AssertionError
+        if (
+            metadata["relpath"].nunique() != trimmed_metadata["relpath"].nunique()
+        ):
+            raise AssertionError("File are getting removed while trimming. This is ")
         "unexpected and only events from the end of the files should be removed"
 
         diagnostics.info(
@@ -550,12 +570,17 @@ class ExtractMetadata(WorkTask):
 
     def get_requires_metadata_check(self, requires_key: str) -> pd.DataFrame:
         df = self.get_requires_metadata(requires_key)
-        assert "relpath" in df.columns
-        assert "split" in df.columns
-        assert "label" in df.columns
+        if "relpath" not in df.columns:
+            raise AssertionError
+        if "split" not in df.columns:
+            raise AssertionError
+        if "label" not in df.columns:
+            raise AssertionError
         if self.task_config["embedding_type"] == "event":
-            assert "start" in df.columns
-            assert "end" in df.columns
+            if "start" not in df.columns:
+                raise AssertionError
+            if "end" not in df.columns:
+                raise AssertionError
         return df
 
     def run(self):
@@ -580,9 +605,10 @@ class ExtractMetadata(WorkTask):
         metadata = self.split_train_test_val(metadata)
 
         # Each split should have unique files and no file should be across splits
-        assert (
+        if not (
             metadata.groupby("unique_filestem")["split"].nunique() == 1
-        ).all(), "One unique_filestem is associated with more than one split"
+        ).all():
+            raise AssertionError("One unique_filestem is associated with more than one split")
 
         _diagnose_split_labels(self.longname, "split", metadata)
 
@@ -592,7 +618,8 @@ class ExtractMetadata(WorkTask):
                 label_count = metadata.groupby("unique_filestem")["label"].aggregate(
                     len
                 )
-                assert (label_count == 1).all()
+                if not (label_count == 1).all():
+                    raise AssertionError
         elif self.task_config["embedding_type"] == "event":
             # Remove the events starting after the sample duration, and trim
             # the events starting before but extending beyond the sample
@@ -632,20 +659,23 @@ class ExtractMetadata(WorkTask):
         """
         # Find all possible base paths into which audio was extracted
         base_paths = [t.output_path for t in self.requires().values()]
-        assert len(base_paths) == len(set(base_paths)), (
-            "You seem to have duplicate (split, name) in your task "
-            + f"config. {len(base_paths)} != {len(set(base_paths))}"
-        )
+        if len(base_paths) != len(set(base_paths)):
+            raise AssertionError(
+                "You seem to have duplicate (split, name) in your task "
+                + f"config. {len(base_paths)} != {len(set(base_paths))}"
+            )
         datapath = Path(relpath)
         relatives = 0
         for base_path in base_paths:
             if datapath.is_relative_to(base_path):  # type: ignore
                 datapath = datapath.relative_to(base_path)
                 relatives += 1
-        assert relatives == 1, f"relatives {relatives}. " + f"base_paths = {base_paths}"
-        assert datapath != relpath, (
-            f"datapath in {relpath} not found. " + f"base_paths = {base_paths}"
-        )
+        if relatives != 1:
+            raise AssertionError(f"relatives {relatives}. " + f"base_paths = {base_paths}")
+        if datapath == relpath:
+            raise AssertionError(
+                f"datapath in {relpath} not found. " + f"base_paths = {base_paths}"
+            )
         return datapath
 
 
@@ -696,9 +726,10 @@ class SubsampleSplit(MetadataTask):
             .sort_values("unique_filestem")
         )
 
-        assert split_filestem_relpaths["relpath"].nunique() == len(
+        if split_filestem_relpaths["relpath"].nunique() != len(
             split_filestem_relpaths
-        )
+        ):
+            raise AssertionError
         # Deterministically shuffle the filestems
         split_filestem_relpaths = split_filestem_relpaths.sample(
             frac=1, random_state=str2int(f"SubsampleSplit({self.split})")
@@ -748,7 +779,8 @@ class SubsampleSplit(MetadataTask):
                 # to the unique filestem.
                 self.workdir.joinpath(unique_filestem + audiopath.suffix)
             )
-            assert not newaudiofile.exists(), f"{newaudiofile} already exists! "
+            if newaudiofile.exists():
+                raise AssertionError(f"{newaudiofile} already exists! ")
             "We shouldn't have two files with the same name. If this is happening "
             "because luigi is overwriting an incomplete output directory "
             "we should write code to delete the output directory "
@@ -847,7 +879,8 @@ class SubcorpusData(MetadataTask):
             splits = self.metadata.loc[
                 self.metadata["unique_filestem"] == audiofile.stem, "split"
             ].drop_duplicates()
-            assert len(splits) == 1, "unique_filestem should be unique"
+            if len(splits) != 1:
+                raise AssertionError("unique_filestem should be unique")
             "across the entire dataset and imply a particular split."
             split = splits.values[0]
             split_count[split] += 1
@@ -896,12 +929,14 @@ class SubcorpusMetadata(MetadataTask):
                 [(a.stem, a.suffix) for a in list(split_path.glob("*.wav"))],
                 columns=["unique_filestem", "ext"],
             )
-            assert len(audiodf) != 0, f"No audio files found in: {split_path}"
-            assert (
-                not audiodf["unique_filestem"].duplicated().any()
-            ), "Duplicate files in: {split_path}"
-            assert len(audiodf["ext"].drop_duplicates()) == 1
-            assert audiodf["ext"].drop_duplicates().values[0] == ".wav"
+            if len(audiodf) == 0:
+                raise AssertionError(f"No audio files found in: {split_path}")
+            if audiodf["unique_filestem"].duplicated().any():
+                raise AssertionError("Duplicate files in: {split_path}")
+            if len(audiodf["ext"].drop_duplicates()) != 1:
+                raise AssertionError
+            if audiodf["ext"].drop_duplicates().values[0] != ".wav":
+                raise AssertionError
 
             # Get the label from the metadata with the help
             # of the unique_filestem of the filename
@@ -982,7 +1017,8 @@ class MetadataVocabulary(MetadataTask):
                 indent=True,
             )
             split_labelset = set(labeldf["label"].unique().tolist())
-            assert len(split_labelset) != 0
+            if len(split_labelset) == 0:
+                raise AssertionError
             labelset = labelset | split_labelset
 
         # Build the label idx csv and save it
@@ -1128,8 +1164,10 @@ class FinalCombine(MetadataTask):
         for item in os.listdir(src):
             if item.endswith(".json"):
                 # Based upon https://stackoverflow.com/a/27161799
-                assert not dst.joinpath(item).exists()
-                assert not src.joinpath(item).is_dir()
+                if dst.joinpath(item).exists():
+                    raise AssertionError
+                if src.joinpath(item).is_dir():
+                    raise AssertionError
                 shutil.copy2(src.joinpath(item), dst.joinpath(item))
         # Python >= 3.8 only
         # shutil.copytree(src, dst, dirs_exist_ok=True, \
@@ -1179,10 +1217,12 @@ class FinalizeCorpus(MetadataTask):
         archive_path = source_path.replace(self.tasks_dir, "tasks").replace(
             "tasks//", "tasks/"
         )
-        assert (
+        if not (
             self.tasks_dir in ("tasks", "tasks/") or archive_path != source_path
-        ), f"{archive_path} == {source_path}"
-        assert archive_path.startswith("tasks")
+        ):
+            raise AssertionError(f"{archive_path} == {source_path}")
+        if not archive_path.startswith("tasks"):
+            raise AssertionError
         archive_path = f"hear-{__version__}/{archive_path}"
         return archive_path
 
@@ -1250,7 +1290,8 @@ def run(task: Union[List[luigi.Task], luigi.Task], num_workers: int):
         detailed_summary=True,
     )
     diagnostics.info("LUIGI END")
-    assert luigi_run_result.status in [
+    if luigi_run_result.status not in [
         luigi.execution_summary.LuigiStatusCode.SUCCESS,
         luigi.execution_summary.LuigiStatusCode.SUCCESS_WITH_RETRY,
-    ], f"Received luigi_run_result.status = {luigi_run_result.status}"
+    ]:
+        raise AssertionError(f"Received luigi_run_result.status = {luigi_run_result.status}")

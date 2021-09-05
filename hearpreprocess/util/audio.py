@@ -63,7 +63,8 @@ def mono_wav_and_fix_duration(in_file: str, out_file: str, duration: float) -> N
             raise
     else:
         # If the file already has the desired duration and is mono wav, make a symlink
-        assert not Path(out_file).exists()
+        if Path(out_file).exists():
+            raise AssertionError
         Path(out_file).symlink_to(Path(in_file).absolute())
 
 
@@ -91,7 +92,8 @@ def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
             raise
     else:
         # If the audio has the expected sampling rate, make a synlink
-        assert not Path(out_file).exists()
+        if Path(out_file).exists():
+            raise AssertionError
         Path(out_file).symlink_to(Path(in_file).absolute())
 
 
@@ -145,7 +147,8 @@ def get_audio_dir_stats(
             # succesful
             failure_counter[audio_path.suffix] += 1
 
-    assert audio_dir_stats, "Stats was not calculated for any audio file. Please Check"
+    if not audio_dir_stats:
+        raise AssertionError("Stats was not calculated for any audio file. Please Check")
     " the formats of the audio file"
     durations = [stats["duration"] for stats in audio_dir_stats]
     unique_sample_rates = dict(
