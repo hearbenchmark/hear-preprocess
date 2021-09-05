@@ -473,7 +473,7 @@ class ExtractMetadata(WorkTask):
         events_dropped = len(metadata) - len(trimmed_metadata)
         diagnostics.info(
             f"{self.longname} - Events dropped due to trimming {events_dropped} "
-            "{}".format(round(events_dropped / len(metadata) * 100.0, 2))
+            "({}%)".format(round(events_dropped / len(metadata) * 100.0, 2))
         )
         return trimmed_metadata
 
