@@ -159,10 +159,7 @@ def get_audio_dir_stats(
         "duration_var": np.var(durations),
         "duration_median": np.median(durations),
         # Percentile duration of the audio
-        **{
-            f"{duration_str(p)}th": np.percentile(durations, p)
-            for p in [10, 25, 75, 90]
-        },
+        **{f"duration_{p}th": np.percentile(durations, p) for p in [10, 25, 75, 90]},
     }
     summary_stats.update(
         {
