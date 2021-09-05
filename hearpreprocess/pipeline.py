@@ -542,6 +542,9 @@ class ExtractMetadata(WorkTask):
         metadata = self.split_train_test_val(metadata)
 
         # Each split should have unique files and no file should be across splits
+        split_unique_filestems = (
+            metadata.groupby("split")["unique_filestem"].apply(list).tolist()
+        )
         assert (
             metadata.groupby("unique_filestem")["split"].nunique() == 1
         ).all(), "One unique_filestem is associated with more than one split"
