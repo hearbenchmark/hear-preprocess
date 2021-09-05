@@ -117,14 +117,15 @@ def audio_dir_stats_wav(
     )
 
     stats = {
-        "audio_count": len(durations),
-        "audio_samplerate_count": unique_sample_rates,
-        "audio_mean_dur(sec)": np.mean(durations),
-        "audio_median_dur(sec)": np.median(durations),
+        "file count": len(durations),
+        "sample rate count": unique_sample_rates,
+        "duration mean": np.mean(durations),
+        "duration var": np.var(durations),
+        "duration median": np.median(durations),
     }
     stats.update(
         {
-            f"{str(p)}th percentile dur(sec)": np.percentile(durations, p)
+            f"duration {str(p)}th percentile": np.percentile(durations, p)
             for p in [10, 25, 75, 90]
         }
     )
