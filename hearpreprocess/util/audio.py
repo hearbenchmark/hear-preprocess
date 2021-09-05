@@ -30,7 +30,7 @@ def mono_wav_and_fix_duration(in_file: str, out_file: str, duration: float) -> N
     # If ffmpeg probe is unable to fetch the audio stats
     # in which case the stats will be empty
     # we will make all the filters as True
-    if audio_stats:
+    if audio_stats is not None:
         duration_filter_incorrect = audio_stats["duration"] != duration
         mono_filter_incorrect = not audio_stats["mono"]
     else:
@@ -73,7 +73,7 @@ def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
     audio_stats = get_audio_stats(in_file)
     # If the desired sampling rate is the same as that of the original file,
     # skip resampling and create symlink
-    if audio_stats and audio_stats["sample_rate"] != out_sr:
+    if audio_stats is not None and audio_stats["sample_rate"] != out_sr:
         try:
             _ = (
                 ffmpeg.input(in_file)
