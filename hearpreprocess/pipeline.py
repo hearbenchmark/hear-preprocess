@@ -542,12 +542,11 @@ class ExtractMetadata(WorkTask):
         metadata = self.split_train_test_val(metadata)
 
         # Each split should have unique files and no file should be across splits
-        split_unique_filestems = map(
-            set,
-            metadata.groupby("split")["unique_filestem"].apply(list).tolist(),
+        split_unique_filestems = (
+            metadata.groupby("split")["unique_filestem"].apply(list).tolist()
         )
         assert (
-            len(set.intersection(*split_unique_filestem)) == 0
+            len(set.intersection(*map(set, split_unique_filestem))) == 0
         ), "Filestems are not unique across split"
 
         _diagnose_split_labels(self.longname, "After Splitting", metadata, "relpath")
