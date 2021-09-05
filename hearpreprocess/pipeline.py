@@ -7,6 +7,7 @@ import os
 import random
 import shutil
 import tarfile
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
@@ -1174,7 +1175,9 @@ class FinalizeCorpus(MetadataTask):
             )
         }
 
-    def source_to_archive_path(self, source_path: Union[str, Path]) -> str:
+    def source_to_archive_path(
+        self, source_path: Union[str, Path], datestr: str
+    ) -> str:
         source_path = str(source_path)
         archive_path = source_path.replace(self.tasks_dir, "tasks").replace(
             "tasks//", "tasks/"
@@ -1183,7 +1186,7 @@ class FinalizeCorpus(MetadataTask):
             self.tasks_dir in ("tasks", "tasks/") or archive_path != source_path
         ), f"{archive_path} == {source_path}"
         assert archive_path.startswith("tasks")
-        archive_path = f"hear-{__version__}/{archive_path}"
+        archive_path = f"hear-{datestr}-{__version__}/{archive_path}"
         return archive_path
 
     @staticmethod
@@ -1193,7 +1196,9 @@ class FinalizeCorpus(MetadataTask):
         return tarinfo
 
     def create_tar(self, sample_rate: int):
-        tarname = f"hear-{__version__}-{self.versioned_task_name}-{sample_rate}.tar.gz"
+        datestr = datetime.today().strftime("%Y%m%d")
+        tarname = f"hear-{datestr}-{__version__}-{self.versioned_task_name}-{sample_rate}.tar.gz"
+        tarname_latest = f"hear-LATEST-{self.versioned_task_name}-{sample_rate}.tar.gz"
         source_dir = str(self.requires()["combined"].workdir)
 
         # Compute the audio files to be tar'ed
@@ -1209,7 +1214,9 @@ class FinalizeCorpus(MetadataTask):
             # First, add all files in the task
             for source_file in Path(source_dir).glob("*"):
                 if source_file.is_file():
-                    tar.add(source_file, self.source_to_archive_path(source_file))
+                    tar.add(
+                        source_file, self.source_to_archive_path(source_file, datestr)
+                    )
             # Now add audio files for this sample rate
             sample_rate_source = os.path.join(source_dir, str(sample_rate))
             with tqdm(
@@ -1217,9 +1224,10 @@ class FinalizeCorpus(MetadataTask):
             ) as pbar:
                 tar.add(
                     sample_rate_source,
-                    self.source_to_archive_path(sample_rate_source),
+                    self.source_to_archive_path(sample_rate_source, datestr),
                     filter=lambda tarinfo: self.tar_filter(tarinfo, pbar),
                 )
+        shutil.copyfile(tarfile, tarfile_latest)
 
     def run(self):
         for sample_rate in self.sample_rates:
