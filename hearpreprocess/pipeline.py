@@ -483,11 +483,11 @@ class ExtractMetadata(WorkTask):
 
         diagnostics.info(
             f"{self.longname} - Events dropped count {events_dropped} "
-            "percetage {}%".format(round(events_dropped / len(metadata) * 100.0, 2))
+            "percentage {}%".format(round(events_dropped / len(metadata) * 100.0, 2))
         )
         diagnostics.info(
             f"{self.longname} - Events trimmed count {events_trimmed} "
-            "percetage {}%".format(round(events_dropped / len(metadata) * 100.0, 2))
+            "percentage {}%".format(round(events_dropped / len(metadata) * 100.0, 2))
         )
         return trimmed_metadata
 
