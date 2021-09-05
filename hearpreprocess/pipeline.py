@@ -1232,8 +1232,8 @@ class FinalizeCorpus(MetadataTask):
                     self.source_to_archive_path(sample_rate_source, datestr),
                     filter=lambda tarinfo: self.tar_filter(tarinfo, pbar),
                 )
-        shutil.copyfile(tarfile_workdir, Path(tar_dir).joinpath(tarname))
-        shutil.copyfile(tarfile_workdir, Path(tar_dir).joinpath(tarname_latest))
+        shutil.copyfile(tarfile_workdir, Path(self.tar_dir).joinpath(tarname))
+        shutil.copyfile(tarfile_workdir, Path(self.tar_dir).joinpath(tarname_latest))
 
     def run(self):
         for sample_rate in self.sample_rates:
