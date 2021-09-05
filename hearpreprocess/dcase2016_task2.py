@@ -84,8 +84,8 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         "train_eval": "train/eval/dcase2016_task2_test_public/",
     }
 
-    def get_requires_metadata(self, split: str) -> pd.DataFrame:
-        logger.info(f"Preparing metadata for {split}")
+    def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
+        logger.info(f"Preparing metadata for {requires_key}")
 
         assert requires_key.startswith("train_")
 
