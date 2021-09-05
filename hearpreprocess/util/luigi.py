@@ -91,12 +91,20 @@ class WorkTask(luigi.Task):
         )
 
     @property
+    def task_name(self) -> str:
+        return self.task_config["task_name"]
+
+    @property
+    def longname(self) -> str:
+        return f"{self.task_name} {self.name}"
+
+    @property
     def versioned_task_name(self):
         """
         Versioned Task name contains the provided name in the
         data config and the version
         """
-        return f"{self.task_config['task_name']}-{self.task_config['version']}"
+        return f"{self.task_name}-{self.task_config['version']}"
 
     @property
     def stage_number(self):
@@ -121,10 +129,6 @@ class WorkTask(luigi.Task):
             return 1 + max([task.stage_number for task in parentasks])
         else:
             raise ValueError(f"Unknown requires: {self.requires()}")
-
-    @property
-    def longname(self) -> str:
-        return f"{self.task_config['task_name']} {self.name}"
 
     # This doesn't really log at all
     """

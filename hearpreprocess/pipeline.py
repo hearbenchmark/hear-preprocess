@@ -147,7 +147,7 @@ class ExtractArchive(WorkTask):
         archive_path = self.requires()["download"].workdir.joinpath(self.infile)
         archive_path = archive_path.absolute()
         shutil.unpack_archive(archive_path, self.output_path)
-        stats = audio_util.audio_dir_stats_wav(
+        stats = audio_util.get_audio_dir_stats(
             in_dir=self.output_path,
             out_file=self.workdir.joinpath(f"{slugify(self.outdir)}_stats.json"),
         )
@@ -473,7 +473,7 @@ class ExtractMetadata(WorkTask):
         # keep everything summing to one and the proportions the same.
         if splits_to_sample == set():
             return metadata
-        elif splits_to_sample == set(["valid"]):
+        if splits_to_sample == set(["valid"]):
             tot = (TRAIN_PERCENTAGE + VALIDATION_PERCENTAGE) / 100
             train_percentage = TRAIN_PERCENTAGE / tot
             valid_percentage = VALIDATION_PERCENTAGE / tot
@@ -521,6 +521,38 @@ class ExtractMetadata(WorkTask):
         metadata.loc[metadata["split_key"].isin(test_split_keys), "split"] = "test"
         return metadata
 
+    def trim_event_metadata(self, metadata: pd.DataFrame, duration: float):
+        # Since the duration in the task config is in seconds convert to milliseconds
+        duration_ms = duration * 1000.0
+        assert "start" in metadata.columns
+        assert "end" in metadata.columns
+
+        # Drop the events starting after the sample duration
+        trimmed_metadata = metadata.loc[lambda df: df["start"] < duration_ms]
+        events_dropped = len(metadata) - len(trimmed_metadata)
+
+        # Trim the events starting before but extending beyond the sample duration
+        events_trimmed = len(trimmed_metadata.loc[lambda df: df["end"] > duration_ms])
+        trimmed_metadata.loc[lambda df: df["end"] > duration_ms] = duration_ms
+
+        assert (trimmed_metadata["start"] < duration_ms).all()
+        assert (trimmed_metadata["end"] <= duration_ms).all()
+        assert len(trimmed_metadata) <= len(metadata)
+        assert (
+            metadata["relpath"].nunique() == trimmed_metadata["relpath"].nunique()
+        ), "File are getting removed while trimming. This is "
+        "unexpected and only events from the end of the files should be removed"
+
+        diagnostics.info(
+            f"{self.longname} - Events dropped count {events_dropped} "
+            "percentage {}%".format(round(events_dropped / len(metadata) * 100.0, 2))
+        )
+        diagnostics.info(
+            f"{self.longname} - Events trimmed count {events_trimmed} "
+            "percentage {}%".format(round(events_dropped / len(metadata) * 100.0, 2))
+        )
+        return trimmed_metadata
+
     def get_requires_metadata_check(self, requires_key: str) -> pd.DataFrame:
         df = self.get_requires_metadata(requires_key)
         assert "relpath" in df.columns
@@ -562,7 +594,14 @@ class ExtractMetadata(WorkTask):
                 )
                 assert (label_count == 1).all()
         elif self.task_config["embedding_type"] == "event":
-            pass
+            # Remove the events starting after the sample duration, and trim
+            # the events starting before but extending beyond the sample
+            # duration
+            # sample duration is specified in the task config.
+            # The specified sample duration is in seconds
+            metadata = self.trim_event_metadata(
+                metadata, duration=self.task_config["sample_duration"]
+            )
         else:
             raise ValueError(
                 "%s embedding_type unknown" % self.task_config["embedding_type"]
@@ -769,13 +808,12 @@ class MonoWavTrimSubcorpus(MetadataTask):
         }
 
     def run(self):
-        # TODO: First check to see if the audio is already a mono
-        # wav at the correct length and just create a symlink if that
-        # is this case.
         for audiofile in tqdm(list(self.requires()["corpus"].workdir.iterdir())):
             newaudiofile = self.workdir.joinpath(f"{audiofile.stem}.wav")
             audio_util.mono_wav_and_fix_duration(
-                audiofile, newaudiofile, duration=self.task_config["sample_duration"]
+                str(audiofile),
+                str(newaudiofile),
+                duration=self.task_config["sample_duration"],
             )
 
         self.mark_complete()
@@ -979,7 +1017,7 @@ class ResampleSubcorpus(MetadataTask):
             resampled_audiofile = new_basedir(audiofile, resample_dir)
             audio_util.resample_wav(audiofile, resampled_audiofile, self.sr)
 
-        stats = audio_util.audio_dir_stats_wav(
+        stats = audio_util.get_audio_dir_stats(
             in_dir=resample_dir,
             out_file=self.workdir.joinpath(str(self.sr)).joinpath(
                 f"{self.split}_stats.json"
@@ -1132,17 +1170,52 @@ class FinalizeCorpus(MetadataTask):
             )
         }
 
-    def create_tar(self, sample_rate: str):
-        tarname = f"hear-{__version__}-{self.versioned_task_name}-{sample_rate}.tar.gz"
-        source_dir = str(self.requires()["combined"].workdir)
-        arcname = source_dir.replace(self.tasks_dir, "tasks").replace(
+    def source_to_archive_path(self, source_path: Union[str, Path]) -> str:
+        source_path = str(source_path)
+        archive_path = source_path.replace(self.tasks_dir, "tasks").replace(
             "tasks//", "tasks/"
         )
         assert (
-            self.tasks_dir in ("tasks", "tasks/") or arcname != source_dir
-        ), f"{arcname} == {source_dir}"
+            self.tasks_dir in ("tasks", "tasks/") or archive_path != source_path
+        ), f"{archive_path} == {source_path}"
+        assert archive_path.startswith("tasks")
+        archive_path = f"hear-{__version__}/{archive_path}"
+        return archive_path
+
+    @staticmethod
+    def tar_filter(tarinfo: tarfile.TarInfo, pbar: tqdm) -> Optional[tarfile.TarInfo]:
+        """tarfile with progress bar"""
+        pbar.update(1)
+        return tarinfo
+
+    def create_tar(self, sample_rate: int):
+        tarname = f"hear-{__version__}-{self.versioned_task_name}-{sample_rate}.tar.gz"
+        source_dir = str(self.requires()["combined"].workdir)
+
+        # Compute the audio files to be tar'ed
+        files = set()
+        for split in SPLITS:
+            files |= set(
+                json.load(open(os.path.join(source_dir, f"{split}.json"))).keys()
+            )
+
+        # tarfile is pure python and very slow
+        # But it's easy to precisely control, so we use it
         with tarfile.open(Path(self.tar_dir).joinpath(tarname), "w:gz") as tar:
-            tar.add(source_dir, arcname)
+            # First, add all files in the task
+            for source_file in Path(source_dir).glob("*"):
+                if source_file.is_file():
+                    tar.add(source_file, self.source_to_archive_path(source_file))
+            # Now add audio files for this sample rate
+            sample_rate_source = os.path.join(source_dir, str(sample_rate))
+            with tqdm(
+                desc=f"tar {self.task_name} {sample_rate}", total=len(files)
+            ) as pbar:
+                tar.add(
+                    sample_rate_source,
+                    self.source_to_archive_path(sample_rate_source),
+                    filter=lambda tarinfo: self.tar_filter(tarinfo, pbar),
+                )
 
     def run(self):
         for sample_rate in self.sample_rates:

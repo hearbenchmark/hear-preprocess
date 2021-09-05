@@ -3,100 +3,123 @@ Audio utility functions for evaluation task preparation
 """
 
 import json
-import os
-import subprocess
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional, Union, Dict, Any
 
 import numpy as np
-import soundfile as sf
+import ffmpeg
 from tqdm import tqdm
 
 
-def mono_wav_and_fix_duration(in_file: str, out_file: str, duration: float):
+def mono_wav_and_fix_duration(in_file: str, out_file: str, duration: float) -> None:
     """
-    Convert to WAV file and trim to be equal to or less than a specific length
+    This
+    1. Pads and trims the audio to the desired input duration
+    2. Converts to mono if more than 1 stream is present
+    3. Converts the audio to wav format
+    All the above are only done when the input file doesnot match the required
+    conditions of duration, streams and extension.
+    In case, we are unable to get any audio stats, by default all the steps are done.
+    If the audio is already satisfies all the expected filters, the step is skipped
+    and a symlink is created to the original file
     """
-    ret = subprocess.call(
-        [
-            "ffmpeg",
-            "-y",
-            "-i",
-            str(in_file),
-            "-filter_complex",
-            f"apad=whole_dur={duration},atrim=end={duration}",
-            "-ac",
-            "1",
-            "-c:a",
-            "pcm_f32le",
-            str(out_file),
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    # Make sure the return code is 0 and the command was successful.
-    assert ret == 0, f"ret = {ret}"
+    # Get the audio stats for the audio file
+    audio_stats = get_audio_stats(in_file)
+    # Get the filters to apply to the audio.
+    # If ffmpeg probe is unable to fetch the audio stats
+    # in which case the stats will be empty
+    # we will make all the filters as True
+    if audio_stats is not None:
+        duration_filter_incorrect = audio_stats["duration"] != duration
+        mono_filter_incorrect = not audio_stats["mono"]
+    else:
+        duration_filter_incorrect = mono_filter_incorrect = True
+
+    ext_filter_incorrect = Path(in_file).suffix.lower() != ".wav"
+
+    # If the audio has the desired duration and is already mono .wav all the flags will
+    # be false, then we will move to the else part where we will just create a symlink
+    if duration_filter_incorrect or mono_filter_incorrect or ext_filter_incorrect:
+        # create a ffmpeg command chain to take the input
+        cmd_chain = ffmpeg.input(in_file).audio
+        # Add duration commands if required
+        if duration_filter_incorrect:
+            cmd_chain = cmd_chain.filter("apad", whole_dur=duration).filter(
+                "atrim", end=duration
+            )
+        try:
+            _ = (
+                cmd_chain.output(out_file, f="wav", acodec="pcm_f32le", ac=1)
+                .overwrite_output()
+                .run(quiet=True)
+            )
+        except ffmpeg.Error as e:
+            print(
+                "Please check the console output for ffmpeg to debug the "
+                "error in mono wav and fix duration: ",
+                f"Error: {e}",
+            )
+            raise
+    else:
+        # If the file already has the desired duration and is mono wav, make a symlink
+        assert not Path(out_file).exists()
+        Path(out_file).symlink_to(Path(in_file).absolute())
 
 
-def convert_to_mono_wav(in_file: str, out_file: str):
-    devnull = open(os.devnull, "w")
-    # If we knew the sample rate, we could also pad/trim the audio file now, e.g.:
-    # ffmpeg -i test.webm -filter_complex \
-    #    apad=whole_len=44100,atrim=end_sample=44100 \
-    #    -ac 1 -c:a pcm_f32le ./test.wav
-    # print(" ".join(["ffmpeg", "-y", "-i", in_file,
-    #    "-ac", "1", "-c:a", "pcm_f32le", out_file]))
-    ret = subprocess.call(
-        ["ffmpeg", "-y", "-i", in_file, "-ac", "1", "-c:a", "pcm_f32le", out_file],
-        stdout=devnull,
-        stderr=devnull,
-    )
-    # Make sure the return code is 0 and the command was successful.
-    assert ret == 0
+def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
+    """Resample a wave file using SoX high quality mode"""
+    # Get the audio stats to get the sampling rate of the audio
+    audio_stats = get_audio_stats(in_file)
+    # If the desired sampling rate is the same as that of the original file,
+    # skip resampling and create symlink
+    if audio_stats is not None and audio_stats["sample_rate"] != out_sr:
+        try:
+            _ = (
+                ffmpeg.input(in_file)
+                .filter("aresample", resampler="soxr")
+                .output(out_file, ar=out_sr)
+                .overwrite_output()
+                .run(quiet=True)
+            )
+        except ffmpeg.Error as e:
+            print(
+                "Please check the console output for ffmpeg to debug the "
+                "error in resample_wav: ",
+                f"Error: {e}",
+            )
+            raise
+    else:
+        # If the audio has the expected sampling rate, make a synlink
+        assert not Path(out_file).exists()
+        Path(out_file).symlink_to(Path(in_file).absolute())
 
 
-def resample_wav(in_file: str, out_file: str, out_sr: int):
-    """
-    Resample a wave file using SoX high quality mode
-    """
-    ret = subprocess.call(
-        [
-            "ffmpeg",
-            "-y",
-            "-i",
-            in_file,
-            "-af",
-            "aresample=resampler=soxr",
-            "-ar",
-            str(out_sr),
-            out_file,
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    # Make sure the return code is 0 and the command was successful.
-    assert ret == 0
+def get_audio_stats(in_file: Union[str, Path]) -> Union[Dict[str, Any], Any]:
+    """Produces summary for a single audio file"""
+    try:
+        audio_stream = ffmpeg.probe(in_file, select_streams="a")["streams"][0]
+        audio_stats = {
+            "sample_rate": int(audio_stream["sample_rate"]),
+            "samples": int(audio_stream["duration_ts"]),
+            "mono": audio_stream["channels"] == 1,
+            "duration": float(audio_stream["duration"]),
+            "ext": Path(in_file).suffix,
+        }
+    except (ffmpeg.Error, KeyError):
+        # Skipping audio file for stats calculation.
+        return None
+    return audio_stats
 
 
-def audio_stats_wav(in_file: Union[str, Path]):
-    """Get statistics for a single wav file"""
-    audio = sf.SoundFile(str(in_file))
-    return {
-        "samples": len(audio),
-        "sample_rate": audio.samplerate,
-        "duration": len(audio) / audio.samplerate,
-    }
-
-
-def audio_dir_stats_wav(
+def get_audio_dir_stats(
     in_dir: Union[str, Path], out_file: str, exts: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """Produce summary by recursively searching a directory for wav files"""
     if exts is None:
-        exts = [".wav", ".mp3", ".ogg"]
+        exts = [".wav", ".mp3", ".ogg", ".webm"]
 
-    # Filter the files in the directory for the required extensions
+    # Get all the audio files
     audio_paths = list(
         filter(
             lambda audio_path: audio_path.suffix.lower()
@@ -104,30 +127,55 @@ def audio_dir_stats_wav(
             Path(in_dir).absolute().rglob("*"),
         )
     )
-    audio_dir_stats = list(
-        map(
-            audio_stats_wav,
-            tqdm(audio_paths),
-        )
-    )
 
+    # Count the number of successful and failed statistics extraction to be
+    # added the output stats file
+    success_counter: Dict[str, int] = defaultdict(int)
+    failure_counter: Dict[str, int] = defaultdict(int)
+
+    # Iterate and get the statistics for each audio
+    audio_dir_stats = []
+    for audio_path in tqdm(audio_paths):
+        audio_stats = get_audio_stats(audio_path)
+        if audio_stats is not None:
+            audio_dir_stats.append(audio_stats)
+            success_counter[audio_path.suffix] += 1
+        else:
+            # update the failed counter if the extraction was not
+            # succesful
+            failure_counter[audio_path.suffix] += 1
+
+    assert audio_dir_stats, "Stats was not calculated for any audio file. Please Check"
+    " the formats of the audio file"
     durations = [stats["duration"] for stats in audio_dir_stats]
     unique_sample_rates = dict(
         Counter([stats["sample_rate"] for stats in audio_dir_stats])
     )
+    mono_audio_count = sum(stats["mono"] for stats in audio_dir_stats)
 
-    stats = {
-        "file count": len(durations),
-        "sample rate count": unique_sample_rates,
-        "duration mean": np.mean(durations),
-        "duration var": np.var(durations),
-        "duration median": np.median(durations),
-    }
-    stats.update(
-        {
-            f"duration {str(p)}th percentile": np.percentile(durations, p)
+    summary_stats = {
+        "count": len(audio_paths),
+        "duration_mean": np.mean(durations),
+        "duration_var": np.var(durations),
+        "duration_median": np.median(durations),
+        # Percentile duration of the audio
+        **{
+            f"{duration_str(p)}th": np.percentile(durations, p)
             for p in [10, 25, 75, 90]
+        },
+    }
+    summary_stats.update(
+        {
+            "samplerates": unique_sample_rates,
+            "count_mono": mono_audio_count,
+            # Count of no of success and failure for audio summary extraction for each
+            # extension type
+            "summary": {
+                "successfully_extracted": success_counter,
+                "failed_to_extract": failure_counter,
+            },
         }
     )
-    json.dump(stats, open(out_file, "w"), indent=True)
-    return stats
+
+    json.dump(summary_stats, open(out_file, "w"), indent=True)
+    return summary_stats
