@@ -464,7 +464,10 @@ class ExtractMetadata(WorkTask):
         duration_ms = duration * 1000.0
         assert "start" in metadata.columns
         assert "end" in metadata.columns
-        trimmed_metadata = metadata.loc[lambda df: df["end"] < duration_ms]
+        trimmed_metadata = metadata.loc[lambda df: df["start"] < duration_ms]
+        trimmed_metadata.loc[lambda df: df["end"] > duration_ms] = duration_ms
+        assert (trimmed_metadata["start"] <= duration_ms).all()
+        assert (trimmed_metadata["end"] <= duration_ms).all()
         assert (
             metadata["relpath"].nunique() == trimmed_metadata["relpath"].nunique()
         ), "File are getting removed while trimming. This is "
