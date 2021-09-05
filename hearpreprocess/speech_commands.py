@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Pre-processing pipeline for Google Speech Commands
+Pre-processing pipeline for Google speech_commands
 """
 import os
 import re
@@ -10,7 +10,6 @@ from typing import List
 import luigi
 import pandas as pd
 import soundfile as sf
-from slugify import slugify
 from tqdm import tqdm
 
 import hearpreprocess.pipeline as pipeline
@@ -62,10 +61,11 @@ task_config = {
 
 class GenerateTrainDataset(luigi_util.WorkTask):
     """
-    Silence / background samples in the train / validation sets need to be
-    created by slicing up longer background samples into 1sec slices.
-    This is the same method used in the TensorFlow dataset generator.
-    https://github.com/tensorflow/datasets/blob/79d56e662a15cd11e1fb3b679e0f978c8041566f/tensorflow_datasets/audio/speech_commands.py#L142
+    Silence / background samples in the train (and, after split,
+    validation) sets need to be created by slicing up longer
+    background samples into 1 sec slices.  This is the same method
+    used in the TensorFlow dataset generator.
+    https://github.com/tensorflow/datasets/blob/79d56e662a15cd11e1fb3b679e0f978c8041566f/tensorflow_datasets/audio/speech_commands.py#L142 # noqa
     """
 
     # Requires an extracted dataset task to be completed
@@ -73,6 +73,10 @@ class GenerateTrainDataset(luigi_util.WorkTask):
 
     def requires(self):
         return {"train": self.train_data}
+
+    @property
+    def output_path(self):
+        return self.workdir
 
     def run(self):
         train_path = Path(self.requires()["train"].workdir).joinpath("train")
@@ -87,6 +91,7 @@ class GenerateTrainDataset(luigi_util.WorkTask):
         print("Generating silence files from background sounds ...")
         for audio_path in tqdm(background_audio):
             audio, sr = sf.read(str(audio_path))
+            assert audio.ndim == 1
 
             basename = os.path.basename(audio_path)
             name, ext = os.path.splitext(basename)
@@ -102,15 +107,13 @@ class GenerateTrainDataset(luigi_util.WorkTask):
         for file_obj in train_path.iterdir():
             if file_obj.is_dir() and file_obj.name != BACKGROUND_NOISE:
                 linked_folder = Path(os.path.join(self.workdir, file_obj.name))
-                if linked_folder.exists():
-                    linked_folder.unlink()
+                assert not linked_folder.exists()
                 linked_folder.symlink_to(file_obj.absolute(), target_is_directory=True)
 
             # Also need the testing and validation splits
             if file_obj.name in ["testing_list.txt", "validation_list.txt"]:
                 linked_file = Path(os.path.join(self.workdir, file_obj.name))
-                if linked_file.exists():
-                    linked_file.unlink()
+                assert not linked_file.exists()
                 linked_file.symlink_to(file_obj.absolute())
 
         self.mark_complete()
@@ -127,27 +130,33 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         }
 
     @staticmethod
-    def apply_label(relative_path):
-        label = os.path.basename(os.path.dirname(relative_path))
-        if label not in WORDS and label != SILENCE:
-            label = UNKNOWN
-        return label
+    def relpath_to_unique_filestem(relpath: str) -> str:
+        """
+        Include the label (parent directory) in the filestem.
+        """
+        # Get the parent directory (label) and the filename
+        name = "_".join(Path(relpath).parts[-2:])
+        # Remove the suffix
+        name = os.path.splitext(name)[0]
+        return str(name)
 
     @staticmethod
-    def slugify_file_name(relative_path: str) -> str:
-        """
-        For speech command each speaker might have given samples for
-        different metadata. In this case, just slugifying the file name
-        without the label would cause duplicates
-        """
-        # Get the foldername which is the label and the filename
-        name = os.path.splitext(os.path.join(*Path(relative_path).parts[-2:]))[0]
-        return f"{slugify(str(name))}"
+    def speaker_hash(unique_filestem: str) -> str:
+        """Get the speaker hash as the Split key for speech_commands"""
+        hsh = re.sub(r"_nohash_.*$", "", unique_filestem)
+        return hsh
 
     @staticmethod
     def get_split_key(df: pd.DataFrame) -> pd.Series:
-        """Get the speaker hash as the Split key for Speech Commands"""
-        return df["slug"].apply(lambda slug: re.sub(r"-nohash-.*$", "", slug))
+        """Get the speaker hash as the split key for speech_commands"""
+        return df["unique_filestem"].apply(ExtractMetadata.speaker_hash)
+
+    @staticmethod
+    def relpath_to_label(relpath: Path):
+        label = os.path.basename(os.path.dirname(relpath))
+        if label not in WORDS and label != SILENCE:
+            label = UNKNOWN
+        return label
 
     def get_split_paths(self):
         """
@@ -207,7 +216,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
     def get_all_metadata(self) -> pd.DataFrame:
         metadata = self.get_split_paths()
         metadata = metadata.assign(
-            label=lambda df: df["relpath"].apply(self.apply_label),
+            label=lambda df: df["relpath"].apply(self.relpath_to_label),
         )
         return metadata
 

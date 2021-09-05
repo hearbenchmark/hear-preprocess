@@ -25,7 +25,7 @@ import luigi
 from tqdm import tqdm
 
 import hearpreprocess.pipeline as pipeline
-from hearpreprocess import nsynth_pitch, office_events, speech_commands
+from hearpreprocess import dcase2016_task2, nsynth_pitch, speech_commands
 from hearpreprocess.util.luigi import WorkTask
 
 logger = logging.getLogger("luigi-interface")
@@ -51,6 +51,11 @@ AUDIOFORMATS = [".mp3", ".wav", ".ogg"]
 
 
 configs = {
+    "dcase2016_task2": {
+        "task_config": dcase2016_task2.task_config,
+        "audio_sample_size": 4,
+        "necessary_keys": [],
+    },
     "nsynth_pitch": {
         "task_config": nsynth_pitch.task_config,
         "audio_sample_size": 100,
@@ -59,11 +64,6 @@ configs = {
     "speech_commands": {
         "task_config": speech_commands.task_config,
         "audio_sample_size": 100,
-        "necessary_keys": [],
-    },
-    "office_events": {
-        "task_config": office_events.task_config,
-        "audio_sample_size": 4,
         "necessary_keys": [],
     },
     # Add the sampler config for the secrets task if the secret task config was found.
