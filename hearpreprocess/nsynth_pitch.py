@@ -21,6 +21,10 @@ task_config = {
     "version": "v2.2.3",
     "embedding_type": "scene",
     "prediction_type": "multiclass",
+    "sample_duration": 4.0,
+    "pitch_range_min": 21,
+    "pitch_range_max": 108,
+    "evaluation": ["pitch_acc", "chroma_acc"],
     "download_urls": [
         {
             "split": "train",
@@ -38,9 +42,6 @@ task_config = {
             "md5": "5e6f8719bf7e16ad0a00d518b78af77d",
         },
     ],
-    "sample_duration": 4.0,
-    "pitch_range_min": 21,
-    "pitch_range_max": 108,
     "small": {
         "download_urls": [
             {
@@ -61,7 +62,6 @@ task_config = {
         ],
         "version": "v2.2.3-small",
     },
-    "evaluation": ["pitch_acc", "chroma_acc"],
 }
 
 
@@ -123,6 +123,7 @@ def main(
     sample_rates: List[int],
     tmp_dir: str,
     tasks_dir: str,
+    tar_dir: str,
     small: bool = False,
 ):
     if small:
@@ -138,6 +139,7 @@ def main(
     final_task = pipeline.FinalizeCorpus(
         sample_rates=sample_rates,
         tasks_dir=tasks_dir,
+        tar_dir=tar_dir,
         metadata_task=extract_metadata,
         task_config=task_config,
     )

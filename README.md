@@ -1,3 +1,4 @@
+![HEAR2021](https://neuralaudio.ai/assets/img/hear-header-sponsor.jpg)
 # hear-preprocess
 
 Dataset preprocessing code for the HEAR 2021 NeurIPS competition.
@@ -6,6 +7,12 @@ Unless you are a HEAR organizer or want to contribute a task,
 you won't need this repo. Use
 [hear-eval-kit](https://github.com/neuralaudio/hear-eval-kit/) to
 evaluate your embedding models on these tasks.
+
+## Cloud Usage
+
+See [hear-eval's
+README.spotty](https://github.com/neuralaudio/hear-eval-kit/blob/main/README.spotty.md)
+for information on how to use spotty.
 
 ## Installation
 
@@ -93,7 +100,7 @@ the label metadata for them.
 * SubcorpusSplit (subsample each split) => MonoWavTrimCorpus => SubcorpusData (symlinks)
 * SubcorpusData => {SubcorpusMetadata, ResampleSubcorpus}
 * SubcorpusMetadata => MetadataVocabulary
-* FinalizeCorpus
+* FinalCombine => FinalizeCorpus
 
 In terms of sampling:
 * We create a 60/20/20 split if train/valid/test does not exist.

@@ -26,6 +26,10 @@ task_config = {
     "version": "v0.0.2",
     "embedding_type": "scene",
     "prediction_type": "multiclass",
+    "sample_duration": 1.0,
+    "evaluation": ["top1_acc"],
+    # The test set is 1.33 hours, so we use the entire thing
+    "max_task_duration_by_split": {"test": None},
     "download_urls": [
         {
             "split": "train",
@@ -38,7 +42,6 @@ task_config = {
             "md5": "854c580ee90bff80c516491c84544e32",
         },
     ],
-    "sample_duration": 1.0,
     "small": {
         "download_urls": [
             {
@@ -54,7 +57,6 @@ task_config = {
         ],
         "version": "v0.0.2-small",
     },
-    "evaluation": ["top1_acc"],
 }
 
 
@@ -214,6 +216,7 @@ def main(
     sample_rates: List[int],
     tmp_dir: str,
     tasks_dir: str,
+    tar_dir: str,
     small: bool = False,
 ):
     if small:
@@ -236,6 +239,7 @@ def main(
     final_task = pipeline.FinalizeCorpus(
         sample_rates=sample_rates,
         tasks_dir=tasks_dir,
+        tar_dir=tar_dir,
         metadata_task=extract_metadata,
         task_config=task_config,
     )

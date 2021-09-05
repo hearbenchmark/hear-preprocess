@@ -2,16 +2,15 @@
 
 import os
 
-# Always prefer setuptools over distutils
 import sys
 
+# Always prefer setuptools over distutils
 from setuptools import find_packages, setup
 
 long_description = open("README.md", "r", encoding="utf-8").read()
 
 setup(
     name="hearpreprocess",
-    version="2021.0.1",
     description="Holistic Evaluation of Audio Representations (HEAR) 2021 -- Preprocessing Pipeline",
     author="",
     author_email="",
@@ -30,7 +29,7 @@ setup(
     install_requires=[
         "click",
         "luigi",
-        "numpy==1.19.2",
+        "numpy",
         "pandas",
         "python-slugify",
         "requests",
