@@ -75,6 +75,11 @@ To run the preprocessing pipeline for all available tasks:
 python3 -m hearpreprocess.runner all
 ```
 
+Upload to private bucket:
+```
+gsutil -m cp hear-2021*.tar.gz gs://hear2021-private/
+```
+
 You can also just run individual tasks:
 ```
 python3 -m hearpreprocess.runner [speech_commands|nsynth_pitch|office_events]
