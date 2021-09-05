@@ -149,7 +149,7 @@ dmypy.json
 # vscode
 .vscode
 
-#spotty configured file
+# spotty.yaml.tmpl is shared, spotty.yaml is per user
 spotty.yaml
 
 lightning_logs/
