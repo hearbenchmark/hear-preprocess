@@ -902,7 +902,7 @@ class MetadataVocabulary(MetadataTask):
     def run(self):
         labelset = set()
         # Save statistics about each subcorpus metadata
-        for split in list(SPLITS):
+        for split in SPLITS:
             labeldf = pd.read_csv(
                 self.requires()["subcorpus_metadata"].workdir.joinpath(f"{split}.csv")
             )
