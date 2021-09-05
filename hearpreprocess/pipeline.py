@@ -902,15 +902,13 @@ class MetadataVocabulary(MetadataTask):
     def run(self):
         labelset = set()
         # Save statistics about each subcorpus metadata
-        for subcorpus_metadata in list(
-            self.requires()["subcorpus_metadata"].workdir.glob("*.csv")
-        ):
-            labeldf = pd.read_csv(subcorpus_metadata)
+        for split in list(SPLITS):
+            labeldf = pd.read_csv(
+                self.requires()["subcorpus_metadata"].workdir.joinpath(f"{split}.csv")
+            )
             json.dump(
                 labeldf["label"].value_counts(normalize=True).to_dict(),
-                self.workdir.joinpath(
-                    f"labelcount_{subcorpus_metadata.stem}.json"
-                ).open("w"),
+                self.workdir.joinpath(f"labelcount_{split}.json").open("w"),
                 indent=True,
             )
             split_labelset = set(labeldf["label"].unique().tolist())
