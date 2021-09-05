@@ -3,5 +3,5 @@
 rm -Rf _workdir/*/0[2-9]*
 rm -Rf _workdir/*/[1-9]*
 rm -Rf tasks/
-rm hear-2021*.tar.gz
+rm hear-*.tar.gz
 rm hearpreprocess.log
