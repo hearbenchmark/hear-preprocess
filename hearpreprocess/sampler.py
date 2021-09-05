@@ -117,7 +117,7 @@ class RandomSampleOriginalDataset(WorkTask):
         for url_obj in self.task_config["small"]["download_urls"]:
             # Sample a small subset to copy from all the files
             url_name = Path(urlparse(url_obj["url"]).path).stem
-            split = url_obj["name"]
+            split = url_obj["split"]
             copy_from = self.requires()[split].workdir.joinpath(split)
             all_files = [file.relative_to(copy_from) for file in copy_from.rglob("*")]
             copy_files = self.sample(all_files)
