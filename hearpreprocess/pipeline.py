@@ -44,6 +44,46 @@ MAX_TASK_DURATION_BY_SPLIT = {
 }
 
 
+def _diagnose_split_labels(taskname, event_str, df, filename_col):
+    """Makes split and label diagnostics"""
+    assert "split" in df.columns
+    assert "label" in df.columns
+    assert filename_col in df.columns
+    diagnostics.info(
+        f"{taskname} File count in each split {event_str}: "
+        "{}".format(df.groupby("split")[filename_col].nunique().to_dict())
+    )
+    # Get the unique labels in each split
+    split_label = df.groupby("split")["label"].nunique().to_dict()
+    # Get percentage of rows with a particular label for each split
+    split_label_percentage = {
+        split: (
+            round(
+                split_df["label"].value_counts(normalize=True) * 100.0,
+                2,
+            )
+        ).to_dict()
+        for split, split_df in df.groupby("split")
+    }
+    # Get labels which are missing for a particular split
+    split_label_missing = {
+        split: set(df["label"].unique()) - set(labels)
+        for split, labels in df.groupby("split")["label"].apply(set).to_dict().items()
+    }
+    diagnostics.info(
+        f"{taskname} Unique label counts in each split {event_str}: "
+        "{}".format(split_label)
+    )
+    diagnostics.info(
+        f"{taskname} Label percentage in each split {event_str}: "
+        "{}".format(split_label_percentage)
+    )
+    diagnostics.info(
+        f"{taskname} Missing labels in each split {event_str}: "
+        "{}".format(split_label_missing)
+    )
+
+
 class DownloadCorpus(WorkTask):
     """
     Downloads from the url and saveds it in the workdir with name
