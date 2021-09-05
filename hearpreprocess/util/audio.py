@@ -161,7 +161,7 @@ def get_audio_dir_stats(
     )
     mono_audio_count = sum(stats["mono"] for stats in audio_dir_stats)
 
-    summary_stats = {"count": orig_count}
+    summary_stats: Dict[str, Any] = {"count": orig_count}
     if len(audio_paths) != orig_count:
         summary_stats.update({"count_sample": len(audio_paths)})
 
