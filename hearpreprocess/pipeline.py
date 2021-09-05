@@ -841,8 +841,10 @@ class SubcorpusMetadata(MetadataTask):
         }
 
     def run(self):
-        split_label_count = {key: 0 for key in SPLITS}
+        split_label_dfs = []
         for split_path in self.requires()["data"].workdir.iterdir():
+            split = split_path.stem
+            assert split in SPLITS
             audiodf = pd.DataFrame(
                 [(a.stem, a.suffix) for a in list(split_path.glob("*.wav"))],
                 columns=["unique_filestem", "ext"],
@@ -887,23 +889,18 @@ class SubcorpusMetadata(MetadataTask):
             # Save the json used for training purpose
             json.dump(
                 audiolabel_json,
-                self.workdir.joinpath(f"{split_path.stem}.json").open("w"),
+                self.workdir.joinpath(f"{split}.json").open("w"),
                 indent=True,
             )
 
             # Save the slug and the label in as the split metadata
             audiolabel_df.to_csv(
-                self.workdir.joinpath(f"{split_path.stem}.csv"),
+                self.workdir.joinpath(f"{split}.csv"),
                 index=False,
             )
+            split_label_dfs.append(audiolabel_df)
 
-            split_label_count[f"{split_path.stem}"] += audiolabel_df["label"].nunique()
-
-        diagnostics.info(
-            f"{self.longname} - Unique labels in each split: "
-            "{}".format(split_label_count)
-        )
-
+        _diagnose_split_labels(self.longname, "", pd.concat(split_label_dfs), "relpath")
         self.mark_complete()
 
 
