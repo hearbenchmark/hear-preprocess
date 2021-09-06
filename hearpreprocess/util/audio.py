@@ -29,7 +29,13 @@ def mono_wav(in_file: str, out_file: str) -> None:
             f"Error: {e}",
         )
         raise
+
+    # Check if the generated file is present and that ffmpeg can
+    # read stats for the file to be used in subsequent processing steps
     assert Path(out_file).exists(), "wav file saved by ffmpeg was not found"
+    assert (
+        get_audio_stats(out_file)["ext"] is not None
+    ), "Unable to get stats for the generated wav file"
 
 
 def trim_pad_wav(in_file: str, out_file: str, duration: float) -> None:
