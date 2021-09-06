@@ -31,23 +31,23 @@ def mono_wav(in_file: str, out_file: str) -> None:
         raise
 
 
-def trim_pad_wav(in_file: str, out_file: str, out_dur: float) -> None:
+def trim_pad_wav(in_file: str, out_file: str, duration: float) -> None:
     """
     Trims and pads the audio to the desired output duration
     If the audio is already of the desired duration, make a symlink
     """
+    assert not Path(out_file).exists(), "File already exists"
     # If the audio is of the desired duration
     # move to the else part where we will just create a symlink
-    if get_audio_stats(in_file)["duration"] != out_dur:
+    if get_audio_stats(in_file)["duration"] != duration:
         # Trim and pad the audio
         try:
             _ = (
                 ffmpeg.input(in_file)
-                .audio.filter("apad", whole_dur=out_dur)  # Pad
-                .filter("atrim", end=out_dur)  # Trim
+                .audio.filter("apad", whole_dur=duration)  # Pad
+                .filter("atrim", end=duration)  # Trim
                 .output(out_file, f="wav", acodec="pcm_f32le", ac=1)
-                .overwrite_output()
-                .run(quiet=True)
+                .run(quiet = True)
             )
         except ffmpeg.Error as e:
             print(
@@ -59,10 +59,9 @@ def trim_pad_wav(in_file: str, out_file: str, out_dur: float) -> None:
         # Check if the file has been converted to the desired duration
         new_dur = get_audio_stats(out_file)["duration"]
         assert (
-            new_dur == out_dur
-        ), f"The new file is {new_dur} secs while expected is {out_dur} secs"
+            new_dur == duration
+        ), f"The new file is {new_dur} secs while expected is {duration} secs"
     else:
-        assert not Path(out_file).exists(), "File already exists"
         Path(out_file).symlink_to(Path(in_file).absolute())
 
 
@@ -71,6 +70,7 @@ def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
     Resample a wave file using SoX high quality mode
     If the audio is already of the desired sample rate, make a symlink
     """
+    assert not Path(out_file).exists()
     # If the audio is of the desired sample rate
     # move to the else part where we will just create a symlink
     if get_audio_stats(in_file)["sample_rate"] != out_sr:
@@ -78,9 +78,8 @@ def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
             _ = (
                 ffmpeg.input(in_file)
                 # Use SoX high quality mode
-                # .filter("aresample", resampler="soxr")
+                .filter("aresample", resampler="soxr")
                 .output(out_file, ar=out_sr)
-                .overwrite_output()
                 .run(quiet=True)
             )
         except ffmpeg.Error as e:
@@ -97,7 +96,6 @@ def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
         ), f"The new file is {new_sr} secs while expected is {out_sr} secs"
     else:
         # If the audio has the expected sampling rate, make a symlink
-        assert not Path(out_file).exists()
         Path(out_file).symlink_to(Path(in_file).absolute())
 
 

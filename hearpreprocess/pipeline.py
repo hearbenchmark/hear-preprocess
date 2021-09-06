@@ -793,13 +793,13 @@ class SubsampleSplits(MetadataTask):
         self.mark_complete()
 
 
-class MonoWavSubCorpus(MetadataTask):
+class MonoWavSubcorpus(MetadataTask):
     """
     Converts the files to wav and mono encoding.
 
     This task ensures that the audio is converted to an uncompressed format
     so that any downstream operation on the audio
-    results in precise outputs(like trimming and padding)
+    results in precise outputs (like trimming and padding)
     https://stackoverflow.com/questions/54153364/ffmpeg-being-inprecise-when-trimming-mp3-files # noqa: E501
 
     Requires:
@@ -828,12 +828,12 @@ class TrimPadSubcorpus(MetadataTask):
     Trims and pads the wav audio files
 
     Requires:
-        corpus (MonoWavSubCorpus): task which converts the audio to wav file
+        corpus (MonoWavSubcorpus): task which converts the audio to wav file
     """
 
     def requires(self):
         return {
-            "corpus": MonoWavSubCorpus(
+            "corpus": MonoWavSubcorpus(
                 metadata_task=self.metadata_task, task_config=self.task_config
             )
         }
@@ -844,7 +844,7 @@ class TrimPadSubcorpus(MetadataTask):
             audio_util.trim_pad_wav(
                 str(audiofile),
                 str(newaudiofile),
-                out_dur=self.task_config["sample_duration"],
+                duration=self.task_config["sample_duration"],
             )
 
         self.mark_complete()
