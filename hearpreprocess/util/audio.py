@@ -47,7 +47,7 @@ def trim_pad_wav(in_file: str, out_file: str, duration: float) -> None:
                 .audio.filter("apad", whole_dur=duration)  # Pad
                 .filter("atrim", end=duration)  # Trim
                 .output(out_file, f="wav", acodec="pcm_f32le", ac=1)
-                .run(quiet = True)
+                .run(quiet=True)
             )
         except ffmpeg.Error as e:
             print(
@@ -79,8 +79,7 @@ def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
                 ffmpeg.input(in_file)
                 # Use SoX high quality mode
                 .filter("aresample", resampler="soxr")
-                .output(out_file, ar=out_sr)
-                .run(quiet=True)
+                .output(out_file, ar=out_sr).run(quiet=True)
             )
         except ffmpeg.Error as e:
             print(
