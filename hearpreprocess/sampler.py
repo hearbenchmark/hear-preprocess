@@ -23,10 +23,12 @@ from urllib.parse import urlparse
 import click
 import luigi
 from tqdm import tqdm
+import ffmpeg
 
 import hearpreprocess.pipeline as pipeline
 from hearpreprocess import dcase2016_task2, nsynth_pitch, speech_commands
 from hearpreprocess.util.luigi import WorkTask
+import hearpreprocess.util.audio as audio_util
 
 logger = logging.getLogger("luigi-interface")
 # Currently the sampler is only allowed to run for open tasks
@@ -46,8 +48,8 @@ except ModuleNotFoundError as e:
 
 logger = logging.getLogger("luigi-interface")
 
-METADATAFORMATS = [".csv", ".json", ".txt"]
-AUDIOFORMATS = [".mp3", ".wav", ".ogg"]
+METADATAFORMATS = [".csv", ".json", ".txt", ".midi"]
+AUDIOFORMATS = [".mp3", ".wav", ".ogg", ".webm"]
 
 
 configs = {
@@ -80,10 +82,41 @@ class RandomSampleOriginalDataset(WorkTask):
         return pipeline.get_download_and_extract_tasks(self.task_config)
 
     @staticmethod
-    def safecopy(dst, src):
+    def safecopy(src, dst):
         # Make sure the parent exists
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(src, dst)
+        shutil.copy2(src, dst)
+
+    @staticmethod
+    def trimcopy_audio(src, dst):
+        """
+        Trims and saves the audio file to minimise the size of the generated
+        small dataset
+        """
+        # Maximum duration of audio file in seconds
+        DURATION = 60
+        # Make sure the parent exists
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        # Trim the audio if it is greater than the DURATION
+        audio_stats = audio_util.get_audio_stats(str(src))
+        if audio_stats is not None and audio_stats["duration"] > DURATION:
+            try:
+                _ = (
+                    ffmpeg.input(str(src))
+                    .filter("atrim", end=DURATION)  # Trim
+                    .output(str(dst))
+                    .run(quiet=True)
+                )
+            except ffmpeg.Error as e:
+                print(
+                    "Please check the console output for ffmpeg to debug the "
+                    "error in trimcopy_audio: ",
+                    f"Error: {e}",
+                )
+                raise
+        else:
+            # else copy the audio file as it is
+            shutil.copy2(src, dst)
 
     def sample(self, all_files):
         # All metadata files will be copied without any sampling
@@ -111,7 +144,7 @@ class RandomSampleOriginalDataset(WorkTask):
         rng.shuffle(audio_files_to_sample)
         sampled_audio_files = audio_files_to_sample[: self.audio_sample_size]
 
-        return metadata_files + necessary_files + sampled_audio_files
+        return (metadata_files + necessary_files, sampled_audio_files)
 
     def run(self):
         for url_obj in self.task_config["small"]["download_urls"]:
@@ -120,14 +153,21 @@ class RandomSampleOriginalDataset(WorkTask):
             split = url_obj["split"]
             copy_from = self.requires()[split].workdir.joinpath(split)
             all_files = [file.relative_to(copy_from) for file in copy_from.rglob("*")]
-            copy_files = self.sample(all_files)
+            copy_files, copy_audio = self.sample(all_files)
 
             # Copy and make a zip
             copy_to = self.workdir.joinpath(url_name)
             if copy_to.exists():
                 shutil.rmtree(copy_to)
+
             for file in tqdm(copy_files):
                 self.safecopy(src=copy_from.joinpath(file), dst=copy_to.joinpath(file))
+
+            for file in tqdm(copy_audio):
+                self.trimcopy_audio(
+                    src=copy_from.joinpath(file), dst=copy_to.joinpath(file)
+                )
+
             shutil.make_archive(copy_to, "zip", copy_to)
 
 
