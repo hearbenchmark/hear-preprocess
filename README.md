@@ -64,7 +64,7 @@ If you want to run preprocessing yourself:
 libsox-fmt-ffmpeg or [installing from
 source](https://github.com/neuralaudio/hear-eval-kit/issues/156#issuecomment-893151305).
 
-This will take about 2 user-CPU-hours for the open tasks. 100 GB free
+This will take about 2 user-CPU-hours for the open tasks. 150 GB free
 disk space is required while processing. Final output is 11 GB.
 
 These Luigi pipelines are used to preprocess the evaluation tasks
@@ -78,6 +78,13 @@ python3 -m hearpreprocess.runner all
 Upload to private bucket:
 ```
 gsutil -m cp hear-*.tar.gz gs://hear2021-private/
+```
+
+Small open tasks can be put in the cloud as follows:
+```
+gsutil -m cp hear-*dcase2016_task2*small*.tar.gz gs://hear2021/small/
+gsutil -m cp hear-*speech_commands*small*.tar.gz gs://hear2021/small/
+gsutil -m cp hear-*nsynth_pitch*small*.tar.gz gs://hear2021/small/
 ```
 
 You can also just run individual tasks:
