@@ -35,6 +35,8 @@ setup(
         "requests",
         "soundfile",
         "spotty",
+        "tensorflow-datasets",
+        "pydub",  # for tfds
         "tqdm",
         "scikit-learn>=0.24.2",
         "ffmpeg-python",

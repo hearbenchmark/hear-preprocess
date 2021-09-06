@@ -710,13 +710,14 @@ class SubsampleSplit(MetadataTask):
         # minutes or the timestamp embeddings will explode
         sample_duration = self.task_config["sample_duration"]
 
-        if (
-            "max_task_duration_by_split" in self.task_config
-            and self.split in self.task_config["max_task_duration_by_split"]
-        ):
-            max_split_duration = self.task_config["max_task_duration_by_split"][
-                self.split
-            ]
+        if "max_task_duration_by_split" in self.task_config:
+            assert set(self.task_config["max_task_duration_by_split"].keys()) <= set(
+                SPLITS
+            )
+            if self.split in self.task_config["max_task_duration_by_split"]:
+                max_split_duration = self.task_config["max_task_duration_by_split"][
+                    self.split
+                ]
         else:
             max_split_duration = MAX_TASK_DURATION_BY_SPLIT[self.split]
         if max_split_duration is None:

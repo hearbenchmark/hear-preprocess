@@ -10,5 +10,7 @@ python-slugify
 requests
 soundfile
 spotty
+tensorflow-datasets
+pydub   # for tfds
 tqdm
 ffmpeg-python
