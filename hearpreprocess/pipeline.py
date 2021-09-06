@@ -793,10 +793,14 @@ class SubsampleSplits(MetadataTask):
         self.mark_complete()
 
 
-class MonoWavTrimSubcorpus(MetadataTask):
+class MonoWavSubcorpus(MetadataTask):
     """
-    Converts the file to mono, changes to wav encoding,
-    trims and pads the audio to be same length
+    Converts the files to wav and mono encoding.
+
+    This task ensures that the audio is converted to an uncompressed format
+    so that any downstream operation on the audio
+    results in precise outputs (like trimming and padding)
+    https://stackoverflow.com/questions/54153364/ffmpeg-being-inprecise-when-trimming-mp3-files # noqa: E501
 
     Requires:
         corpus (SubsampleSplits): task which aggregates all subsampled splits
@@ -814,7 +818,30 @@ class MonoWavTrimSubcorpus(MetadataTask):
             if audiofile.suffix == ".json":
                 continue
             newaudiofile = self.workdir.joinpath(f"{audiofile.stem}.wav")
-            audio_util.mono_wav_and_fix_duration(
+            audio_util.mono_wav(str(audiofile), str(newaudiofile))
+
+        self.mark_complete()
+
+
+class TrimPadSubcorpus(MetadataTask):
+    """
+    Trims and pads the wav audio files
+
+    Requires:
+        corpus (MonoWavSubcorpus): task which converts the audio to wav file
+    """
+
+    def requires(self):
+        return {
+            "corpus": MonoWavSubcorpus(
+                metadata_task=self.metadata_task, task_config=self.task_config
+            )
+        }
+
+    def run(self):
+        for audiofile in tqdm(list(self.requires()["corpus"].workdir.iterdir())):
+            newaudiofile = self.workdir.joinpath(f"{audiofile.stem}.wav")
+            audio_util.trim_pad_wav(
                 str(audiofile),
                 str(newaudiofile),
                 duration=self.task_config["sample_duration"],
@@ -828,13 +855,12 @@ class SubcorpusData(MetadataTask):
     Go over the mono wav folder and symlink the audio files into split dirs.
 
     Requires
-        corpus(MonoWavTrimSubcorpus): which processes the audio file and converts
-            them to wav format
+        corpus(TrimPadSubcorpus): Trims and pads audio to the desired duration
     """
 
     def requires(self):
         return {
-            "corpus": MonoWavTrimSubcorpus(
+            "corpus": TrimPadSubcorpus(
                 metadata_task=self.metadata_task, task_config=self.task_config
             ),
         }

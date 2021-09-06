@@ -109,7 +109,7 @@ to the following DAG:
 * ExtractArchive
 * ExtractMetadata: Create splits over the entire corpus and find
 the label metadata for them.
-* SubcorpusSplit (subsample each split) => MonoWavTrimCorpus => SubcorpusData (symlinks)
+* SubcorpusSplit (subsample each split) => MonoWavSubcorpus => TrimPadSubcorpus => SubcorpusData (symlinks)
 * SubcorpusData => {SubcorpusMetadata, ResampleSubcorpus}
 * SubcorpusMetadata => MetadataVocabulary
 * FinalCombine => FinalizeCorpus
