@@ -15,11 +15,11 @@ from tqdm import tqdm
 
 def mono_wav(in_file: str, out_file: str) -> None:
     """converts the audio to wav format with mono stream"""
+    assert not Path(out_file).exists(), "File already exists"
     try:
         _ = (
             ffmpeg.input(in_file)
             .audio.output(out_file, f="wav", acodec="pcm_f32le", ac=1)
-            .overwrite_output()
             .run(quiet=True)
         )
     except ffmpeg.Error as e:
@@ -79,7 +79,8 @@ def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
                 ffmpeg.input(in_file)
                 # Use SoX high quality mode
                 .filter("aresample", resampler="soxr")
-                .output(out_file, ar=out_sr).run(quiet=True)
+                .output(out_file, ar=out_sr)
+                .run(quiet=True)
             )
         except ffmpeg.Error as e:
             print(
