@@ -874,7 +874,10 @@ class SubcorpusData(MetadataTask):
     def run(self):
         workdir = Path(self.workdir)
         if workdir.exists():
-            workdir.unlink()
+            if workdir.is_dir():
+                workdir.rmdir()
+            else:
+                workdir.unlink()
 
         # We need to link the workdir of the requires, they will all be the same
         # for all the requires so just grab the first one.
