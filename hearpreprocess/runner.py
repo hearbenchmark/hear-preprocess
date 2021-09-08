@@ -123,8 +123,6 @@ def run(
             task_config = copy.deepcopy(task_module.generic_task_config)
             task_config.update(dict(task_config["modes"][task_mode]))
             task_config["tmp_dir"] = tmp_dir
-            # Postpend the task mode to the version number
-            task_config["version"] = task_config["version"] + "-" + task_mode
             task_config["mode"] = task_mode
             del task_config["modes"]
             metadata_task = task_module.extract_metadata_task(task_config)
