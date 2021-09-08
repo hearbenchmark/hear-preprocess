@@ -16,7 +16,7 @@ import hearpreprocess.pipeline as pipeline
 logger = logging.getLogger("luigi-interface")
 
 
-task_config = {
+generic_task_config = {
     "task_name": "nsynth_pitch",
     "version": "v2.2.3",
     "embedding_type": "scene",
@@ -119,24 +119,10 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         return metadata
 
 
-def main(
-    sample_rates: List[int],
-    tasks_dir: str,
-    tar_dir: str,
-    config: Dict[str, Any],
-    small: bool = False,
-):
+def extract_metadata_task(task_config: Dict[str, Any]) -> pipeline.ExtractMetadata:
     # Build the dataset pipeline with the custom metadata configuration task
     download_tasks = pipeline.get_download_and_extract_tasks(task_config)
 
-    extract_metadata = ExtractMetadata(
+    return ExtractMetadata(
         outfile="process_metadata.csv", task_config=task_config, **download_tasks
     )
-    final_task = pipeline.FinalizeCorpus(
-        sample_rates=sample_rates,
-        tasks_dir=tasks_dir,
-        tar_dir=tar_dir,
-        metadata_task=extract_metadata,
-        task_config=task_config,
-    )
-    return final_task
