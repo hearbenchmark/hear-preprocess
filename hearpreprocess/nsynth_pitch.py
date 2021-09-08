@@ -12,6 +12,12 @@ import luigi
 import pandas as pd
 
 import hearpreprocess.pipeline as pipeline
+from hearpreprocess.pipeline import (
+    TRAIN_PERCENTAGE,
+    VALIDATION_PERCENTAGE,
+    TEST_PERCENTAGE,
+    TRAINVAL_PERCENTAGE,
+)
 
 logger = logging.getLogger("luigi-interface")
 
@@ -48,16 +54,16 @@ generic_task_config = {
     "modes": {
         "5h": {
             "max_task_duration_by_split": {
-                "train": 3600 * 5 * 8 / 9,
-                "valid": 3600 * 5 * 1 / 9,
-                "test": 3600 * 5 * 1 / 9,
+                "train": 3600 * 5 * TRAIN_PERCENTAGE / TRAINVAL_PERCENTAGE,
+                "valid": 3600 * 5 * VALIDATION_PERCENTAGE / TRAINVAL_PERCENTAGE,
+                "test": 3600 * 5 * TEST_PERCENTAGE / TRAINVAL_PERCENTAGE,
             }
         },
         "50h": {
             "max_task_duration_by_split": {
-                "train": 3600 * 50 * 8 / 9,
-                "valid": 3600 * 50 * 1 / 9,
-                "test": 3600 * 50 * 1 / 9,
+                "train": 3600 * 50 * TRAIN_PERCENTAGE / TRAINVAL_PERCENTAGE,
+                "valid": 3600 * 50 * VALIDATION_PERCENTAGE / TRAINVAL_PERCENTAGE,
+                "test": 3600 * 50 * TEST_PERCENTAGE / TRAINVAL_PERCENTAGE,
             }
         },
         "small": {

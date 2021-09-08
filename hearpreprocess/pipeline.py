@@ -33,19 +33,20 @@ INCLUDE_DATESTR_IN_FINAL_PATHS = False
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
 # the data in the split and hence is not a part of the data config
-VALIDATION_PERCENTAGE = 80
+# We use a 80/10/10 split.
+VALIDATION_PERCENTAGE = 10
 TEST_PERCENTAGE = 10
 TRAIN_PERCENTAGE = 100 - VALIDATION_PERCENTAGE - TEST_PERCENTAGE
+TRAINVAL_PERCENTAGE = TRAIN_PERCENTAGE + VALIDATION_PERCENTAGE
 
 # We want no more than 5 hours of audio (training + validation) per task.
-# We use a 80/10/10 split.
 # This can be overriden in the task config.
 # e.g. speech_commands test set.
 # If None, no limit is used.
 MAX_TASK_DURATION_BY_SPLIT = {
-    "train": 3600 * 5 * 8 / 9,
-    "valid": 3600 * 5 * 1 / 9,
-    "test": 3600 * 5 * 1 / 9,
+    "train": 3600 * 5 * TRAIN_PERCENTAGE / TRAINVAL_PERCENTAGE,
+    "valid": 3600 * 5 * VALIDATION_PERCENTAGE / TRAINVAL_PERCENTAGE,
+    "test": 3600 * 5 * TEST_PERCENTAGE / TRAINVAL_PERCENTAGE,
 }
 
 
