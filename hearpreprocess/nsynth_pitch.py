@@ -48,16 +48,16 @@ generic_task_config = {
     "modes": {
         "5h": {
             "max_task_duration_by_split": {
-                "train": 3600 * 5 * 3 / 4,
-                "valid": 3600 * 5 * 1 / 4,
-                "test": 3600 * 5 * 1 / 4,
+                "train": 3600 * 5 * 8 / 9,
+                "valid": 3600 * 5 * 1 / 9,
+                "test": 3600 * 5 * 1 / 9,
             }
         },
         "50h": {
             "max_task_duration_by_split": {
-                "train": 3600 * 50 * 3 / 4,
-                "valid": 3600 * 50 * 1 / 4,
-                "test": 3600 * 50 * 1 / 4,
+                "train": 3600 * 50 * 8 / 9,
+                "valid": 3600 * 50 * 1 / 9,
+                "test": 3600 * 50 * 1 / 9,
             }
         },
         "small": {
