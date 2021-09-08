@@ -45,8 +45,21 @@ generic_task_config = {
     # Different modes for preprocessing this dataset
     # We use all modes EXCEPT small, unless flag "--small" used.
     "modes": {
+        "5h": {
+            "max_task_duration_by_split": {
+                "train": 3600 * 5 * 3 / 4,
+                "valid": 3600 * 5 * 1 / 4,
+                "test": 3600 * 5 * 1 / 4,
+            }
+        },
+        "50h": {
+            "max_task_duration_by_split": {
+                "train": 3600 * 50 * 3 / 4,
+                "valid": 3600 * 50 * 1 / 4,
+                "test": 3600 * 50 * 1 / 4,
+            }
+        },
         "small": {
-            "version": "v2.2.3-small",
             "download_urls": [
                 {
                     "split": "train",

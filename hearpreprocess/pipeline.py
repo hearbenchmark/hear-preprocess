@@ -34,14 +34,15 @@ VALIDATION_PERCENTAGE = 20
 TEST_PERCENTAGE = 20
 TRAIN_PERCENTAGE = 100 - VALIDATION_PERCENTAGE - TEST_PERCENTAGE
 
-# We want no more than 5 hours of audio per task.
+# We want no more than 5 hours of audio (training + validation) per task.
+# We use a 60/20/20 split.
 # This can be overriden in the task config.
 # e.g. speech_commands test set.
 # If None, no limit is used.
 MAX_TASK_DURATION_BY_SPLIT = {
-    "train": 3 * 3600,
-    "valid": 1 * 3600,
-    "test": 1 * 3600,
+    "train": 3600 * 5 * 3 / 4,
+    "valid": 3600 * 5 * 1 / 4,
+    "test": 3600 * 5 * 1 / 4,
 }
 
 

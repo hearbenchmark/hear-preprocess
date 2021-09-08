@@ -28,8 +28,6 @@ generic_task_config = {
     "prediction_type": "multiclass",
     "sample_duration": 1.0,
     "evaluation": ["top1_acc"],
-    # The test set is 1.33 hours, so we use the entire thing
-    "max_task_duration_by_split": {"test": None},
     "download_urls": [
         {
             "split": "train",
@@ -45,8 +43,18 @@ generic_task_config = {
     # Different modes for preprocessing this dataset
     # We use all modes EXCEPT small, unless flag "--small" used.
     "modes": {
+        "5h": {
+            # The test set is 1.33 hours, so we use the entire thing
+            "max_task_duration_by_split": {
+                "test": None,
+                "train": 3600 * 5 * 3 / 4,
+                "valid": 3600 * 5 * 1 / 4,
+            }
+        },
+        "full": {
+            "max_task_duration_by_split": {"test": None, "train": None, "valid": None}
+        },
         "small": {
-            "version": "v0.0.2-small",
             "download_urls": [
                 {
                     "split": "train",

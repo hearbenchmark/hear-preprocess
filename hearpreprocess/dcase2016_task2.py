@@ -23,6 +23,7 @@ logger = logging.getLogger("luigi-interface")
 
 generic_task_config = {
     "task_name": "dcase2016_task2",
+    # Since we repartition, we use our own version number here
     "version": "hear2021",
     "embedding_type": "event",
     "prediction_type": "multilabel",
@@ -32,8 +33,6 @@ generic_task_config = {
     # their secondary score.
     # However, we announced that onset F1 would be our primary score.
     "evaluation": ["event_onset_200ms_fms", "segment_1s_er"],
-    # The test set is 1.8 hours, so we use the entire thing
-    "max_task_duration_by_split": {"test": None},
     "download_urls": [
         {
             "split": "train",
@@ -51,8 +50,12 @@ generic_task_config = {
     # Different modes for preprocessing this dataset
     # We use all modes EXCEPT small, unless flag "--small" used.
     "modes": {
+        "full": {
+            # This dataset is not very large (but it is an event
+            # detection task, so there are many hops needed).
+            "max_task_duration_by_split": {"test": None, "train": None, "valid": None}
+        },
         "small": {
-            "version": "hear2021-small",
             "download_urls": [
                 {
                     "split": "train",
