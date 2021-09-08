@@ -7,7 +7,8 @@ import os
 import random
 import shutil
 import tarfile
-from datetime import datetime
+
+# from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
@@ -1223,9 +1224,10 @@ class FinalizeCorpus(MetadataTask):
         return tarinfo
 
     def create_tar(self, sample_rate: int):
-        datestr = datetime.today().strftime("%Y%m%d")
+        # datestr = datetime.today().strftime("%Y%m%d")
         tarname = (
-            f"hear-{datestr}-{__version__}-"
+            # f"hear-{datestr}-{__version__}-"
+            f"hear-{__version__}-"
             + f"{self.versioned_task_name}-{sample_rate}.tar.gz"
         )
         tarname_latest = f"hear-LATEST-{self.versioned_task_name}-{sample_rate}.tar.gz"
