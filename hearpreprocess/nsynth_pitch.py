@@ -42,6 +42,7 @@ generic_task_config = {
             "md5": "5e6f8719bf7e16ad0a00d518b78af77d",
         },
     ],
+    "default_mode": "5h",
     # Different modes for preprocessing this dataset
     # We use all modes EXCEPT small, unless flag "--small" used.
     "modes": {

@@ -40,15 +40,16 @@ generic_task_config = {
             "md5": "854c580ee90bff80c516491c84544e32",
         },
     ],
+    "default_mode": "5h",
     # Different modes for preprocessing this dataset
     # We use all modes EXCEPT small, unless flag "--small" used.
     "modes": {
         "5h": {
-            # The test set is 1.33 hours, so we use the entire thing
             "max_task_duration_by_split": {
-                "test": None,
                 "train": 3600 * 5 * 3 / 4,
                 "valid": 3600 * 5 * 1 / 4,
+                # The test set is 1.33 hours, so we use the entire thing
+                "test": None,
             }
         },
         "full": {
