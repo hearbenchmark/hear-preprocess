@@ -92,16 +92,21 @@ class WorkTask(luigi.Task):
 
     @property
     def longname(self) -> str:
-        return f"{self.task_config['name']} {self.task_config['mode']} {self.name}"
+        """Typically used for logging."""
+        return "%s %s %s" % (
+            self.task_config["task_name"],
+            self.task_config["mode"],
+            self.name,
+        )
 
     @property
     def versioned_task_name(self):
         """
-        Versioned Task name contains the provided name in the
+        Versioned task name contains the provided name in the
         data config and the version and the mode.
         """
         return "%s-%s-%s" % (
-            self.task_config["name"],
+            self.task_config["task_name"],
             self.task_config["version"],
             self.task_config["mode"],
         )
