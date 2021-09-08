@@ -1103,14 +1103,14 @@ class FinalCombine(MetadataTask):
     tasks_dir.
 
     Parameters:
-            sample_rates (list(int)): The list of sampling rates in
-                which the corpus is required.
+        sample_rates (list(int)): The list of sampling rates in
+            which the corpus is required.
         tasks_dir str: Directory to put the combined dataset.
     Requires:
         resample (List(ResampleSubCorpus)): task which resamples
-                the entire subcorpus
-
-        subcorpus_metadata (SubcorpusMetadata): task with the subcorpus metadata
+            the entire subcorpus
+        subcorpus_metadata (SubcorpusMetadata): task with the
+            subcorpus metadata
     """
 
     sample_rates = luigi.ListParameter()
@@ -1183,12 +1183,12 @@ class FinalizeCorpus(MetadataTask):
     so we don't accidentally copy them to the public bucket.
 
     Parameters:
-            sample_rates (list(int)): The list of sampling rates in
-                which the corpus is required.
+        sample_rates (list(int)): The list of sampling rates in
+            which the corpus is required.
         tasks_dir str: Directory to put the combined dataset.
         tar_dir str: Directory to put the tar-files.
     Requires:
-        final_combine (FinalCombine): Final combined dataset.
+        combined (FinalCombine): Final combined dataset.
     """
 
     sample_rates = luigi.ListParameter()
