@@ -86,7 +86,7 @@ class WorkTask(luigi.Task):
     @property
     def task_subdir(self):
         """Task specific subdirectory"""
-        return Path(self.task_config.get("luigi_dir", "_workdir")).joinpath(
+        return Path(self.task_config.get("tmp_dir", "_workdir")).joinpath(
             str(self.versioned_task_name)
         )
 
