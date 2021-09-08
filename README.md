@@ -113,10 +113,10 @@ to the following DAG:
 * ExtractArchive
 * ExtractMetadata: Create splits over the entire corpus and find
 the label metadata for them.
-* SubcorpusSplit (subsample each split) => MonoWavSubcorpus => TrimPadSubcorpus => SubcorpusData (symlinks)
+* SubcorpusSplit (subsample each split) => MonoWavSplit => TrimPadSplit => SubcorpusData (symlinks)
 * SubcorpusData => {SubcorpusMetadata, ResampleSubcorpus}
 * SubcorpusMetadata => MetadataVocabulary
-* FinalCombine => FinalizeCorpus
+* FinalCombine => TarCorpus => FinalizeCorpus
 
 In terms of sampling:
 * We create a 60/20/20 split if train/valid/test does not exist.

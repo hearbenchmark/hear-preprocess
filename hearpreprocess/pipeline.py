@@ -672,7 +672,27 @@ class MetadataTask(WorkTask):
         return self._metadata
 
 
-class SubsampleSplit(MetadataTask):
+class SplitTask(MetadataTask):
+    """
+    Abstract MetadataTask that has a split directory of workdir, and
+    split parameter.
+    """
+
+    split = luigi.Parameter()
+
+    @property
+    def splitdir(self) -> Path:
+        return self.workdir.joinpath(self.split)
+
+    def createsplit(self):
+        # Would be nice to have this happen automatically
+        if self.splitdir.exists():
+            assert self.splitdir.is_dir()
+            shutil.rmtree(self.splitdir)
+        self.splitdir.mkdir()
+
+
+class SubsampleSplit(SplitTask):
     """
     For large datasets, we may want to restrict each split to a
     certain number of minutes.
@@ -683,14 +703,14 @@ class SubsampleSplit(MetadataTask):
         split: name of the split for which subsampling has to be done
     """
 
-    split = luigi.Parameter()
-
     def requires(self):
         return {
             "metadata": self.metadata_task,
         }
 
     def run(self):
+        self.createsplit()
+
         split_metadata = self.metadata[
             self.metadata["split"] == self.split
         ].reset_index(drop=True)
@@ -751,7 +771,7 @@ class SubsampleSplit(MetadataTask):
             newaudiofile = Path(
                 # Add the current filetype suffix (mp3, webm, etc)
                 # to the unique filestem.
-                self.workdir.joinpath(unique_filestem + audiopath.suffix)
+                self.splitdir.joinpath(unique_filestem + audiopath.suffix)
             )
             assert not newaudiofile.exists(), f"{newaudiofile} already exists! "
             "We shouldn't have two files with the same name. If this is happening "
@@ -766,85 +786,62 @@ class SubsampleSplit(MetadataTask):
         self.mark_complete()
 
 
-class SubsampleSplits(MetadataTask):
-    """
-    Aggregates subsampling of all the splits into a single task as dependencies.
-
-    Requires:
-        subsample_splits (list(SubsampleSplit)): task subsamples each split
-    """
-
-    def requires(self):
-        # Perform subsampling on each split independently
-        subsample_splits = {
-            split: SubsampleSplit(
-                metadata_task=self.metadata_task,
-                split=split,
-                task_config=self.task_config,
-            )
-            for split in SPLITS
-        }
-        return subsample_splits
-
-    def run(self):
-        workdir = Path(self.workdir)
-        workdir.rmdir()
-        # We need to link the workdir of the requires, they will all be the same
-        # for all the requires so just grab the first one.
-        key = list(self.requires().keys())[0]
-        workdir.symlink_to(Path(self.requires()[key].workdir).absolute())
-
-        self.mark_complete()
-
-
-class MonoWavSubcorpus(MetadataTask):
+class MonoWavSplit(SplitTask):
     """
     Converts the files to wav and mono encoding.
 
-    This task ensures that the audio is converted to an uncompressed format
-    so that any downstream operation on the audio
-    results in precise outputs (like trimming and padding)
+    This task ensures that the audio is converted to an uncompressed
+    format so that any downstream operation on the audio results
+    in precise outputs (like trimming and padding)
     https://stackoverflow.com/questions/54153364/ffmpeg-being-inprecise-when-trimming-mp3-files # noqa: E501
 
     Requires:
-        corpus (SubsampleSplits): task which aggregates all subsampled splits
+        corpus (SubsampleSplit): Split that was subsampled.
     """
 
     def requires(self):
         return {
-            "corpus": SubsampleSplits(
-                metadata_task=self.metadata_task, task_config=self.task_config
+            "corpus": SubsampleSplit(
+                split=self.split,
+                metadata_task=self.metadata_task,
+                task_config=self.task_config,
             )
         }
 
     def run(self):
-        for audiofile in tqdm(list(self.requires()["corpus"].workdir.iterdir())):
+        self.createsplit()
+
+        for audiofile in tqdm(list(self.requires()["corpus"].splitdir.iterdir())):
             if audiofile.suffix == ".json":
                 continue
-            newaudiofile = self.workdir.joinpath(f"{audiofile.stem}.wav")
+            newaudiofile = self.splitdir.joinpath(f"{audiofile.stem}.wav")
             audio_util.mono_wav(str(audiofile), str(newaudiofile))
 
         self.mark_complete()
 
 
-class TrimPadSubcorpus(MetadataTask):
+class TrimPadSplit(SplitTask):
     """
     Trims and pads the wav audio files
 
     Requires:
-        corpus (MonoWavSubcorpus): task which converts the audio to wav file
+        corpus (MonoWavSplit): task which converts the audio to wav file
     """
 
     def requires(self):
         return {
-            "corpus": MonoWavSubcorpus(
-                metadata_task=self.metadata_task, task_config=self.task_config
+            "corpus": MonoWavSplit(
+                split=self.split,
+                metadata_task=self.metadata_task,
+                task_config=self.task_config,
             )
         }
 
     def run(self):
-        for audiofile in tqdm(list(self.requires()["corpus"].workdir.iterdir())):
-            newaudiofile = self.workdir.joinpath(f"{audiofile.stem}.wav")
+        self.createsplit()
+
+        for audiofile in tqdm(list(self.requires()["corpus"].splitdir.iterdir())):
+            newaudiofile = self.splitdir.joinpath(f"{audiofile.stem}.wav")
             audio_util.trim_pad_wav(
                 str(audiofile),
                 str(newaudiofile),
@@ -856,41 +853,39 @@ class TrimPadSubcorpus(MetadataTask):
 
 class SubcorpusData(MetadataTask):
     """
-    Go over the mono wav folder and symlink the audio files into split dirs.
+    Aggregates subsampling of all the splits into a single task as dependencies.
 
-    Requires
-        corpus(TrimPadSubcorpus): Trims and pads audio to the desired duration
+    Requires:
+        splits (list(SplitTask)): final task over each split.
+            This is a TrimPadSplit.
     """
 
     def requires(self):
-        return {
-            "corpus": TrimPadSubcorpus(
-                metadata_task=self.metadata_task, task_config=self.task_config
-            ),
+        # Perform subsampling on each split independently
+        splits = {
+            split: TrimPadSplit(
+                split=split,
+                metadata_task=self.metadata_task,
+                task_config=self.task_config,
+            )
+            for split in SPLITS
         }
+        return splits
 
     def run(self):
-        audiofiles = set(self.requires()["corpus"].workdir.glob("*.wav"))
-        split_count = {split: 0 for split in SPLITS}
-        for audiofile in tqdm(audiofiles):
-            # Compare the filename with the unique_filestem.
-            # Note that the unique_filestem does not have a file extension
-            splits = self.metadata.loc[
-                self.metadata["unique_filestem"] == audiofile.stem, "split"
-            ].drop_duplicates()
-            assert len(splits) == 1, "unique_filestem should be unique"
-            "across the entire dataset and imply a particular split."
-            split = splits.values[0]
-            split_count[split] += 1
-            split_dir = self.workdir.joinpath(split)
-            split_dir.mkdir(exist_ok=True)
-            newaudiofile = new_basedir(audiofile, split_dir)
-            os.symlink(os.path.realpath(audiofile), newaudiofile)
+        workdir = Path(self.workdir)
+        if workdir.exists():
+            if workdir.is_dir():
+                workdir.rmdir()
+            else:
+                workdir.unlink()
 
-        diagnostics.info(
-            f"{self.longname} Files in each split after making split subcorpus: "
-            "{}".format(split_count)
-        )
+        # We need to link the workdir of the requires, they will all be the same
+        # for all the requires so just grab the first one.
+        key = list(self.requires().keys())[0]
+        workdir.symlink_to(Path(self.requires()[key].workdir).absolute())
+        for key2 in self.requires().keys():
+            assert self.requires()[key].workdir == self.requires()[key2].workdir
 
         # Output stats for every input directory
         for split in SPLITS:
@@ -989,8 +984,8 @@ class MetadataVocabulary(MetadataTask):
     Creates the vocabulary CSV file for a task.
 
     Requires
-            subcorpus_metadata (SubcorpusMetadata): task which produces
-                the subcorpus metadata
+        subcorpus_metadata (SubcorpusMetadata): task which produces
+            the subcorpus metadata
     """
 
     def requires(self):
@@ -1175,9 +1170,9 @@ class FinalCombine(MetadataTask):
         self.mark_complete()
 
 
-class FinalizeCorpus(MetadataTask):
+class TarCorpus(MetadataTask):
     """
-    Tar the final dataset.
+    Tar the final dataset at some sample rate.
 
     TODO: Secret tasks should go into another directory,
     so we don't accidentally copy them to the public bucket.
@@ -1191,19 +1186,13 @@ class FinalizeCorpus(MetadataTask):
         combined (FinalCombine): Final combined dataset.
     """
 
-    sample_rates = luigi.ListParameter()
+    sample_rate = luigi.IntParameter()
+    combined_task = luigi.TaskParameter()
     tasks_dir = luigi.Parameter()
     tar_dir = luigi.Parameter()
 
     def requires(self):
-        return {
-            "combined": FinalCombine(
-                sample_rates=self.sample_rates,
-                tasks_dir=self.tasks_dir,
-                metadata_task=self.metadata_task,
-                task_config=self.task_config,
-            )
-        }
+        return {"combined": self.combined_task}
 
     def source_to_archive_path(
         self, source_path: Union[str, Path], datestr: str
@@ -1269,9 +1258,47 @@ class FinalizeCorpus(MetadataTask):
         shutil.copyfile(tarfile_workdir, Path(self.tar_dir).joinpath(tarname_latest))
 
     def run(self):
-        for sample_rate in self.sample_rates:
-            self.create_tar(sample_rate)
+        self.create_tar(self.sample_rate)
+        self.mark_complete()
 
+
+class FinalizeCorpus(MetadataTask):
+    """
+    Finalize the corpus, simply create all tar files.
+
+    Parameters:
+        sample_rates (list(int)): The list of sampling rates in
+            which the corpus is required.
+        tasks_dir str: Directory to put the combined dataset.
+        tar_dir str: Directory to put the tar-files.
+    Requires:
+        combined (FinalCombine): Final combined dataset.
+    """
+
+    sample_rates = luigi.ListParameter()
+    tasks_dir = luigi.Parameter()
+    tar_dir = luigi.Parameter()
+
+    def requires(self):
+        combined_task = FinalCombine(
+            sample_rates=self.sample_rates,
+            tasks_dir=self.tasks_dir,
+            metadata_task=self.metadata_task,
+            task_config=self.task_config,
+        )
+        return {
+            str(sr): TarCorpus(
+                sample_rate=sr,
+                combined_task=combined_task,
+                tasks_dir=self.tasks_dir,
+                tar_dir=self.tar_dir,
+                metadata_task=self.metadata_task,
+                task_config=self.task_config,
+            )
+            for sr in self.sample_rates
+        }
+
+    def run(self):
         self.mark_complete()
 
 
