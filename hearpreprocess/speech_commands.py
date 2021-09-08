@@ -2,10 +2,11 @@
 """
 Pre-processing pipeline for Google speech_commands
 """
+
 import os
 import re
 from pathlib import Path
-from typing import List
+from typing import Any, Dict
 
 import luigi
 import pandas as pd
@@ -20,7 +21,7 @@ BACKGROUND_NOISE = "_background_noise_"
 UNKNOWN = "_unknown_"
 SILENCE = "_silence_"
 
-task_config = {
+generic_task_config = {
     "task_name": "speech_commands",
     "version": "v0.0.2",
     "embedding_type": "scene",
@@ -221,35 +222,16 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         return metadata
 
 
-def main(
-    sample_rates: List[int],
-    tmp_dir: str,
-    tasks_dir: str,
-    tar_dir: str,
-    small: bool = False,
-):
-    if small:
-        task_config.update(dict(task_config["small"]))  # type: ignore
-    task_config.update({"tmp_dir": tmp_dir})
-
+def extract_metadata_task(task_config: Dict[str, Any]) -> pipeline.ExtractMetadata:
     # Build the dataset pipeline with the custom metadata configuration task
     download_tasks = pipeline.get_download_and_extract_tasks(task_config)
 
     generate = GenerateTrainDataset(
         train_data=download_tasks["train"], task_config=task_config
     )
-    extract_metadata = ExtractMetadata(
+    return ExtractMetadata(
         train=generate,
         test=download_tasks["test"],
         outfile="process_metadata.csv",
         task_config=task_config,
     )
-
-    final_task = pipeline.FinalizeCorpus(
-        sample_rates=sample_rates,
-        tasks_dir=tasks_dir,
-        tar_dir=tar_dir,
-        metadata_task=extract_metadata,
-        task_config=task_config,
-    )
-    return final_task
