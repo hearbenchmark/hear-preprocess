@@ -684,6 +684,12 @@ class SplitTask(MetadataTask):
     def splitdir(self) -> Path:
         return self.workdir.joinpath(self.split)
 
+    def createsplit(self):
+        # Would be nice to have this happen automatically
+        if self.splitdir.exists():
+            self.splitdir.rmdir()
+        self.splitdir.mkdir()
+
 
 class SubsampleSplit(SplitTask):
     """
@@ -702,8 +708,7 @@ class SubsampleSplit(SplitTask):
         }
 
     def run(self):
-        if self.splitdir.exists():
-            self.splitdir.rmdir()
+        self.createsplit()
 
         split_metadata = self.metadata[
             self.metadata["split"] == self.split
@@ -803,8 +808,7 @@ class MonoWavSplit(SplitTask):
         }
 
     def run(self):
-        if self.splitdir.exists():
-            self.splitdir.rmdir()
+        self.createsplit()
 
         for audiofile in tqdm(list(self.requires()["corpus"].splitdir.iterdir())):
             if audiofile.suffix == ".json":
@@ -833,8 +837,7 @@ class TrimPadSplit(SplitTask):
         }
 
     def run(self):
-        if self.splitdir.exists():
-            self.splitdir.rmdir()
+        self.createsplit()
 
         for audiofile in tqdm(list(self.requires()["corpus"].splitdir.iterdir())):
             newaudiofile = self.splitdir.joinpath(f"{audiofile.stem}.wav")
