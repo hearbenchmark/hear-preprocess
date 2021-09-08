@@ -12,7 +12,7 @@ We also allow training data outside this task.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import luigi
 import pandas as pd

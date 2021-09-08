@@ -2,10 +2,11 @@
 """
 Pre-processing pipeline for Google speech_commands
 """
+
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import luigi
 import pandas as pd

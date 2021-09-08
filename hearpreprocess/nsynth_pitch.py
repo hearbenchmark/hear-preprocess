@@ -6,7 +6,7 @@ Pre-processing pipeline for NSynth pitch detection
 import logging
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import luigi
 import pandas as pd
@@ -104,7 +104,8 @@ class ExtractMetadata(pipeline.ExtractMetadata):
             # Filter out pitches that are not within the range
             metadata.loc[
                 metadata["pitch"].between(
-                    task_config["pitch_range_min"], task_config["pitch_range_max"]
+                    self.task_config["pitch_range_min"],
+                    self.task_config["pitch_range_max"],
                 )
                 # Assign metadata columns
             ].assign(
