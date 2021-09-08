@@ -17,11 +17,9 @@ import hearpreprocess.pipeline as pipeline
 import hearpreprocess.util.luigi as luigi_util
 from hearpreprocess.pipeline import (
     TRAIN_PERCENTAGE,
-    VALIDATION_PERCENTAGE,
-    TEST_PERCENTAGE,
     TRAINVAL_PERCENTAGE,
+    VALIDATION_PERCENTAGE,
 )
-
 
 WORDS = ["down", "go", "left", "no", "off", "on", "right", "stop", "up", "yes"]
 BACKGROUND_NOISE = "_background_noise_"

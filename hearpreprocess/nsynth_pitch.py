@@ -13,10 +13,10 @@ import pandas as pd
 
 import hearpreprocess.pipeline as pipeline
 from hearpreprocess.pipeline import (
-    TRAIN_PERCENTAGE,
-    VALIDATION_PERCENTAGE,
     TEST_PERCENTAGE,
+    TRAIN_PERCENTAGE,
     TRAINVAL_PERCENTAGE,
+    VALIDATION_PERCENTAGE,
 )
 
 logger = logging.getLogger("luigi-interface")
