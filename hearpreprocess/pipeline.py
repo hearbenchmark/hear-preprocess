@@ -1182,7 +1182,7 @@ class TarCorpus(MetadataTask):
         combined (FinalCombine): Final combined dataset.
     """
 
-    sample_rate = luigi.Parameter()
+    sample_rate = luigi.IntParameter()
     combined_task = luigi.TaskParameter()
     tasks_dir = luigi.Parameter()
     tar_dir = luigi.Parameter()
