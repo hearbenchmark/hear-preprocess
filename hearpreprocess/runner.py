@@ -118,7 +118,7 @@ def run(
             ]
             assert modes is not [], f"Task {task} has no modes besides 'small'"
         else:
-            raise ValueError, f"mode {mode} unknown"
+            raise ValueError(f"mode {mode} unknown")
         for mode in modes:
             task_config = copy.deepcopy(task_module.generic_task_config)
             task_config.update(dict(task_config["modes"][mode]))
