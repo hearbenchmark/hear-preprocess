@@ -1258,7 +1258,7 @@ class FinalizeCorpus(MetadataTask):
             # Now add audio files for this sample rate
             sample_rate_source = os.path.join(source_dir, str(sample_rate))
             with tqdm(
-                desc=f"tar {self.task_name} {sample_rate}", total=len(files)
+                desc=f"tar {self.versioned_task_name} {sample_rate}", total=len(files)
             ) as pbar:
                 tar.add(
                     sample_rate_source,
