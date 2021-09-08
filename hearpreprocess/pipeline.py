@@ -681,7 +681,7 @@ class SplitTask(MetadataTask):
     split = luigi.Parameter()
 
     @property
-    def splitdir(self):
+    def splitdir(self) -> Path:
         return self.workdir.joinpath(self.split)
 
 
@@ -702,7 +702,9 @@ class SubsampleSplit(SplitTask):
         }
 
     def run(self):
-        self.splitdir.rmdir()
+        if self.splitdir.exists():
+            self.splitdir.rmdir()
+
         split_metadata = self.metadata[
             self.metadata["split"] == self.split
         ].reset_index(drop=True)
@@ -801,7 +803,9 @@ class MonoWavSplit(SplitTask):
         }
 
     def run(self):
-        self.splitdir.rmdir()
+        if self.splitdir.exists():
+            self.splitdir.rmdir()
+
         for audiofile in tqdm(list(self.requires()["corpus"].splitdir.iterdir())):
             if audiofile.suffix == ".json":
                 continue
@@ -829,7 +833,9 @@ class TrimPadSplit(SplitTask):
         }
 
     def run(self):
-        self.splitdir.rmdir()
+        if self.splitdir.exists():
+            self.splitdir.rmdir()
+
         for audiofile in tqdm(list(self.requires()["corpus"].splitdir.iterdir())):
             newaudiofile = self.splitdir.joinpath(f"{audiofile.stem}.wav")
             audio_util.trim_pad_wav(
@@ -864,7 +870,9 @@ class SubcorpusData(MetadataTask):
 
     def run(self):
         workdir = Path(self.workdir)
-        workdir.rmdir()
+        if workdir.exists():
+            workdir.rmdir()
+
         # We need to link the workdir of the requires, they will all be the same
         # for all the requires so just grab the first one.
         key = list(self.requires().keys())[0]
