@@ -91,20 +91,16 @@ class WorkTask(luigi.Task):
         )
 
     @property
-    def task_name(self) -> str:
-        return self.task_config["task_name"]
-
-    @property
     def longname(self) -> str:
-        return f"{self.task_name} {self.name}"
+        return f"{self.task_config['name']} {self.task_config['mode']} {self.name}"
 
     @property
     def versioned_task_name(self):
         """
         Versioned Task name contains the provided name in the
-        data config and the version
+        data config and the version and the mode.
         """
-        return f"{self.task_name}-{self.task_config['version']}"
+        return f"{self.task_config['name']}-{self.task_config['version']}-{self.task_config['mode']}"
 
     @property
     def stage_number(self):
