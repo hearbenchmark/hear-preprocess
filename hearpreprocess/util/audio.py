@@ -51,9 +51,11 @@ def trim_pad_wav(in_file: str, out_file: str, duration: float) -> None:
     If the audio is already of the desired duration, make a symlink
     """
     assert not Path(out_file).exists(), "File already exists"
+    in_stats = get_audio_stats(in_file)
+    assert in_stats["codec"] == "pcm_s16le"
     # If the audio is of the desired duration
     # move to the else part where we will just create a symlink
-    if get_audio_stats(in_file)["duration"] != duration:
+    if in_stats["duration"] != duration:
         # Trim and pad the audio
         try:
             _ = (
@@ -71,10 +73,11 @@ def trim_pad_wav(in_file: str, out_file: str, duration: float) -> None:
             )
             raise
         # Check if the file has been converted to the desired duration
-        new_dur = get_audio_stats(out_file)["duration"]
+        out_stats = get_audio_stats(out_file)
         assert (
-            new_dur == duration
+            out_stats["duration"] == duration
         ), f"The new file is {new_dur} secs while expected is {duration} secs"
+        assert out_stats["codec"] == "pcm_s16le"
     else:
         Path(out_file).symlink_to(Path(in_file).absolute())
 
@@ -85,9 +88,11 @@ def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
     If the audio is already of the desired sample rate, make a symlink
     """
     assert not Path(out_file).exists()
+    in_stats = get_audio_stats(in_file)
+    assert in_stats["codec"] == "pcm_s16le"
     # If the audio is of the desired sample rate
     # move to the else part where we will just create a symlink
-    if get_audio_stats(in_file)["sample_rate"] != out_sr:
+    if in_stats["sample_rate"] != out_sr:
         try:
             _ = (
                 ffmpeg.input(in_file)
@@ -104,10 +109,11 @@ def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
             )
             raise
         # Check if the file has been converted to the desired sampling rate
-        new_sr = get_audio_stats(out_file)["sample_rate"]
+        out_stats = get_audio_stats(out_file)
         assert (
-            new_sr == out_sr
+            out_stats["sample_rate"] == out_sr
         ), f"The new file is {new_sr} secs while expected is {out_sr} secs"
+        assert out_stats["codec"] == "pcm_s16le"
     else:
         # If the audio has the expected sampling rate, make a symlink
         Path(out_file).symlink_to(Path(in_file).absolute())
