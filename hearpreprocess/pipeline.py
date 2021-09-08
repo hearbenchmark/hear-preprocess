@@ -687,7 +687,8 @@ class SplitTask(MetadataTask):
     def createsplit(self):
         # Would be nice to have this happen automatically
         if self.splitdir.exists():
-            self.splitdir.rmdir()
+            assert self.splitdir.is_dir()
+            shutil.rmtree(self.splitdir)
         self.splitdir.mkdir()
 
 
