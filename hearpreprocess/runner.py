@@ -56,7 +56,7 @@ tasks = {
     "--sample-rate",
     default=None,
     help="Perform resampling only to this sample rate. "
-    "By default we resample to 16000, 22050, 44100, 48000.",
+    "By default we resample to 16000, 22050, 32000, 44100, 48000.",
     type=int,
 )
 @click.option(
@@ -100,7 +100,7 @@ def run(
         logger.info(f"Using {num_workers} workers")
 
     if sample_rate is None:
-        sample_rates = [16000, 22050, 44100, 48000]
+        sample_rates = [16000, 22050, 32000, 44100, 48000]
     else:
         sample_rates = [sample_rate]
 
