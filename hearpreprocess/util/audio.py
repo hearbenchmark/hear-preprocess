@@ -16,26 +16,33 @@ from tqdm import tqdm
 def mono_wav(in_file: str, out_file: str) -> None:
     """converts the audio to wav format with mono stream"""
     assert not Path(out_file).exists(), "File already exists"
-    try:
-        _ = (
-            ffmpeg.input(in_file)
-            .audio.output(out_file, f="wav", acodec="pcm_f32le", ac=1)
-            .run(quiet=True)
-        )
-    except ffmpeg.Error as e:
-        print(
-            "Please check the console output for ffmpeg to debug the "
-            "error in mono wav: ",
-            f"Error: {e}",
-        )
-        raise
-
-    # Check if the generated file is present and that ffmpeg can
-    # read stats for the file to be used in subsequent processing steps
-    assert Path(out_file).exists(), "wav file saved by ffmpeg was not found"
-    assert (
-        get_audio_stats(out_file)["ext"] is not None
-    ), "Unable to get stats for the generated wav file"
+    in_stats = get_audio_stats(in_file)
+    if not (in_stats and in_stats["codec"] == "pcm_s16le" and in_stats["mono"]):
+        try:
+            _ = (
+                ffmpeg.input(in_file)
+                .audio.output(out_file, f="wav", acodec="pcm_s16le", ac=1)
+                .run(quiet=True)
+            )
+        except ffmpeg.Error as e:
+            print(
+                "Please check the console output for ffmpeg to debug the "
+                "error in mono wav: ",
+                f"Error: {e}",
+            )
+            raise
+        # Check if the generated file is present and that ffmpeg can
+        # read stats for the file to be used in subsequent processing steps
+        assert Path(out_file).exists(), "wav file saved by ffmpeg was not found"
+        out_stats = get_audio_stats(out_file)
+        assert (
+            out_stats
+            and out_stats["ext"] == "wav"
+            and out_stats["codec"] == "pcm_s16le"
+            and out_stats["mono"]
+        ), "Unable to get stats for the generated wav file"
+    else:
+        Path(out_file).symlink_to(Path(in_file).absolute())
 
 
 def trim_pad_wav(in_file: str, out_file: str, duration: float) -> None:
@@ -53,7 +60,7 @@ def trim_pad_wav(in_file: str, out_file: str, duration: float) -> None:
                 ffmpeg.input(in_file)
                 .audio.filter("apad", whole_dur=duration)  # Pad
                 .filter("atrim", end=duration)  # Trim
-                .output(out_file, f="wav", acodec="pcm_f32le", ac=1)
+                .output(out_file, f="wav", acodec="pcm_s16le", ac=1)
                 .run(quiet=True)
             )
         except ffmpeg.Error as e:
@@ -111,6 +118,7 @@ def get_audio_stats(in_file: Union[str, Path]) -> Union[Dict[str, Any], Any]:
     try:
         audio_stream = ffmpeg.probe(in_file, select_streams="a")["streams"][0]
         audio_stats = {
+            "codec": audio_stream["codec_name"],
             "sample_rate": int(audio_stream["sample_rate"]),
             "samples": int(audio_stream["duration_ts"]),
             "mono": audio_stream["channels"] == 1,
