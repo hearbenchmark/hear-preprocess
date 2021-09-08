@@ -76,7 +76,8 @@ def trim_pad_wav(in_file: str, out_file: str, duration: float) -> None:
         out_stats = get_audio_stats(out_file)
         assert (
             out_stats["duration"] == duration
-        ), f"The new file is {new_dur} secs while expected is {duration} secs"
+        ), f"The new file is {out_stats['duration']} secs "
+        f"while expected is {duration} secs"
         assert out_stats["codec"] == "pcm_s16le"
     else:
         Path(out_file).symlink_to(Path(in_file).absolute())
@@ -112,7 +113,8 @@ def resample_wav(in_file: str, out_file: str, out_sr: int) -> None:
         out_stats = get_audio_stats(out_file)
         assert (
             out_stats["sample_rate"] == out_sr
-        ), f"The new file is {new_sr} secs while expected is {out_sr} secs"
+        ), f"The new file is {out_stats['sample_rate']} secs "
+        f"while expected is {out_sr} secs"
         assert out_stats["codec"] == "pcm_s16le"
     else:
         # If the audio has the expected sampling rate, make a symlink
