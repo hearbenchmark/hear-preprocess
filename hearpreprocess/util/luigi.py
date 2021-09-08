@@ -100,7 +100,11 @@ class WorkTask(luigi.Task):
         Versioned Task name contains the provided name in the
         data config and the version and the mode.
         """
-        return f"{self.task_config['name']}-{self.task_config['version']}-{self.task_config['mode']}"
+        return "%s-%s-%s" % (
+            self.task_config["name"],
+            self.task_config["version"],
+            self.task_config["mode"],
+        )
 
     @property
     def stage_number(self):
