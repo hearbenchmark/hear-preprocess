@@ -15,6 +15,11 @@ from tqdm import tqdm
 
 import hearpreprocess.pipeline as pipeline
 import hearpreprocess.util.luigi as luigi_util
+from hearpreprocess.pipeline import (
+    TRAIN_PERCENTAGE,
+    TRAINVAL_PERCENTAGE,
+    VALIDATION_PERCENTAGE,
+)
 
 WORDS = ["down", "go", "left", "no", "off", "on", "right", "stop", "up", "yes"]
 BACKGROUND_NOISE = "_background_noise_"
@@ -45,9 +50,10 @@ generic_task_config = {
     # We use all modes EXCEPT small, unless flag "--small" used.
     "modes": {
         "5h": {
+            # No more than 5 hours of audio (training + validation)
             "max_task_duration_by_split": {
-                "train": 3600 * 5 * 3 / 4,
-                "valid": 3600 * 5 * 1 / 4,
+                "train": 3600 * 5 * TRAIN_PERCENTAGE / TRAINVAL_PERCENTAGE,
+                "valid": 3600 * 5 * VALIDATION_PERCENTAGE / TRAINVAL_PERCENTAGE,
                 # The test set is 1.33 hours, so we use the entire thing
                 "test": None,
             }

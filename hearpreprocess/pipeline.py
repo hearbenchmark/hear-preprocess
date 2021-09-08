@@ -27,22 +27,25 @@ from hearpreprocess.util.luigi import (
     str2int,
 )
 
+INCLUDE_DATESTR_IN_FINAL_PATHS = False
+
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
 # the data in the split and hence is not a part of the data config
-VALIDATION_PERCENTAGE = 20
-TEST_PERCENTAGE = 20
+# We use a 80/10/10 split.
+VALIDATION_PERCENTAGE = 10
+TEST_PERCENTAGE = 10
 TRAIN_PERCENTAGE = 100 - VALIDATION_PERCENTAGE - TEST_PERCENTAGE
+TRAINVAL_PERCENTAGE = TRAIN_PERCENTAGE + VALIDATION_PERCENTAGE
 
 # We want no more than 5 hours of audio (training + validation) per task.
-# We use a 60/20/20 split.
 # This can be overriden in the task config.
 # e.g. speech_commands test set.
 # If None, no limit is used.
 MAX_TASK_DURATION_BY_SPLIT = {
-    "train": 3600 * 5 * 3 / 4,
-    "valid": 3600 * 5 * 1 / 4,
-    "test": 3600 * 5 * 1 / 4,
+    "train": 3600 * 5 * TRAIN_PERCENTAGE / TRAINVAL_PERCENTAGE,
+    "valid": 3600 * 5 * VALIDATION_PERCENTAGE / TRAINVAL_PERCENTAGE,
+    "test": 3600 * 5 * TEST_PERCENTAGE / TRAINVAL_PERCENTAGE,
 }
 
 
@@ -723,7 +726,7 @@ class SubsampleSplit(MetadataTask):
         if max_split_duration is None:
             max_files = len(split_filestem_relpaths)
         else:
-            max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
+            max_files = int(max_split_duration / sample_duration)
 
         diagnostics.info(
             f"{self.longname} "
@@ -1100,14 +1103,14 @@ class FinalCombine(MetadataTask):
     tasks_dir.
 
     Parameters:
-            sample_rates (list(int)): The list of sampling rates in
-                which the corpus is required.
+        sample_rates (list(int)): The list of sampling rates in
+            which the corpus is required.
         tasks_dir str: Directory to put the combined dataset.
     Requires:
         resample (List(ResampleSubCorpus)): task which resamples
-                the entire subcorpus
-
-        subcorpus_metadata (SubcorpusMetadata): task with the subcorpus metadata
+            the entire subcorpus
+        subcorpus_metadata (SubcorpusMetadata): task with the
+            subcorpus metadata
     """
 
     sample_rates = luigi.ListParameter()
@@ -1180,12 +1183,12 @@ class FinalizeCorpus(MetadataTask):
     so we don't accidentally copy them to the public bucket.
 
     Parameters:
-            sample_rates (list(int)): The list of sampling rates in
-                which the corpus is required.
+        sample_rates (list(int)): The list of sampling rates in
+            which the corpus is required.
         tasks_dir str: Directory to put the combined dataset.
         tar_dir str: Directory to put the tar-files.
     Requires:
-        final_combine (FinalCombine): Final combined dataset.
+        combined (FinalCombine): Final combined dataset.
     """
 
     sample_rates = luigi.ListParameter()
@@ -1213,7 +1216,7 @@ class FinalizeCorpus(MetadataTask):
             self.tasks_dir in ("tasks", "tasks/") or archive_path != source_path
         ), f"{archive_path} == {source_path}"
         assert archive_path.startswith("tasks")
-        archive_path = f"hear-{datestr}-{__version__}/{archive_path}"
+        archive_path = f"hear-{datestr}{__version__}/{archive_path}"
         return archive_path
 
     @staticmethod
@@ -1223,9 +1226,12 @@ class FinalizeCorpus(MetadataTask):
         return tarinfo
 
     def create_tar(self, sample_rate: int):
-        datestr = datetime.today().strftime("%Y%m%d")
+        if INCLUDE_DATESTR_IN_FINAL_PATHS:
+            datestr = datetime.today().strftime("%Y%m%d") + "-"
+        else:
+            datestr = ""
         tarname = (
-            f"hear-{datestr}-{__version__}-"
+            f"hear-{datestr}{__version__}-"
             + f"{self.versioned_task_name}-{sample_rate}.tar.gz"
         )
         tarname_latest = f"hear-LATEST-{self.versioned_task_name}-{sample_rate}.tar.gz"
