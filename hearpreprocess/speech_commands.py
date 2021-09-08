@@ -50,6 +50,7 @@ generic_task_config = {
     # We use all modes EXCEPT small, unless flag "--small" used.
     "modes": {
         "5h": {
+            # No more than 5 hours of audio (training + validation)
             "max_task_duration_by_split": {
                 "train": 3600 * 5 * TRAIN_PERCENTAGE / TRAINVAL_PERCENTAGE,
                 "valid": 3600 * 5 * VALIDATION_PERCENTAGE / TRAINVAL_PERCENTAGE,

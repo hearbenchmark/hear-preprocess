@@ -8,6 +8,8 @@ you won't need this repo. Use
 [hear-eval-kit](https://github.com/neuralaudio/hear-eval-kit/) to
 evaluate your embedding models on these tasks.
 
+This preprocessing is slow and disk-intensive but safe and careful.
+
 ## Cloud Usage
 
 See [hear-eval's
@@ -65,9 +67,9 @@ libsox-fmt-ffmpeg or [installing from
 source](https://github.com/neuralaudio/hear-eval-kit/issues/156#issuecomment-893151305).
 
 This will take about 2 user-CPU-hours for the open tasks, when using
-mode 'default'. 150 GB free disk space is required while processing.
-Final output is 11 GB. Much more time and disk space is required
-for 'all'.
+mode '--mode default'. 150 GB free disk space is required while
+processing.  Final output is 11 GB. Much more time and disk space
+is required for '--mode all'.
 
 These Luigi pipelines are used to preprocess the evaluation tasks
 into a common format for downstream evaluation.
@@ -99,8 +101,8 @@ This repository is not available for participants. If the submodule
 is set up:
 - The aforementioned commands will work for secret tasks as
 well.
-- Running with the `all` option will trigger all the available set
-of open and secret tasks.
+- Running with the task `all` option will trigger all the available
+set of open and secret tasks.
 - To run individual tasks, please use the corresponding `task` name.
 The secret task names are are also hidden and listed in the
 `hear2021-secret-tasks` submodule.
