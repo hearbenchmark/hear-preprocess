@@ -42,20 +42,24 @@ generic_task_config = {
             "md5": "854c580ee90bff80c516491c84544e32",
         },
     ],
-    "small": {
-        "download_urls": [
-            {
-                "split": "train",
-                "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/speech_commands_v0.02-small.zip",  # noqa: E501
-                "md5": "455123a88b8410d1f955c77ad331524f",
-            },
-            {
-                "split": "test",
-                "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/speech_commands_test_set_v0.02-small.zip",  # noqa: E501
-                "md5": "26d08374a7abd13ca2f4a4b8424f41d0",
-            },
-        ],
-        "version": "v0.0.2-small",
+    # Different modes for preprocessing this dataset
+    # We use all modes EXCEPT small, unless flag "--small" used.
+    "modes": {
+        "small": {
+            "version": "v0.0.2-small",
+            "download_urls": [
+                {
+                    "split": "train",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/speech_commands_v0.02-small.zip",  # noqa: E501
+                    "md5": "455123a88b8410d1f955c77ad331524f",
+                },
+                {
+                    "split": "test",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/speech_commands_test_set_v0.02-small.zip",  # noqa: E501
+                    "md5": "26d08374a7abd13ca2f4a4b8424f41d0",
+                },
+            ],
+        },
     },
 }
 

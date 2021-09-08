@@ -108,7 +108,7 @@ def run(
     for task_module in tasks[task]:
         task_config = copy.deepcopy(task_module.generic_task_config)
         if small:
-            task_config.update(dict(task_config["small"]))  # type: ignore
+            task_config.update(dict(task_config["modes"]["small"]))
         task_config.update({"tmp_dir": tmp_dir})
         metadata_task = task_module.extract_metadata_task(task_config)
         final_task = pipeline.FinalizeCorpus(

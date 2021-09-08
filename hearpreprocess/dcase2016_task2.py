@@ -48,22 +48,26 @@ generic_task_config = {
             "md5": "ac98768b39a08fc0c6c2ddd15a981dd7",
         },
     ],
-    "small": {
-        "download_urls": [
-            {
-                "split": "train",
-                "name": "dev",
-                "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_train_dev-small.zip",  # noqa: E501
-                "md5": "aa9b43c40e9d496163caab83becf972e",
-            },
-            {
-                "split": "train",
-                "name": "eval",
-                "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_test_public-small.zip",  # noqa: E501
-                "md5": "14539d85dec03cb7ac75eb62dd1dd21e",
-            },
-        ],
-        "version": "hear2021-small",
+    # Different modes for preprocessing this dataset
+    # We use all modes EXCEPT small, unless flag "--small" used.
+    "modes": {
+        "small": {
+            "version": "hear2021-small",
+            "download_urls": [
+                {
+                    "split": "train",
+                    "name": "dev",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_train_dev-small.zip",  # noqa: E501
+                    "md5": "aa9b43c40e9d496163caab83becf972e",
+                },
+                {
+                    "split": "train",
+                    "name": "eval",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_test_public-small.zip",  # noqa: E501
+                    "md5": "14539d85dec03cb7ac75eb62dd1dd21e",
+                },
+            ],
+        },
     },
 }
 
