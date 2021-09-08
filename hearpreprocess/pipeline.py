@@ -8,7 +8,7 @@ import random
 import shutil
 import tarfile
 
-# from datetime import datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
@@ -27,6 +27,8 @@ from hearpreprocess.util.luigi import (
     new_basedir,
     str2int,
 )
+
+INCLUDE_DATESTR_IN_FINAL_PATHS = False
 
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
@@ -1204,9 +1206,7 @@ class FinalizeCorpus(MetadataTask):
         }
 
     def source_to_archive_path(
-        self,
-        source_path: Union[str, Path]
-        # self, source_path: Union[str, Path], datestr: str
+        self, source_path: Union[str, Path], datestr: str
     ) -> str:
         source_path = str(source_path)
         archive_path = source_path.replace(self.tasks_dir, "tasks").replace(
@@ -1216,8 +1216,7 @@ class FinalizeCorpus(MetadataTask):
             self.tasks_dir in ("tasks", "tasks/") or archive_path != source_path
         ), f"{archive_path} == {source_path}"
         assert archive_path.startswith("tasks")
-        # archive_path = f"hear-{datestr}-{__version__}/{archive_path}"
-        archive_path = f"hear-{__version__}/{archive_path}"
+        archive_path = f"hear-{datestr}{__version__}/{archive_path}"
         return archive_path
 
     @staticmethod
@@ -1227,10 +1226,12 @@ class FinalizeCorpus(MetadataTask):
         return tarinfo
 
     def create_tar(self, sample_rate: int):
-        # datestr = datetime.today().strftime("%Y%m%d")
+        if INCLUDE_DATESTR_IN_FINAL_PATHS:
+            datestr = datetime.today().strftime("%Y%m%d") + "-"
+        else:
+            datestr = ""
         tarname = (
-            # f"hear-{datestr}-{__version__}-"
-            f"hear-{__version__}-"
+            f"hear-{datestr}{__version__}-"
             + f"{self.versioned_task_name}-{sample_rate}.tar.gz"
         )
         tarname_latest = f"hear-LATEST-{self.versioned_task_name}-{sample_rate}.tar.gz"
