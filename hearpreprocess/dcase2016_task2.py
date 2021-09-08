@@ -12,7 +12,7 @@ We also allow training data outside this task.
 
 import logging
 from pathlib import Path
-from typing import List
+from typing import Any, Dict
 
 import luigi
 import pandas as pd
@@ -21,8 +21,9 @@ import hearpreprocess.pipeline as pipeline
 
 logger = logging.getLogger("luigi-interface")
 
-task_config = {
+generic_task_config = {
     "task_name": "dcase2016_task2",
+    # Since we repartition, we use our own version number here
     "version": "hear2021",
     "embedding_type": "event",
     "prediction_type": "multilabel",
@@ -32,8 +33,6 @@ task_config = {
     # their secondary score.
     # However, we announced that onset F1 would be our primary score.
     "evaluation": ["event_onset_200ms_fms", "segment_1s_er"],
-    # The test set is 1.8 hours, so we use the entire thing
-    "max_task_duration_by_split": {"test": None},
     "download_urls": [
         {
             "split": "train",
@@ -48,22 +47,30 @@ task_config = {
             "md5": "ac98768b39a08fc0c6c2ddd15a981dd7",
         },
     ],
-    "small": {
-        "download_urls": [
-            {
-                "split": "train",
-                "name": "dev",
-                "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_train_dev-small.zip",  # noqa: E501
-                "md5": "aa9b43c40e9d496163caab83becf972e",
-            },
-            {
-                "split": "train",
-                "name": "eval",
-                "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_test_public-small.zip",  # noqa: E501
-                "md5": "14539d85dec03cb7ac75eb62dd1dd21e",
-            },
-        ],
-        "version": "hear2021-small",
+    # Different modes for preprocessing this dataset
+    # We use all modes EXCEPT small, unless flag "--small" used.
+    "modes": {
+        "full": {
+            # This dataset is not very large (but it is an event
+            # detection task, so there are many hops needed).
+            "max_task_duration_by_split": {"test": None, "train": None, "valid": None}
+        },
+        "small": {
+            "download_urls": [
+                {
+                    "split": "train",
+                    "name": "dev",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_train_dev-small.zip",  # noqa: E501
+                    "md5": "aa9b43c40e9d496163caab83becf972e",
+                },
+                {
+                    "split": "train",
+                    "name": "eval",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_test_public-small.zip",  # noqa: E501
+                    "md5": "14539d85dec03cb7ac75eb62dd1dd21e",
+                },
+            ],
+        },
     },
 }
 
@@ -119,28 +126,10 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         return pd.concat(metadatas).reset_index(drop=True)
 
 
-def main(
-    sample_rates: List[int],
-    tmp_dir: str,
-    tasks_dir: str,
-    tar_dir: str,
-    small: bool = False,
-):
-    if small:
-        task_config.update(dict(task_config["small"]))  # type: ignore
-    task_config.update({"tmp_dir": tmp_dir})
-
+def extract_metadata_task(task_config: Dict[str, Any]) -> pipeline.ExtractMetadata:
     # Build the dataset pipeline with the custom metadata configuration task
     download_tasks = pipeline.get_download_and_extract_tasks(task_config)
 
-    extract_metadata = ExtractMetadata(
+    return ExtractMetadata(
         outfile="process_metadata.csv", task_config=task_config, **download_tasks
     )
-    final_task = pipeline.FinalizeCorpus(
-        sample_rates=sample_rates,
-        tasks_dir=tasks_dir,
-        tar_dir=tar_dir,
-        metadata_task=extract_metadata,
-        task_config=task_config,
-    )
-    return final_task

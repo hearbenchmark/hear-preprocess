@@ -3,6 +3,7 @@
 Runs a luigi pipeline to build a dataset
 """
 
+import copy
 import logging
 import multiprocessing
 from typing import Optional
@@ -94,7 +95,6 @@ def run(
     tar_dir: Optional[str] = ".",
     small: bool = False,
 ):
-
     if num_workers is None:
         num_workers = multiprocessing.cpu_count()
         logger.info(f"Using {num_workers} workers")
@@ -104,16 +104,32 @@ def run(
     else:
         sample_rates = [sample_rate]
 
-    tasks_to_run = [
-        task_script.main(  # type: ignore
-            sample_rates=sample_rates,
-            tmp_dir=tmp_dir,
-            tasks_dir=tasks_dir,
-            tar_dir=tar_dir,
-            small=small,
-        )
-        for task_script in tasks[task]
-    ]
+    tasks_to_run = []
+    for task_module in tasks[task]:
+        if small:
+            modes = ["small"]
+        else:
+            modes = [
+                mode
+                for mode in task_module.generic_task_config["modes"].keys()
+                if mode != "small"
+            ]
+            assert modes is not None, f"Task {task} has no modes besides 'small'"
+        for mode in modes:
+            task_config = copy.deepcopy(task_module.generic_task_config)
+            task_config.update(dict(task_config["modes"][mode]))
+            task_config["tmp_dir"] = tmp_dir
+            # Postpend the mode to the version number
+            task_config["version"] = task_config["version"] + "-" + mode
+            metadata_task = task_module.extract_metadata_task(task_config)
+            final_task = pipeline.FinalizeCorpus(
+                sample_rates=sample_rates,
+                tasks_dir=tasks_dir,
+                tar_dir=tar_dir,
+                metadata_task=metadata_task,
+                task_config=task_config,
+            )
+            tasks_to_run.append(final_task)
 
     pipeline.run(
         tasks_to_run,

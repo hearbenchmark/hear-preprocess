@@ -6,7 +6,7 @@ Pre-processing pipeline for NSynth pitch detection
 import logging
 from functools import partial
 from pathlib import Path
-from typing import List
+from typing import Any, Dict
 
 import luigi
 import pandas as pd
@@ -16,7 +16,7 @@ import hearpreprocess.pipeline as pipeline
 logger = logging.getLogger("luigi-interface")
 
 
-task_config = {
+generic_task_config = {
     "task_name": "nsynth_pitch",
     "version": "v2.2.3",
     "embedding_type": "scene",
@@ -42,25 +42,42 @@ task_config = {
             "md5": "5e6f8719bf7e16ad0a00d518b78af77d",
         },
     ],
-    "small": {
-        "download_urls": [
-            {
-                "split": "train",
-                "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-train-small.zip",  # noqa: E501
-                "md5": "c17070e4798655d8bea1231506479ba8",
-            },
-            {
-                "split": "valid",
-                "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-valid-small.zip",  # noqa: E501
-                "md5": "e36722262497977f6b945bb06ab0969d",
-            },
-            {
-                "split": "test",
-                "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-test-small.zip",  # noqa: E501
-                "md5": "9a98e869ed4add8ba9ebb0d7c22becca",
-            },
-        ],
-        "version": "v2.2.3-small",
+    # Different modes for preprocessing this dataset
+    # We use all modes EXCEPT small, unless flag "--small" used.
+    "modes": {
+        "5h": {
+            "max_task_duration_by_split": {
+                "train": 3600 * 5 * 3 / 4,
+                "valid": 3600 * 5 * 1 / 4,
+                "test": 3600 * 5 * 1 / 4,
+            }
+        },
+        "50h": {
+            "max_task_duration_by_split": {
+                "train": 3600 * 50 * 3 / 4,
+                "valid": 3600 * 50 * 1 / 4,
+                "test": 3600 * 50 * 1 / 4,
+            }
+        },
+        "small": {
+            "download_urls": [
+                {
+                    "split": "train",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-train-small.zip",  # noqa: E501
+                    "md5": "c17070e4798655d8bea1231506479ba8",
+                },
+                {
+                    "split": "valid",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-valid-small.zip",  # noqa: E501
+                    "md5": "e36722262497977f6b945bb06ab0969d",
+                },
+                {
+                    "split": "test",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-test-small.zip",  # noqa: E501
+                    "md5": "9a98e869ed4add8ba9ebb0d7c22becca",
+                },
+            ],
+        },
     },
 }
 
@@ -104,7 +121,8 @@ class ExtractMetadata(pipeline.ExtractMetadata):
             # Filter out pitches that are not within the range
             metadata.loc[
                 metadata["pitch"].between(
-                    task_config["pitch_range_min"], task_config["pitch_range_max"]
+                    self.task_config["pitch_range_min"],
+                    self.task_config["pitch_range_max"],
                 )
                 # Assign metadata columns
             ].assign(
@@ -119,28 +137,10 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         return metadata
 
 
-def main(
-    sample_rates: List[int],
-    tmp_dir: str,
-    tasks_dir: str,
-    tar_dir: str,
-    small: bool = False,
-):
-    if small:
-        task_config.update(dict(task_config["small"]))  # type: ignore
-    task_config.update({"tmp_dir": tmp_dir})
-
+def extract_metadata_task(task_config: Dict[str, Any]) -> pipeline.ExtractMetadata:
     # Build the dataset pipeline with the custom metadata configuration task
     download_tasks = pipeline.get_download_and_extract_tasks(task_config)
 
-    extract_metadata = ExtractMetadata(
+    return ExtractMetadata(
         outfile="process_metadata.csv", task_config=task_config, **download_tasks
     )
-    final_task = pipeline.FinalizeCorpus(
-        sample_rates=sample_rates,
-        tasks_dir=tasks_dir,
-        tar_dir=tar_dir,
-        metadata_task=extract_metadata,
-        task_config=task_config,
-    )
-    return final_task
