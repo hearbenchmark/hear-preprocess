@@ -1166,9 +1166,9 @@ class FinalCombine(MetadataTask):
         self.mark_complete()
 
 
-class FinalizeCorpus(MetadataTask):
+class TarCorpus(MetadataTask):
     """
-    Tar the final dataset.
+    Tar the final dataset at some sample rate.
 
     TODO: Secret tasks should go into another directory,
     so we don't accidentally copy them to the public bucket.
@@ -1182,19 +1182,13 @@ class FinalizeCorpus(MetadataTask):
         combined (FinalCombine): Final combined dataset.
     """
 
-    sample_rates = luigi.ListParameter()
+    sample_rate = luigi.Parameter()
+    combined_task = luigi.TaskParameter()
     tasks_dir = luigi.Parameter()
     tar_dir = luigi.Parameter()
 
     def requires(self):
-        return {
-            "combined": FinalCombine(
-                sample_rates=self.sample_rates,
-                tasks_dir=self.tasks_dir,
-                metadata_task=self.metadata_task,
-                task_config=self.task_config,
-            )
-        }
+        return {"combined": self.combined_task}
 
     def source_to_archive_path(
         self, source_path: Union[str, Path], datestr: str
@@ -1260,9 +1254,47 @@ class FinalizeCorpus(MetadataTask):
         shutil.copyfile(tarfile_workdir, Path(self.tar_dir).joinpath(tarname_latest))
 
     def run(self):
-        for sample_rate in self.sample_rates:
-            self.create_tar(sample_rate)
+        self.create_tar(self.sample_rate)
+        self.mark_complete()
 
+
+class FinalizeCorpus(MetadataTask):
+    """
+    Finalize the corpus, simply create all tar files.
+
+    Parameters:
+        sample_rates (list(int)): The list of sampling rates in
+            which the corpus is required.
+        tasks_dir str: Directory to put the combined dataset.
+        tar_dir str: Directory to put the tar-files.
+    Requires:
+        combined (FinalCombine): Final combined dataset.
+    """
+
+    sample_rates = luigi.ListParameter()
+    tasks_dir = luigi.Parameter()
+    tar_dir = luigi.Parameter()
+
+    def requires(self):
+        combined_task = FinalCombine(
+            sample_rates=self.sample_rates,
+            tasks_dir=self.tasks_dir,
+            metadata_task=self.metadata_task,
+            task_config=self.task_config,
+        )
+        return {
+            str(str): TarCorpus(
+                sample_rate=sr,
+                combined_task=combined_task,
+                tasks_dir=self.tasks_dir,
+                tar_dir=self.tar_dir,
+                metadata_task=self.metadata_task,
+                task_config=self.task_config,
+            )
+            for sr in self.sample_rates
+        }
+
+    def run(self):
         self.mark_complete()
 
 
