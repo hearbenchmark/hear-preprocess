@@ -726,7 +726,7 @@ class SubsampleSplit(MetadataTask):
         if max_split_duration is None:
             max_files = len(split_filestem_relpaths)
         else:
-            max_files = int(MAX_TASK_DURATION_BY_SPLIT[self.split] / sample_duration)
+            max_files = int(max_split_duration / sample_duration)
 
         diagnostics.info(
             f"{self.longname} "
