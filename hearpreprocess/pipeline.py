@@ -400,7 +400,7 @@ class ExtractMetadata(WorkTask):
         # regular dataset. However, in case of small dataset, this is expected and we
         # need to remove those entries from the metadata
         if sum(exists) < len(metadata):
-            if self.task_config["version"].split("-")[-1] == "small":
+            if self.task_config["mode"] == "small":
                 print(
                     "All files in metadata do not exist in the dataset. This is "
                     "expected behavior when small task is running.\n"

@@ -131,23 +131,16 @@ Options:
 Options:
   --num-workers INTEGER  Number of CPU workers to use when running. If not
                          provided all CPUs are used.
-
   --sample-rate INTEGER  Perform resampling only to this sample rate. By
                          default we resample to 16000, 22050, 44100, 48000.
-  
-  --small       FLAG     If passed, the task will run on a small-version of the 
-                         data.
-
-  --work-dir    STRING   Temporary directory to save all the
-                         intermediate tasks (will not be deleted afterwords).
-                         It will require as much disk space as the final output,
-                         if not more.
-                         By default this is set to _workdir in the
-                         module root directory.
-
-  --tasks-dir   STRING   Path to dir to store the final task outputs.
-			             By default this is set to tasks in the
-           			     module root directory
+  --tmp-dir TEXT         Temporary directory to save all the intermediate
+                         tasks (will not be deleted afterwords). (default:
+                         _workdir/)
+  --tasks-dir TEXT       Directory to save the final task output (default:
+                         tasks/)
+  --tar-dir TEXT         Directory to save the tar'ed output (default: .)
+  --mode TEXT            default, all, or small mode for each task.
+  --help                 Show this message and exit.
 ```
 
 To check the stats of an audio directory:
@@ -183,5 +176,5 @@ deterministically with the following command:
 python3 -m hearpreprocess.sampler <taskname>
 ```
 
-**_NOTE_** : The `--small` flag which is used to run the task on a
+**_NOTE_** : `--mode small` is used to run the task on a
 small version of the dataset for development.

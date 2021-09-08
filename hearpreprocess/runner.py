@@ -81,10 +81,10 @@ tasks = {
     type=str,
 )
 @click.option(
-    "--small",
-    is_flag=True,
-    help="Run pipeline on small version of data",
-    type=bool,
+    "--mode",
+    default="default",
+    help="default, all, or small mode for each task.",
+    type=str,
 )
 def run(
     task: str,
@@ -93,7 +93,7 @@ def run(
     tmp_dir: Optional[str] = "_workdir",
     tasks_dir: Optional[str] = "tasks",
     tar_dir: Optional[str] = ".",
-    small: bool = False,
+    mode: str = "default",
 ):
     if num_workers is None:
         num_workers = multiprocessing.cpu_count()
@@ -106,7 +106,9 @@ def run(
 
     tasks_to_run = []
     for task_module in tasks[task]:
-        if small:
+        if mode == "default":
+            modes = [task_module.generic_task_config["default_mode"]]
+        elif mode == "small":
             modes = ["small"]
         else:
             modes = [
@@ -114,13 +116,15 @@ def run(
                 for mode in task_module.generic_task_config["modes"].keys()
                 if mode != "small"
             ]
-            assert modes is not None, f"Task {task} has no modes besides 'small'"
+            assert modes is not [], f"Task {task} has no modes besides 'small'"
         for mode in modes:
             task_config = copy.deepcopy(task_module.generic_task_config)
             task_config.update(dict(task_config["modes"][mode]))
             task_config["tmp_dir"] = tmp_dir
             # Postpend the mode to the version number
             task_config["version"] = task_config["version"] + "-" + mode
+            task_config["mode"] = mode
+            del task_config["modes"]
             metadata_task = task_module.extract_metadata_task(task_config)
             final_task = pipeline.FinalizeCorpus(
                 sample_rates=sample_rates,

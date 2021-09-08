@@ -47,13 +47,14 @@ generic_task_config = {
             "md5": "ac98768b39a08fc0c6c2ddd15a981dd7",
         },
     ],
+    "default_mode": "full",
     # Different modes for preprocessing this dataset
-    # We use all modes EXCEPT small, unless flag "--small" used.
+    # We use all modes EXCEPT small, unless flag "-small" used.
     "modes": {
         "full": {
             # This dataset is not very large (but it is an event
             # detection task, so there are many hops needed).
-            "max_task_duration_by_split": {"test": None, "train": None, "valid": None}
+            "max_task_duration_by_split": {"train": None, "valid": None, "test": None}
         },
         "small": {
             "download_urls": [
