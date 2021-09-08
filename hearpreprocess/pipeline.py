@@ -1050,7 +1050,7 @@ class ResampleSubcorpus(MetadataTask):
         original_dir = self.requires()["data"].workdir.joinpath(str(self.split))
         resample_dir = self.workdir.joinpath(str(self.sr)).joinpath(str(self.split))
         resample_dir.mkdir(parents=True, exist_ok=True)
-        for audiofile in tqdm(list(original_dir.glob("*.wav"))):
+        for audiofile in tqdm(sorted(list(original_dir.glob("*.wav")))):
             resampled_audiofile = new_basedir(audiofile, resample_dir)
             audio_util.resample_wav(audiofile, resampled_audiofile, self.sr)
 
@@ -1151,7 +1151,7 @@ class FinalCombine(MetadataTask):
         # Copy the train test metadata jsons
         src = self.requires()["subcorpus_metadata"].workdir
         dst = self.workdir
-        for item in os.listdir(src):
+        for item in sorted(os.listdir(src)):
             if item.endswith(".json"):
                 # Based upon https://stackoverflow.com/a/27161799
                 assert not dst.joinpath(item).exists()
