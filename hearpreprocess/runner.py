@@ -3,6 +3,7 @@
 Runs a luigi pipeline to build a dataset
 """
 
+import copy
 import logging
 import multiprocessing
 from typing import Optional
@@ -94,7 +95,6 @@ def run(
     tar_dir: Optional[str] = ".",
     small: bool = False,
 ):
-
     if num_workers is None:
         num_workers = multiprocessing.cpu_count()
         logger.info(f"Using {num_workers} workers")
@@ -104,16 +104,21 @@ def run(
     else:
         sample_rates = [sample_rate]
 
-    tasks_to_run = [
-        task_script.main(  # type: ignore
-            sample_rates=sample_rates,
-            tmp_dir=tmp_dir,
-            tasks_dir=tasks_dir,
-            tar_dir=tar_dir,
-            small=small,
+    tasks_to_run = []
+    for task_script in tasks[task]:
+        config = copy.deepcopy(task_script.task_config)
+        if small:
+            config.update(dict(config["small"]))  # type: ignore
+        config.update({"tmp_dir": tmp_dir})
+        tasks_to_run.append(
+            task_script.main(
+                sample_rates=sample_rates,
+                tasks_dir=tasks_dir,
+                tar_dir=tar_dir,
+                config=config,
+                small=small,
+            )
         )
-        for task_script in tasks[task]
-    ]
 
     pipeline.run(
         tasks_to_run,

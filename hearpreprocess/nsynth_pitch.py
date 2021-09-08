@@ -6,7 +6,7 @@ Pre-processing pipeline for NSynth pitch detection
 import logging
 from functools import partial
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
 import luigi
 import pandas as pd
@@ -121,15 +121,11 @@ class ExtractMetadata(pipeline.ExtractMetadata):
 
 def main(
     sample_rates: List[int],
-    tmp_dir: str,
     tasks_dir: str,
     tar_dir: str,
+    config: Dict[str, Any],
     small: bool = False,
 ):
-    if small:
-        task_config.update(dict(task_config["small"]))  # type: ignore
-    task_config.update({"tmp_dir": tmp_dir})
-
     # Build the dataset pipeline with the custom metadata configuration task
     download_tasks = pipeline.get_download_and_extract_tasks(task_config)
 
