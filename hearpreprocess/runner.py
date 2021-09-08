@@ -107,25 +107,25 @@ def run(
     tasks_to_run = []
     for task_module in tasks[task]:
         if mode == "default":
-            modes = [task_module.generic_task_config["default_mode"]]
+            task_modes = [task_module.generic_task_config["default_mode"]]
         elif mode == "small":
-            modes = ["small"]
+            task_modes = ["small"]
         elif mode == "all":
-            modes = [
-                mode
-                for mode in task_module.generic_task_config["modes"].keys()
-                if mode != "small"
+            task_modes = [
+                task_mode
+                for task_mode in task_module.generic_task_config["modes"].keys()
+                if task_mode != "small"
             ]
-            assert modes is not [], f"Task {task} has no modes besides 'small'"
+            assert task_modes is not [], f"Task {task} has no modes besides 'small'"
         else:
             raise ValueError(f"mode {mode} unknown")
-        for mode in modes:
+        for task_mode in task_modes:
             task_config = copy.deepcopy(task_module.generic_task_config)
-            task_config.update(dict(task_config["modes"][mode]))
+            task_config.update(dict(task_config["modes"][task_mode]))
             task_config["tmp_dir"] = tmp_dir
-            # Postpend the mode to the version number
-            task_config["version"] = task_config["version"] + "-" + mode
-            task_config["mode"] = mode
+            # Postpend the task mode to the version number
+            task_config["version"] = task_config["version"] + "-" + task_mode
+            task_config["mode"] = task_mode
             del task_config["modes"]
             metadata_task = task_module.extract_metadata_task(task_config)
             final_task = pipeline.FinalizeCorpus(
