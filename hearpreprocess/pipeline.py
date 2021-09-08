@@ -1283,7 +1283,7 @@ class FinalizeCorpus(MetadataTask):
             task_config=self.task_config,
         )
         return {
-            str(str): TarCorpus(
+            str(sr): TarCorpus(
                 sample_rate=sr,
                 combined_task=combined_task,
                 tasks_dir=self.tasks_dir,
