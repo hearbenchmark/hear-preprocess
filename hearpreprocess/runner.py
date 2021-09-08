@@ -81,10 +81,10 @@ tasks = {
     type=str,
 )
 @click.option(
-    "--small",
-    is_flag=True,
-    help="Run pipeline on small version of data",
-    type=bool,
+    "--mode",
+    default="default",
+    help="default, all, or small mode for each task.",
+    type=str,
 )
 def run(
     task: str,
@@ -93,7 +93,7 @@ def run(
     tmp_dir: Optional[str] = "_workdir",
     tasks_dir: Optional[str] = "tasks",
     tar_dir: Optional[str] = ".",
-    small: bool = False,
+    mode: str = "default",
 ):
     if num_workers is None:
         num_workers = multiprocessing.cpu_count()
@@ -106,19 +106,34 @@ def run(
 
     tasks_to_run = []
     for task_module in tasks[task]:
-        task_config = copy.deepcopy(task_module.generic_task_config)
-        if small:
-            task_config.update(dict(task_config["small"]))  # type: ignore
-        task_config.update({"tmp_dir": tmp_dir})
-        metadata_task = task_module.extract_metadata_task(task_config)
-        final_task = pipeline.FinalizeCorpus(
-            sample_rates=sample_rates,
-            tasks_dir=tasks_dir,
-            tar_dir=tar_dir,
-            metadata_task=metadata_task,
-            task_config=task_config,
-        )
-        tasks_to_run.append(final_task)
+        if mode == "default":
+            task_modes = [task_module.generic_task_config["default_mode"]]
+        elif mode == "small":
+            task_modes = ["small"]
+        elif mode == "all":
+            task_modes = [
+                task_mode
+                for task_mode in task_module.generic_task_config["modes"].keys()
+                if task_mode != "small"
+            ]
+            assert task_modes is not [], f"Task {task} has no modes besides 'small'"
+        else:
+            raise ValueError(f"mode {mode} unknown")
+        for task_mode in task_modes:
+            task_config = copy.deepcopy(task_module.generic_task_config)
+            task_config.update(dict(task_config["modes"][task_mode]))
+            task_config["tmp_dir"] = tmp_dir
+            task_config["mode"] = task_mode
+            del task_config["modes"]
+            metadata_task = task_module.extract_metadata_task(task_config)
+            final_task = pipeline.FinalizeCorpus(
+                sample_rates=sample_rates,
+                tasks_dir=tasks_dir,
+                tar_dir=tar_dir,
+                metadata_task=metadata_task,
+                task_config=task_config,
+            )
+            tasks_to_run.append(final_task)
 
     pipeline.run(
         tasks_to_run,

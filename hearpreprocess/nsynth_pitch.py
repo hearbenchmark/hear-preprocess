@@ -42,25 +42,43 @@ generic_task_config = {
             "md5": "5e6f8719bf7e16ad0a00d518b78af77d",
         },
     ],
-    "small": {
-        "download_urls": [
-            {
-                "split": "train",
-                "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-train-small.zip",  # noqa: E501
-                "md5": "c17070e4798655d8bea1231506479ba8",
-            },
-            {
-                "split": "valid",
-                "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-valid-small.zip",  # noqa: E501
-                "md5": "e36722262497977f6b945bb06ab0969d",
-            },
-            {
-                "split": "test",
-                "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-test-small.zip",  # noqa: E501
-                "md5": "9a98e869ed4add8ba9ebb0d7c22becca",
-            },
-        ],
-        "version": "v2.2.3-small",
+    "default_mode": "5h",
+    # Different modes for preprocessing this dataset
+    # We use all modes EXCEPT small, unless flag "--small" used.
+    "modes": {
+        "5h": {
+            "max_task_duration_by_split": {
+                "train": 3600 * 5 * 3 / 4,
+                "valid": 3600 * 5 * 1 / 4,
+                "test": 3600 * 5 * 1 / 4,
+            }
+        },
+        "50h": {
+            "max_task_duration_by_split": {
+                "train": 3600 * 50 * 3 / 4,
+                "valid": 3600 * 50 * 1 / 4,
+                "test": 3600 * 50 * 1 / 4,
+            }
+        },
+        "small": {
+            "download_urls": [
+                {
+                    "split": "train",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-train-small.zip",  # noqa: E501
+                    "md5": "c17070e4798655d8bea1231506479ba8",
+                },
+                {
+                    "split": "valid",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-valid-small.zip",  # noqa: E501
+                    "md5": "e36722262497977f6b945bb06ab0969d",
+                },
+                {
+                    "split": "test",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-test-small.zip",  # noqa: E501
+                    "md5": "9a98e869ed4add8ba9ebb0d7c22becca",
+                },
+            ],
+        },
     },
 }
 

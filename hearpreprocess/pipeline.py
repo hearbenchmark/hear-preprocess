@@ -34,14 +34,15 @@ VALIDATION_PERCENTAGE = 20
 TEST_PERCENTAGE = 20
 TRAIN_PERCENTAGE = 100 - VALIDATION_PERCENTAGE - TEST_PERCENTAGE
 
-# We want no more than 5 hours of audio per task.
+# We want no more than 5 hours of audio (training + validation) per task.
+# We use a 60/20/20 split.
 # This can be overriden in the task config.
 # e.g. speech_commands test set.
 # If None, no limit is used.
 MAX_TASK_DURATION_BY_SPLIT = {
-    "train": 3 * 3600,
-    "valid": 1 * 3600,
-    "test": 1 * 3600,
+    "train": 3600 * 5 * 3 / 4,
+    "valid": 3600 * 5 * 1 / 4,
+    "test": 3600 * 5 * 1 / 4,
 }
 
 
@@ -399,7 +400,7 @@ class ExtractMetadata(WorkTask):
         # regular dataset. However, in case of small dataset, this is expected and we
         # need to remove those entries from the metadata
         if sum(exists) < len(metadata):
-            if self.task_config["version"].split("-")[-1] == "small":
+            if self.task_config["mode"] == "small":
                 print(
                     "All files in metadata do not exist in the dataset. This is "
                     "expected behavior when small task is running.\n"
@@ -1251,7 +1252,7 @@ class FinalizeCorpus(MetadataTask):
             # Now add audio files for this sample rate
             sample_rate_source = os.path.join(source_dir, str(sample_rate))
             with tqdm(
-                desc=f"tar {self.task_name} {sample_rate}", total=len(files)
+                desc=f"tar {self.versioned_task_name} {sample_rate}", total=len(files)
             ) as pbar:
                 tar.add(
                     sample_rate_source,
