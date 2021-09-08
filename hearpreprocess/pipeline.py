@@ -7,8 +7,7 @@ import os
 import random
 import shutil
 import tarfile
-
-# from datetime import datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
@@ -28,22 +27,25 @@ from hearpreprocess.util.luigi import (
     str2int,
 )
 
+INCLUDE_DATESTR_IN_FINAL_PATHS = False
+
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
 # the data in the split and hence is not a part of the data config
-VALIDATION_PERCENTAGE = 20
-TEST_PERCENTAGE = 20
+# We use a 80/10/10 split.
+VALIDATION_PERCENTAGE = 10
+TEST_PERCENTAGE = 10
 TRAIN_PERCENTAGE = 100 - VALIDATION_PERCENTAGE - TEST_PERCENTAGE
+TRAINVAL_PERCENTAGE = TRAIN_PERCENTAGE + VALIDATION_PERCENTAGE
 
 # We want no more than 5 hours of audio (training + validation) per task.
-# We use a 60/20/20 split.
 # This can be overriden in the task config.
 # e.g. speech_commands test set.
 # If None, no limit is used.
 MAX_TASK_DURATION_BY_SPLIT = {
-    "train": 3600 * 5 * 3 / 4,
-    "valid": 3600 * 5 * 1 / 4,
-    "test": 3600 * 5 * 1 / 4,
+    "train": 3600 * 5 * TRAIN_PERCENTAGE / TRAINVAL_PERCENTAGE,
+    "valid": 3600 * 5 * VALIDATION_PERCENTAGE / TRAINVAL_PERCENTAGE,
+    "test": 3600 * 5 * TEST_PERCENTAGE / TRAINVAL_PERCENTAGE,
 }
 
 
@@ -401,7 +403,7 @@ class ExtractMetadata(WorkTask):
         # regular dataset. However, in case of small dataset, this is expected and we
         # need to remove those entries from the metadata
         if sum(exists) < len(metadata):
-            if self.task_config["version"].split("-")[-1] == "small":
+            if self.task_config["mode"] == "small":
                 print(
                     "All files in metadata do not exist in the dataset. This is "
                     "expected behavior when small task is running.\n"
@@ -1214,7 +1216,7 @@ class FinalizeCorpus(MetadataTask):
             self.tasks_dir in ("tasks", "tasks/") or archive_path != source_path
         ), f"{archive_path} == {source_path}"
         assert archive_path.startswith("tasks")
-        archive_path = f"hear-{datestr}-{__version__}/{archive_path}"
+        archive_path = f"hear-{datestr}{__version__}/{archive_path}"
         return archive_path
 
     @staticmethod
@@ -1224,10 +1226,12 @@ class FinalizeCorpus(MetadataTask):
         return tarinfo
 
     def create_tar(self, sample_rate: int):
-        # datestr = datetime.today().strftime("%Y%m%d")
+        if INCLUDE_DATESTR_IN_FINAL_PATHS:
+            datestr = datetime.today().strftime("%Y%m%d") + "-"
+        else:
+            datestr = ""
         tarname = (
-            # f"hear-{datestr}-{__version__}-"
-            f"hear-{__version__}-"
+            f"hear-{datestr}{__version__}-"
             + f"{self.versioned_task_name}-{sample_rate}.tar.gz"
         )
         tarname_latest = f"hear-LATEST-{self.versioned_task_name}-{sample_rate}.tar.gz"
@@ -1254,7 +1258,7 @@ class FinalizeCorpus(MetadataTask):
             # Now add audio files for this sample rate
             sample_rate_source = os.path.join(source_dir, str(sample_rate))
             with tqdm(
-                desc=f"tar {self.task_name} {sample_rate}", total=len(files)
+                desc=f"tar {self.versioned_task_name} {sample_rate}", total=len(files)
             ) as pbar:
                 tar.add(
                     sample_rate_source,

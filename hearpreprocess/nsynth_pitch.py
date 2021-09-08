@@ -12,6 +12,12 @@ import luigi
 import pandas as pd
 
 import hearpreprocess.pipeline as pipeline
+from hearpreprocess.pipeline import (
+    TEST_PERCENTAGE,
+    TRAIN_PERCENTAGE,
+    TRAINVAL_PERCENTAGE,
+    VALIDATION_PERCENTAGE,
+)
 
 logger = logging.getLogger("luigi-interface")
 
@@ -42,21 +48,22 @@ generic_task_config = {
             "md5": "5e6f8719bf7e16ad0a00d518b78af77d",
         },
     ],
+    "default_mode": "5h",
     # Different modes for preprocessing this dataset
     # We use all modes EXCEPT small, unless flag "--small" used.
     "modes": {
         "5h": {
             "max_task_duration_by_split": {
-                "train": 3600 * 5 * 3 / 4,
-                "valid": 3600 * 5 * 1 / 4,
-                "test": 3600 * 5 * 1 / 4,
+                "train": 3600 * 5 * TRAIN_PERCENTAGE / TRAINVAL_PERCENTAGE,
+                "valid": 3600 * 5 * VALIDATION_PERCENTAGE / TRAINVAL_PERCENTAGE,
+                "test": 3600 * 5 * TEST_PERCENTAGE / TRAINVAL_PERCENTAGE,
             }
         },
         "50h": {
             "max_task_duration_by_split": {
-                "train": 3600 * 50 * 3 / 4,
-                "valid": 3600 * 50 * 1 / 4,
-                "test": 3600 * 50 * 1 / 4,
+                "train": 3600 * 50 * TRAIN_PERCENTAGE / TRAINVAL_PERCENTAGE,
+                "valid": 3600 * 50 * VALIDATION_PERCENTAGE / TRAINVAL_PERCENTAGE,
+                "test": 3600 * 50 * TEST_PERCENTAGE / TRAINVAL_PERCENTAGE,
             }
         },
         "small": {
