@@ -110,13 +110,15 @@ def run(
             modes = [task_module.generic_task_config["default_mode"]]
         elif mode == "small":
             modes = ["small"]
-        else:
+        elif mode == "all":
             modes = [
                 mode
                 for mode in task_module.generic_task_config["modes"].keys()
                 if mode != "small"
             ]
             assert modes is not [], f"Task {task} has no modes besides 'small'"
+        else:
+            raise ValueError, f"mode {mode} unknown"
         for mode in modes:
             task_config = copy.deepcopy(task_module.generic_task_config)
             task_config.update(dict(task_config["modes"][mode]))
