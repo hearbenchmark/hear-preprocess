@@ -8,6 +8,8 @@ you won't need this repo. Use
 [hear-eval-kit](https://github.com/neuralaudio/hear-eval-kit/) to
 evaluate your embedding models on these tasks.
 
+This preprocessing is slow and disk-intensive but safe and careful.
+
 ## Cloud Usage
 
 See [hear-eval's
