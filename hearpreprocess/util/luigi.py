@@ -86,25 +86,30 @@ class WorkTask(luigi.Task):
     @property
     def task_subdir(self):
         """Task specific subdirectory"""
-        return Path(self.task_config.get("luigi_dir", "_workdir")).joinpath(
+        return Path(self.task_config.get("tmp_dir", "_workdir")).joinpath(
             str(self.versioned_task_name)
         )
 
     @property
-    def task_name(self) -> str:
-        return self.task_config["task_name"]
-
-    @property
     def longname(self) -> str:
-        return f"{self.task_name} {self.name}"
+        """Typically used for logging."""
+        return "%s %s %s" % (
+            self.task_config["task_name"],
+            self.task_config["mode"],
+            self.name,
+        )
 
     @property
     def versioned_task_name(self):
         """
-        Versioned Task name contains the provided name in the
-        data config and the version
+        Versioned task name contains the provided name in the
+        data config and the version and the mode.
         """
-        return f"{self.task_name}-{self.task_config['version']}"
+        return "%s-%s-%s" % (
+            self.task_config["task_name"],
+            self.task_config["version"],
+            self.task_config["mode"],
+        )
 
     @property
     def stage_number(self):

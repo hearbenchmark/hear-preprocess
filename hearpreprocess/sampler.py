@@ -52,17 +52,17 @@ AUDIOFORMATS = [".mp3", ".wav", ".ogg"]
 
 configs = {
     "dcase2016_task2": {
-        "task_config": dcase2016_task2.task_config,
+        "task_config": dcase2016_task2.generic_task_config,
         "audio_sample_size": 4,
         "necessary_keys": [],
     },
     "nsynth_pitch": {
-        "task_config": nsynth_pitch.task_config,
+        "task_config": nsynth_pitch.generic_task_config,
         "audio_sample_size": 100,
         "necessary_keys": [],
     },
     "speech_commands": {
-        "task_config": speech_commands.task_config,
+        "task_config": speech_commands.generic_task_config,
         "audio_sample_size": 100,
         "necessary_keys": [],
     },
