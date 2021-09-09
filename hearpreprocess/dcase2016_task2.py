@@ -54,7 +54,8 @@ generic_task_config = {
         "full": {
             # This dataset is not very large (but it is an event
             # detection task, so there are many hops needed).
-            "max_task_duration_by_split": {"train": None, "valid": None, "test": None}
+            "split_percentage": {"valid": 20, "test": 20, "train": 60},
+            "max_task_duration_by_split": {"train": None, "valid": None, "test": None},
         },
         "small": {
             "download_urls": [
