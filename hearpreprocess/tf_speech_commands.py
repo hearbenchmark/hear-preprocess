@@ -5,7 +5,7 @@ Pre-processing pipeline for Google speech_commands, using tensorflow-datasets
 import os
 import re
 from pathlib import Path
-from typing import List
+from typing import List, Dict, Any
 
 # https://github.com/tensorflow/datasets/issues/1441#issuecomment-581660890
 import resource
@@ -23,11 +23,6 @@ from tqdm import tqdm
 import hearpreprocess.pipeline as pipeline
 import hearpreprocess.util.luigi as luigi_util
 
-# WORDS = ["down", "go", "left", "no", "off", "on", "right", "stop", "up", "yes"]
-# BACKGROUND_NOISE = "_background_noise_"
-# UNKNOWN = "_unknown_"
-# SILENCE = "_silence_"
-
 task_config = {
     "task_name": "tf_speech_commands",
     "version": "v0.0.2",
@@ -37,12 +32,35 @@ task_config = {
     "evaluation": ["top1_acc"],
     # The test set is 1.33 hours, so we use the entire thing
     "max_task_duration_by_split": {"train": None, "valid": None, "test": None},
-    "download_urls": [],
-    "small": {
-        "download_urls": [],
-        "version": "v0.0.2-small",
+    "mode": "full",
+    "modes": {
+        # Only full mode is supported for tfds now
+        "full": {
+            # By default all the splits will be downloaded, the below key
+            # helps to select the splits to extract
+            "extract_splits": ["train", "test", "valid"]
+        }
     },
 }
+
+
+class DownloadTFDS(luigi_util.WorkTask):
+    "Downloads the the tensorflow dataset and prepairs the split"
+
+    @property
+    def stage_number(self) -> int:
+        return 0
+
+    def get_tfds_builder(self):
+        tfdspath = self.workdir.joinpath("tensorflow-datasets")
+        builder = tfds.builder("speech_commands", data_dir=tfdspath)
+        return builder
+
+    def run(self):
+        builder = self.get_tfds_builder()
+        builder.download_and_prepare()
+        self.mark_complete()
+
 
 split_to_tf_split = {
     "train": "train",
@@ -51,35 +69,10 @@ split_to_tf_split = {
 }
 
 
-class TensorflowDatasetLoad(luigi_util.WorkTask):
-    """ """
+class ExtractTFDS(luigi_util.WorkTask):
 
-    @property
-    def stage_number(self) -> int:
-        return 0
-
-    @property
-    def tfpath(self) -> Path:
-        return self.workdir.joinpath("tensorflow-datasets")
-
-    def run(self):
-        for split in split_to_tf_split.values():
-            # WARNING: This appear to say it shuffles???
-            ds = tfds.load(
-                "speech_commands",
-                split=split,
-                shuffle_files=False,
-                as_supervised=False,
-                data_dir=self.tfpath,
-            )
-        self.mark_complete()
-
-
-class ExtractSplit(luigi_util.WorkTask):
-    """ """
-
-    split = luigi.Parameter()
-    download: TensorflowDatasetLoad = luigi.TaskParameter()
+    outdir = luigi.Parameter()
+    download: DownloadTFDS = luigi.TaskParameter()
 
     def requires(self):
         return {"download": self.download}
@@ -89,31 +82,55 @@ class ExtractSplit(luigi_util.WorkTask):
         return self.workdir.joinpath(self.outdir)
 
     def run(self):
-        ds = tfds.load(
-            "speech_commands",
-            split=split_to_tf_split[self.split],
-            shuffle_files=False,
-            as_supervised=False,
-            data_dir=self.requires()["download"].tfpath,
+        builder = self.requires()["download"].get_tfds_builder()
+        split = split_to_tf_split["valid"]
+        ds = builder.as_dataset(split="test", shuffle_files=False)
+        ds.take(5)
+        info = builder._info()
+
+        label_idx_map = {
+            label_idx: label
+            for label_idx, label in enumerate(info.features["label"].names)
+        }
+        ds_sample_rate = info.features["audio"].sample_rate
+
+        audio_dir = self.output_path.joinpath('audio')
+        audio_dir.mkdir(exist_ok = True, parents = True)
+        file_labels = []
+        for file_idx, example in enumerate(tqdm(tfds.as_numpy(ds))):
+            numpy_audio = example["audio"].astype('int32')
+            label = label_idx_map[example["label"]]
+            audio_path = audio_dir.joinpath(f"tf_data_idx_{file_idx}.wav")
+            sf.write(audio_path, numpy_audio, ds_sample_rate)
+            file_labels.append((audio_path, label))
+
+        file_labels_df = pd.DataFrame(file_labels, columns = ["path", "label"])
+        file_labels_path = self.output_path.joinpath(f"{split}_labels.csv")
+        file_labels_df.to_csv(file_labels_path, index = False)
+
+
+def get_download_and_extract_tasks(task_config: Dict) -> Dict[str, luigi_util.WorkTask]:
+    tasks = {}
+    outdirs: Set[str] = set()
+    for split in task_config["extract_splits"]:
+        outdir = split
+        task = ExtractTFDS(
+            download=DownloadCorpus(task_config=task_config),
+            outdir=outdir,
+            task_config=task_config,
         )
-        import IPython
+        tasks[outdir] = task
 
-        ipshell = IPython.embed
-        ipshell(banner1="ipshell")
-
-
-#        self.mark_complete()
+    return tasks
 
 
 class ExtractMetadata(pipeline.ExtractMetadata):
     train = luigi.TaskParameter()
     test = luigi.TaskParameter()
+    valid = luigi.TaskParameter()
 
     def requires(self):
-        return {
-            "train": self.train,
-            "test": self.test,
-        }
+        return {"train": self.train, "test": self.test, "valid": self.valid}
 
     @staticmethod
     def relpath_to_unique_filestem(relpath: str) -> str:
@@ -144,106 +161,54 @@ class ExtractMetadata(pipeline.ExtractMetadata):
             label = UNKNOWN
         return label
 
-    def get_split_paths(self):
-        """
-        Splits the dataset into train/valid/test files using the same method as
-        described in by the TensorFlow dataset:
-        https://www.tensorflow.org/datasets/catalog/speech_commands
-        """
-        # Test files
-        test_path = Path(self.requires()["test"].workdir).joinpath("test")
-        test_df = pd.DataFrame(test_path.glob("*/*.wav"), columns=["relpath"]).assign(
-            split=lambda df: "test"
+    def get_requires_metadata(self, split: str) -> pd.DataFrame:
+        logger.info(f"Preparing metadata for {split}")
+
+        # Loads and prepares the metadata for a specific split
+        split_path = Path(self.requires()[split].workdir).joinpath(split)
+        split_path = split_path.joinpath(f"nsynth-{split}")
+
+        metadata = pd.read_json(split_path.joinpath("examples.json"), orient="index")
+
+        metadata = (
+            # Filter out pitches that are not within the range
+            metadata.loc[
+                metadata["pitch"].between(
+                    self.task_config["pitch_range_min"],
+                    self.task_config["pitch_range_max"],
+                )
+                # Assign metadata columns
+            ].assign(
+                relpath=lambda df: df["note_str"].apply(
+                    partial(self.get_rel_path, split_path)
+                ),
+                label=lambda df: df["pitch"],
+                split=lambda df: split,
+            )
         )
 
-        # All silence paths to add to the train and validation
-        train_path = Path(self.requires()["train"].workdir)
-        all_silence = list(train_path.glob(f"{SILENCE}/*.wav"))
-
-        # Validation files
-        with open(os.path.join(train_path, "validation_list.txt"), "r") as fp:
-            validation_paths = fp.read().strip().splitlines()
-        validation_rel_paths = [os.path.join(train_path, p) for p in validation_paths]
-
-        # There are no silence files marked explicitly for validation. We add all
-        # the running_tap.wav samples to the silence class for validation.
-        # https://github.com/tensorflow/datasets/blob/e24fe9e6b03053d9b925d299a2246ea167dc85cd/tensorflow_datasets/audio/speech_commands.py#L183
-        val_silence = list(train_path.glob(f"{SILENCE}/running_tap*.wav"))
-        validation_rel_paths.extend(val_silence)
-        validation_df = pd.DataFrame(validation_rel_paths, columns=["relpath"]).assign(
-            split=lambda df: "valid"
-        )
-
-        # Train-test files.
-        with open(os.path.join(train_path, "testing_list.txt"), "r") as fp:
-            train_test_paths = fp.read().strip().splitlines()
-        audio_paths = [
-            str(p.relative_to(train_path)) for p in train_path.glob("[!_]*/*.wav")
-        ]
-
-        # The final train set is all the audio files MINUS the files marked as
-        # test / validation files in testing_list.txt or validation_list.txt
-        train_paths = list(
-            set(audio_paths) - set(train_test_paths) - set(validation_paths)
-        )
-        train_rel_paths = [os.path.join(train_path, p) for p in train_paths]
-
-        # Training silence is all the generated silence / background noise samples
-        # minus those marked for validation.
-        train_silence = list(set(all_silence) - set(val_silence))
-        train_rel_paths.extend(train_silence)
-        train_df = pd.DataFrame(train_rel_paths, columns=["relpath"]).assign(
-            split=lambda df: "train"
-        )
-        assert len(train_df.merge(validation_df, on="relpath")) == 0
-
-        return pd.concat([test_df, validation_df, train_df]).reset_index(drop=True)
-
-    def get_all_metadata(self) -> pd.DataFrame:
-        metadata = self.get_split_paths()
-        metadata = metadata.assign(
-            label=lambda df: df["relpath"].apply(self.relpath_to_label),
-        )
         return metadata
 
 
-def main(
-    sample_rates: List[int],
-    tmp_dir: str,
-    tasks_dir: str,
-    tar_dir: str,
-    small: bool = False,
-):
-    if small:
-        task_config.update(dict(task_config["small"]))  # type: ignore
-    task_config.update({"tmp_dir": tmp_dir})
+def extract_metadata_task(task_config: Dict[str, Any]) -> pipeline.ExtractMetadata:
+    # Build the dataset pipeline with the custom metadata configuration task
+    download_tasks = get_download_and_extract_tasks(task_config)
 
-    #    # Build the dataset pipeline with the custom metadata configuration task
-    #    download_tasks = pipeline.get_download_and_extract_tasks(task_config)
-
-    load = TensorflowDatasetLoad(
-        task_config=task_config,
-    )
-    #    for split in
-    return ExtractSplit(
-        split="valid",
-        download=load,
-        task_config=task_config,
-    )
-    """
-    extract_metadata = ExtractMetadata(
-        train=generate,
-        test=download_tasks["test"],
+    return ExtractMetadata(
+        **download_tasks,
         outfile="process_metadata.csv",
         task_config=task_config,
     )
 
-    final_task = pipeline.FinalizeCorpus(
-        sample_rates=sample_rates,
-        tasks_dir=tasks_dir,
-        tar_dir=tar_dir,
-        metadata_task=extract_metadata,
-        task_config=task_config,
+
+if __name__ == "__main__":
+    luigi.build(
+        [
+            ExtractTFDS(
+                download=DownloadTFDS(task_config=task_config), task_config=task_config, outdir = "test"
+            )
+        ],
+        workers=5,
+        local_scheduler=True,
+        log_level="INFO",
     )
-    return final_task
-    """
