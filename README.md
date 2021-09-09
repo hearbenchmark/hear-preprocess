@@ -66,7 +66,7 @@ If you want to run preprocessing yourself:
 libsox-fmt-ffmpeg or [installing from
 source](https://github.com/neuralaudio/hear-eval-kit/issues/156#issuecomment-893151305).
 
-This will take about 2 user-CPU-hours for the open tasks, when using
+This will take about several hours for the open tasks, when using
 mode '--mode default'. 150 GB free disk space is required while
 processing.  Final output is 11 GB. Much more time and disk space
 is required for '--mode all'.
