@@ -7,12 +7,12 @@ import re
 from pathlib import Path
 from typing import List, Dict, Any
 
-# https://github.com/tensorflow/datasets/issues/1441#issuecomment-581660890
-import resource
+# # https://github.com/tensorflow/datasets/issues/1441#issuecomment-581660890
+# import resource
 
-low, high = resource.getrlimit(resource.RLIMIT_NOFILE)
-high = min(high, 10000)
-resource.setrlimit(resource.RLIMIT_NOFILE, (high, high))
+# low, high = resource.getrlimit(resource.RLIMIT_NOFILE)
+# high = min(high, 10000)
+# resource.setrlimit(resource.RLIMIT_NOFILE, (high, high))
 
 import luigi
 import pandas as pd
@@ -32,10 +32,13 @@ task_config = {
     "evaluation": ["top1_acc"],
     # The test set is 1.33 hours, so we use the entire thing
     "max_task_duration_by_split": {"train": None, "valid": None, "test": None},
-    "mode": "full",
+
+    "default_mode": "tfds",
     "modes": {
-        # Only full mode is supported for tfds now
-        "full": {
+        # This is a tfds mode which doesnot require the path but the tfds dataset name
+        "tfds": {
+            "tf_task_name": "speech_commands",
+            "tf_task_version": "0.0.2",
             # By default all the splits will be downloaded, the below key
             # helps to select the splits to extract
             "extract_splits": ["train", "test", "valid"]
@@ -43,17 +46,25 @@ task_config = {
     },
 }
 
+split_to_tf_split = {
+    "train": "train",
+    "valid": "validation",
+    "test": "test",
+}
 
 class DownloadTFDS(luigi_util.WorkTask):
-    "Downloads the the tensorflow dataset and prepairs the split"
+    "Download and build the tensorflow dataset"
 
     @property
     def stage_number(self) -> int:
         return 0
 
     def get_tfds_builder(self):
-        tfdspath = self.workdir.joinpath("tensorflow-datasets")
-        builder = tfds.builder("speech_commands", data_dir=tfdspath)
+        tf_task_name = self.task_config["tf_task_name"]
+        tf_task_version = self.task_config["tf_task_version"]
+        tfds_path = self.workdir.joinpath("tensorflow-datasets")
+
+        builder = tfds.builder(name = tf_task_name, version = tf_task_version, data_dir=tfds_path)
         return builder
 
     def run(self):
@@ -62,16 +73,11 @@ class DownloadTFDS(luigi_util.WorkTask):
         self.mark_complete()
 
 
-split_to_tf_split = {
-    "train": "train",
-    "valid": "validation",
-    "test": "test",
-}
-
-
 class ExtractTFDS(luigi_util.WorkTask):
+    """Extracts the downloaded tfds dataset for the split"""
 
     outdir = luigi.Parameter()
+    split = luigi.Parameter()
     download: DownloadTFDS = luigi.TaskParameter()
 
     def requires(self):
@@ -82,26 +88,36 @@ class ExtractTFDS(luigi_util.WorkTask):
         return self.workdir.joinpath(self.outdir)
 
     def run(self):
+        #Get the tfds builder from the download task
         builder = self.requires()["download"].get_tfds_builder()
-        split = split_to_tf_split["valid"]
-        ds = builder.as_dataset(split="test", shuffle_files=False)
-        ds.take(5)
-        info = builder._info()
+        #Map the split with the tensorflow version of the split name
+        split = split_to_tf_split[self.split]
 
+        #Get the dataset corresponding to the split
+        dataset = builder.as_dataset(split=split, shuffle_files=False)
+        info = builder._info()
+        print("----------------", info.features)
+
+        #With the info build the label to idx map
         label_idx_map = {
             label_idx: label
             for label_idx, label in enumerate(info.features["label"].names)
         }
-        ds_sample_rate = info.features["audio"].sample_rate
+        #Get the datset sample rate. This will be used while saving the audio
+        dataset_sample_rate = info.features["audio"].sample_rate
 
         audio_dir = self.output_path.joinpath('audio')
         audio_dir.mkdir(exist_ok = True, parents = True)
         file_labels = []
         for file_idx, example in enumerate(tqdm(tfds.as_numpy(ds))):
+            #The format was int64, so converted to int32 because soundfile required
+            #format int32
             numpy_audio = example["audio"].astype('int32')
+            #The label here is the index of the label. Get the corresponding label name
             label = label_idx_map[example["label"]]
             audio_path = audio_dir.joinpath(f"tf_data_idx_{file_idx}.wav")
             sf.write(audio_path, numpy_audio, ds_sample_rate)
+            #Append the audio path and the corresponding label
             file_labels.append((audio_path, label))
 
         file_labels_df = pd.DataFrame(file_labels, columns = ["path", "label"])
@@ -109,14 +125,15 @@ class ExtractTFDS(luigi_util.WorkTask):
         file_labels_df.to_csv(file_labels_path, index = False)
 
 
-def get_download_and_extract_tasks(task_config: Dict) -> Dict[str, luigi_util.WorkTask]:
+def get_download_and_extract_tasks_tfds(task_config: Dict) -> Dict[str, luigi_util.WorkTask]:
     tasks = {}
     outdirs: Set[str] = set()
     for split in task_config["extract_splits"]:
         outdir = split
         task = ExtractTFDS(
-            download=DownloadCorpus(task_config=task_config),
+            download=DownloadTFDS(task_config=task_config),
             outdir=outdir,
+            split = split,
             task_config=task_config,
         )
         tasks[outdir] = task
@@ -192,7 +209,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
 
 def extract_metadata_task(task_config: Dict[str, Any]) -> pipeline.ExtractMetadata:
     # Build the dataset pipeline with the custom metadata configuration task
-    download_tasks = get_download_and_extract_tasks(task_config)
+    download_tasks = get_download_and_extract_tasks_tfds(task_config)
 
     return ExtractMetadata(
         **download_tasks,
@@ -202,13 +219,15 @@ def extract_metadata_task(task_config: Dict[str, Any]) -> pipeline.ExtractMetada
 
 
 if __name__ == "__main__":
+    task_mode = "tfds"
+    task_config['mode'] = task_mode
+    task_config.update(dict(task_config["modes"][task_mode]))
+    download_tasks = get_download_and_extract_tasks_tfds(task_config)
     luigi.build(
         [
-            ExtractTFDS(
-                download=DownloadTFDS(task_config=task_config), task_config=task_config, outdir = "test"
-            )
+            download_tasks["valid"]
         ],
-        workers=5,
+        workers=7,
         local_scheduler=True,
         log_level="INFO",
     )
