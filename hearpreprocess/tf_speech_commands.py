@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 import luigi
+import numpy as np
 import pandas as pd
 import soundfile as sf
 import tensorflow as tf
@@ -91,10 +92,10 @@ class ExtractTFDS(luigi_util.WorkTask):
         return self.workdir.joinpath(self.outdir)
 
     @staticmethod
-    def load_tfds(builder , **as_dataset_kwargs) -> tf.data.Dataset:
+    def load_tfds(builder, **as_dataset_kwargs) -> tf.data.Dataset:
         """
         This loads the dataset from the builder. Specifically this function returns
-        a dataset which will also contain the tfds_id which uniquely determines 
+        a dataset which will also contain the tfds_id which uniquely determines
         each example in the dataset
 
         https://github.com/tensorflow/datasets/blob/master/docs/determinism.ipynb
@@ -104,7 +105,7 @@ class ExtractTFDS(luigi_util.WorkTask):
         return builder.as_dataset(read_config=read_config, **as_dataset_kwargs)
 
     def run(self):
-        # Get the tfds builder from the download task. From the builder info the 
+        # Get the tfds builder from the download task. From the builder info the
         # label to idx map and the dataset sample can be extracted as well
         builder = self.requires()["download"].get_tfds_builder()
         label_idx_map = {
@@ -117,7 +118,9 @@ class ExtractTFDS(luigi_util.WorkTask):
         # Map the split with the tensorflow version of the split name
         split = split_to_tf_split[self.split]
         # Get the dataset for the split
-        dataset: tf.data.Dataset = self.load_tfds(builder, split=split, shuffle_files=False)
+        dataset: tf.data.Dataset = self.load_tfds(
+            builder, split=split, shuffle_files=False
+        )
         dataset = dataset.take(2)
         assert isinstance(dataset, tf.data.Dataset)
 
@@ -125,9 +128,11 @@ class ExtractTFDS(luigi_util.WorkTask):
         audio_dir.mkdir(exist_ok=True, parents=True)
         filename_labels = []
         for file_idx, example in enumerate(tqdm(tfds.as_numpy(dataset))):
-            # The format was int64, so converted to int32 because soundfile required
-            # format int32 to save the audio
-            numpy_audio = example["audio"].astype("int32")
+            # Only these - ['float32', 'float64', 'int16', 'int32'] formats are allowed
+            # in soundlfile write function
+            numpy_audio = example["audio"]
+            if numpy_audio.dtype == np.int64:
+                numpy_audio = numpy_audio.astype("int32")
             tfds_id = example["tfds_id"]
 
             # The label in tfds is the index of the label. Get the corresponding
@@ -139,13 +144,15 @@ class ExtractTFDS(luigi_util.WorkTask):
             # the idx corresponding to one audio will not change
             audio_filename = f"tfds_id_{slugify(tfds_id)}.wav"
 
-            sf.write(audio_dir.joinpath(audio_filename), numpy_audio, dataset_sample_rate)
+            sf.write(
+                audio_dir.joinpath(audio_filename), numpy_audio, dataset_sample_rate
+            )
             filename_labels.append((audio_filename, label))
 
         # Save the audio filename and the corresponding label in
         # a dataframe in the split folder
         file_labels_df = pd.DataFrame(filename_labels, columns=["filename", "label"])
-        file_labels_path = self.output_path.joinpath(f"{split}_labels.csv")
+        file_labels_path = self.output_path.joinpath(f"{self.split}_labels.csv")
         file_labels_df.to_csv(file_labels_path, index=False)
 
         self.mark_complete()
@@ -182,7 +189,8 @@ class ExtractMetadata(pipeline.ExtractMetadata):
 
         # The directory where all the audio for the split was saved after extracting
         # from tfds
-        audio_dir = Path(self.requires()[split].workdir).joinpath(split, "audio")
+        split_path = self.requires()[split].workdir.joinpath(split)
+        audio_dir = split_path.joinpath("audio")
         # The metadata helps in getting the label associated with the audio samples.
         # This was also saved while extracting the audio from the tfds
         metadata = pd.read_csv(split_path.joinpath(f"{split}_labels.csv"))
@@ -203,20 +211,5 @@ def extract_metadata_task(task_config: Dict[str, Any]) -> pipeline.ExtractMetada
     download_tasks = get_download_and_extract_tasks_tfds(task_config)
 
     return ExtractMetadata(
-       
-        outfile="process_metadata.csv",
-        task_config=task_config, **download_tasks
-    )
-
-
-if __name__ == "__main__":
-    task_mode = "tfds"
-    task_config["mode"] = task_mode
-    generic_task_config.update(dict(generic_task_config["modes"][task_mode]))
-    download_tasks = get_download_and_extract_tasks_tfds(generic_task_config)
-    luigi.build(
-        [download_tasks["valid"]],
-        workers=7,
-        local_scheduler=True,
-        log_level="INFO",
+        outfile="process_metadata.csv", task_config=task_config, **download_tasks
     )
