@@ -2,28 +2,26 @@
 """
 Pre-processing pipeline for Google speech_commands, using tensorflow-datasets
 """
+import logging
 import os
 import re
 from pathlib import Path
 from typing import List, Dict, Any
 
-# # https://github.com/tensorflow/datasets/issues/1441#issuecomment-581660890
-# import resource
-
-# low, high = resource.getrlimit(resource.RLIMIT_NOFILE)
-# high = min(high, 10000)
-# resource.setrlimit(resource.RLIMIT_NOFILE, (high, high))
-
 import luigi
 import pandas as pd
 import soundfile as sf
+import tensorflow as tf
 import tensorflow_datasets as tfds
+from slugify import slugify
 from tqdm import tqdm
 
 import hearpreprocess.pipeline as pipeline
 import hearpreprocess.util.luigi as luigi_util
 
-task_config = {
+logger = logging.getLogger("luigi-interface")
+
+generic_task_config = {
     "task_name": "tf_speech_commands",
     "version": "v0.0.2",
     "embedding_type": "scene",
@@ -32,16 +30,18 @@ task_config = {
     "evaluation": ["top1_acc"],
     # The test set is 1.33 hours, so we use the entire thing
     "max_task_duration_by_split": {"train": None, "valid": None, "test": None},
-
     "default_mode": "tfds",
     "modes": {
-        # This is a tfds mode which doesnot require the path but the tfds dataset name
+        # This is tfds mode which doesn't require the path but the tfds dataset name
+        # and version. For speech commands the tf dataset has all the splits, and so
+        # we will not be doing any custom splitting. All the splits will be extracted
+        # from tfds builder.
         "tfds": {
             "tf_task_name": "speech_commands",
             "tf_task_version": "0.0.2",
             # By default all the splits will be downloaded, the below key
             # helps to select the splits to extract
-            "extract_splits": ["train", "test", "valid"]
+            "extract_splits": ["train", "test", "valid"],
         }
     },
 }
@@ -51,6 +51,7 @@ split_to_tf_split = {
     "valid": "validation",
     "test": "test",
 }
+
 
 class DownloadTFDS(luigi_util.WorkTask):
     "Download and build the tensorflow dataset"
@@ -64,7 +65,9 @@ class DownloadTFDS(luigi_util.WorkTask):
         tf_task_version = self.task_config["tf_task_version"]
         tfds_path = self.workdir.joinpath("tensorflow-datasets")
 
-        builder = tfds.builder(name = tf_task_name, version = tf_task_version, data_dir=tfds_path)
+        builder = tfds.builder(
+            name=tf_task_name, version=tf_task_version, data_dir=tfds_path
+        )
         return builder
 
     def run(self):
@@ -87,42 +90,65 @@ class ExtractTFDS(luigi_util.WorkTask):
     def output_path(self):
         return self.workdir.joinpath(self.outdir)
 
+    @staticmethod
+    def load_tfds(builder , **as_dataset_kwargs) -> tf.data.Dataset:
+        """
+        This loads the dataset from the builder. Specifically this function returns
+        a dataset which will also contain the tfds_id which uniquely determines 
+        each example in the dataset
+
+        https://github.com/tensorflow/datasets/blob/master/docs/determinism.ipynb
+        """
+        read_config = as_dataset_kwargs.pop("read_config", tfds.ReadConfig())
+        read_config.add_tfds_id = True  # Set `True` to return the 'tfds_id' key
+        return builder.as_dataset(read_config=read_config, **as_dataset_kwargs)
+
     def run(self):
-        #Get the tfds builder from the download task
+        # Get the tfds builder from the download task. From the builder info the 
+        # label to idx map and the dataset sample can be extracted as well
         builder = self.requires()["download"].get_tfds_builder()
-        #Map the split with the tensorflow version of the split name
-        split = split_to_tf_split[self.split]
-
-        #Get the dataset corresponding to the split
-        dataset = builder.as_dataset(split=split, shuffle_files=False)
-        info = builder._info()
-        print("----------------", info.features)
-
-        #With the info build the label to idx map
         label_idx_map = {
             label_idx: label
-            for label_idx, label in enumerate(info.features["label"].names)
+            for label_idx, label in enumerate(builder.info.features["label"].names)
         }
-        #Get the datset sample rate. This will be used while saving the audio
-        dataset_sample_rate = info.features["audio"].sample_rate
+        # Get the datset sample rate. This will be used to save the audio
+        dataset_sample_rate = builder.info.features["audio"].sample_rate
 
-        audio_dir = self.output_path.joinpath('audio')
-        audio_dir.mkdir(exist_ok = True, parents = True)
-        file_labels = []
-        for file_idx, example in enumerate(tqdm(tfds.as_numpy(ds))):
-            #The format was int64, so converted to int32 because soundfile required
-            #format int32
-            numpy_audio = example["audio"].astype('int32')
-            #The label here is the index of the label. Get the corresponding label name
+        # Map the split with the tensorflow version of the split name
+        split = split_to_tf_split[self.split]
+        # Get the dataset for the split
+        dataset: tf.data.Dataset = self.load_tfds(builder, split=split, shuffle_files=False)
+        dataset = dataset.take(2)
+        assert isinstance(dataset, tf.data.Dataset)
+
+        audio_dir = self.output_path.joinpath("audio")
+        audio_dir.mkdir(exist_ok=True, parents=True)
+        filename_labels = []
+        for file_idx, example in enumerate(tqdm(tfds.as_numpy(dataset))):
+            # The format was int64, so converted to int32 because soundfile required
+            # format int32 to save the audio
+            numpy_audio = example["audio"].astype("int32")
+            tfds_id = example["tfds_id"]
+
+            # The label in tfds is the index of the label. Get the corresponding
+            # label name from the label_idx_map
             label = label_idx_map[example["label"]]
-            audio_path = audio_dir.joinpath(f"tf_data_idx_{file_idx}.wav")
-            sf.write(audio_path, numpy_audio, ds_sample_rate)
-            #Append the audio path and the corresponding label
-            file_labels.append((audio_path, label))
 
-        file_labels_df = pd.DataFrame(file_labels, columns = ["path", "label"])
+            # Since the audio name is not available, the audio is given a name
+            # according to its index in the ds. Since shuffle is set to false,
+            # the idx corresponding to one audio will not change
+            audio_filename = f"tfds_id_{slugify(tfds_id)}.wav"
+
+            sf.write(audio_dir.joinpath(audio_filename), numpy_audio, dataset_sample_rate)
+            filename_labels.append((audio_filename, label))
+
+        # Save the audio filename and the corresponding label in
+        # a dataframe in the split folder
+        file_labels_df = pd.DataFrame(filename_labels, columns=["filename", "label"])
         file_labels_path = self.output_path.joinpath(f"{split}_labels.csv")
-        file_labels_df.to_csv(file_labels_path, index = False)
+        file_labels_df.to_csv(file_labels_path, index=False)
+
+        self.mark_complete()
 
 
 def get_download_and_extract_tasks_tfds(task_config: Dict) -> Dict[str, luigi_util.WorkTask]:
