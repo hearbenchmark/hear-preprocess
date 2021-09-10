@@ -151,7 +151,9 @@ class ExtractTFDS(luigi_util.WorkTask):
         self.mark_complete()
 
 
-def get_download_and_extract_tasks_tfds(task_config: Dict) -> Dict[str, luigi_util.WorkTask]:
+def get_download_and_extract_tasks_tfds(
+    task_config: Dict,
+) -> Dict[str, luigi_util.WorkTask]:
     tasks = {}
     outdirs: Set[str] = set()
     for split in task_config["extract_splits"]:
@@ -159,7 +161,7 @@ def get_download_and_extract_tasks_tfds(task_config: Dict) -> Dict[str, luigi_ut
         task = ExtractTFDS(
             download=DownloadTFDS(task_config=task_config),
             outdir=outdir,
-            split = split,
+            split=split,
             task_config=task_config,
         )
         tasks[outdir] = task
@@ -175,59 +177,22 @@ class ExtractMetadata(pipeline.ExtractMetadata):
     def requires(self):
         return {"train": self.train, "test": self.test, "valid": self.valid}
 
-    @staticmethod
-    def relpath_to_unique_filestem(relpath: str) -> str:
-        """
-        Include the label (parent directory) in the filestem.
-        """
-        # Get the parent directory (label) and the filename
-        name = "_".join(Path(relpath).parts[-2:])
-        # Remove the suffix
-        name = os.path.splitext(name)[0]
-        return str(name)
-
-    @staticmethod
-    def speaker_hash(unique_filestem: str) -> str:
-        """Get the speaker hash as the Split key for speech_commands"""
-        hsh = re.sub(r"_nohash_.*$", "", unique_filestem)
-        return hsh
-
-    @staticmethod
-    def get_split_key(df: pd.DataFrame) -> pd.Series:
-        """Get the speaker hash as the split key for speech_commands"""
-        return df["unique_filestem"].apply(ExtractMetadata.speaker_hash)
-
-    @staticmethod
-    def relpath_to_label(relpath: Path):
-        label = os.path.basename(os.path.dirname(relpath))
-        if label not in WORDS and label != SILENCE:
-            label = UNKNOWN
-        return label
-
     def get_requires_metadata(self, split: str) -> pd.DataFrame:
         logger.info(f"Preparing metadata for {split}")
 
-        # Loads and prepares the metadata for a specific split
-        split_path = Path(self.requires()[split].workdir).joinpath(split)
-        split_path = split_path.joinpath(f"nsynth-{split}")
+        # The directory where all the audio for the split was saved after extracting
+        # from tfds
+        audio_dir = Path(self.requires()[split].workdir).joinpath(split, "audio")
+        # The metadata helps in getting the label associated with the audio samples.
+        # This was also saved while extracting the audio from the tfds
+        metadata = pd.read_csv(split_path.joinpath(f"{split}_labels.csv"))
 
-        metadata = pd.read_json(split_path.joinpath("examples.json"), orient="index")
-
-        metadata = (
-            # Filter out pitches that are not within the range
-            metadata.loc[
-                metadata["pitch"].between(
-                    self.task_config["pitch_range_min"],
-                    self.task_config["pitch_range_max"],
-                )
-                # Assign metadata columns
-            ].assign(
-                relpath=lambda df: df["note_str"].apply(
-                    partial(self.get_rel_path, split_path)
-                ),
-                label=lambda df: df["pitch"],
-                split=lambda df: split,
-            )
+        metadata = metadata.assign(
+            relpath=lambda df: df["filename"].apply(
+                lambda filename: audio_dir.joinpath(filename)
+            ),
+            label=lambda df: df["label"],
+            split=split,
         )
 
         return metadata
@@ -238,21 +203,19 @@ def extract_metadata_task(task_config: Dict[str, Any]) -> pipeline.ExtractMetada
     download_tasks = get_download_and_extract_tasks_tfds(task_config)
 
     return ExtractMetadata(
-        **download_tasks,
+       
         outfile="process_metadata.csv",
-        task_config=task_config,
+        task_config=task_config, **download_tasks
     )
 
 
 if __name__ == "__main__":
     task_mode = "tfds"
-    task_config['mode'] = task_mode
-    task_config.update(dict(task_config["modes"][task_mode]))
-    download_tasks = get_download_and_extract_tasks_tfds(task_config)
+    task_config["mode"] = task_mode
+    generic_task_config.update(dict(generic_task_config["modes"][task_mode]))
+    download_tasks = get_download_and_extract_tasks_tfds(generic_task_config)
     luigi.build(
-        [
-            download_tasks["valid"]
-        ],
+        [download_tasks["valid"]],
         workers=7,
         local_scheduler=True,
         log_level="INFO",
