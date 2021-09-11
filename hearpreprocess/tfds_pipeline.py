@@ -5,7 +5,7 @@ Custom Preprocessing pipeline for tensorflow dataset
 Tfds audio datasets can be preprocessed with the hear-preprocess pipeline by defining
 the generic_task_config dict and optionally overriding the extract metadata in this 
 file
-See example tfds_speech_commands.py
+See example tfds_speech_commands.py for a sample way to configure this for a tfds data
 
 Tasks in this file helps to download and extract the tfds as wav files, followed 
 by overriding the extract metadata function to consume the extracted audio files and
@@ -65,7 +65,7 @@ class DownloadTFDS(luigi_util.WorkTask):
     def run(self):
         builder = self.get_tfds_builder()
         # Download and prepare the data in the task folder
-        # builder.download_and_prepare()
+        # builder.download_and_prepare() #Uncomment me. only for testing
         self.mark_complete()
 
 
@@ -73,7 +73,7 @@ class ExtractTFDS(luigi_util.WorkTask):
     """
     Extracts the downloaded tfds dataset for a split
     If a split is not present, data for that split will
-    be sampled from the train split, by downstream
+    be deterministically sampled from the train split, by the downstream
     pipeline (Specifically ExtractMetadata.split_train_test_val)
     """
 
@@ -123,8 +123,16 @@ class ExtractTFDS(luigi_util.WorkTask):
             # are allowed in soundfile write function. If int64 type is found,
             # convert to int32
             numpy_audio = example["audio"]
-            if numpy_audio.dtype == np.int64:
+            numpy_dtype_audio = numpy_audio.dtype
+            if numpy_dtype_audio == np.int64:
                 numpy_audio = numpy_audio.astype("int32")
+            assert numpy_dtype_audio in [
+                np.float32,
+                np.float64,
+                np.int16,
+                np.int32,
+            ], f"The audio's numpy array datatype: {numpy.dtype} cannot be saved with "
+            "soundfile"
 
             # Since the audio name is not available in tfds, the unique tfds_id
             # is used to define the audio filename
@@ -139,20 +147,20 @@ class ExtractTFDS(luigi_util.WorkTask):
 
             # The label for an audio in tfds is the index of the actual label.
             # The mapping of this label idx to label is taken from the build info
-            # and passed to this function
+            # and passed into this function
             label_idx: int = int(example["label"])
             all_label_idx.add(label_idx)
             label = label_idx_map[label_idx]
             filename_labels[audio_filename] = label
 
         # Since labels from tfds are supposed to be indices they should be continuous
-        # integers
+        # integers. eg [0, 1, 2, ...]
         assert all_label_idx == set(range(len(all_label_idx))), (
-            "TFDS labels for "
-            f"audio are not conitnuous integers. All Label indices: {all_label_idx}"
+            "TFDS labels for audio are not conitnuous integers. "
+            "All Label indices: {all_label_idx}"
         )
 
-        # Save the audio filename and the corresponding label in
+        # Save the audio filename and the corresponding label as
         # a dataframe in the split folder
         filename_labels_df = pd.DataFrame(
             filename_labels.items(), columns=["filename", "label"]
@@ -219,9 +227,9 @@ class ExtractMetadata(pipeline.ExtractMetadata):
     def get_requires_metadata(self, split: str) -> pd.DataFrame:
         logger.info(f"Preparing metadata for {split}")
 
+        split_path = self.requires()[split].workdir.joinpath(split)
         # The directory where all the audio for the split was saved after extracting
         # from tfds
-        split_path = self.requires()[split].workdir.joinpath(split)
         audio_dir = split_path.joinpath("audio")
         # The metadata helps in getting the label associated with the audio samples.
         # This was also saved while extracting the audio from the tfds in ExtractTFDS

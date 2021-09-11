@@ -32,7 +32,7 @@ generic_task_config = {
 def extract_metadata_task(task_config: Dict[str, Any]) -> tfds_pipeline.ExtractMetadata:
     # Build the dataset pipeline with the custom metadata configuration task.
     # Please note the tfds download and extract tasks are used to download and the
-    # extract the tensorflow data splits here
+    # extract the tensorflow data splits below
     download_tasks = tfds_pipeline.get_download_and_extract_tasks_tfds(task_config)
 
     return tfds_pipeline.ExtractMetadata(
