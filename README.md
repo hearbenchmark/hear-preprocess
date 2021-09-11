@@ -8,6 +8,8 @@ you won't need this repo. Use
 [hear-eval-kit](https://github.com/neuralaudio/hear-eval-kit/) to
 evaluate your embedding models on these tasks.
 
+This preprocessing is slow and disk-intensive but safe and careful.
+
 ## Cloud Usage
 
 See [hear-eval's
@@ -64,8 +66,10 @@ If you want to run preprocessing yourself:
 libsox-fmt-ffmpeg or [installing from
 source](https://github.com/neuralaudio/hear-eval-kit/issues/156#issuecomment-893151305).
 
-This will take about 2 user-CPU-hours for the open tasks. 100 GB free
-disk space is required while processing. Final output is 11 GB.
+This will take about several hours for the open tasks, when using
+mode '--mode default'. 150 GB free disk space is required while
+processing.  Final output is 11 GB. Much more time and disk space
+is required for '--mode all'.
 
 These Luigi pipelines are used to preprocess the evaluation tasks
 into a common format for downstream evaluation.
@@ -80,6 +84,13 @@ Upload to private bucket:
 gsutil -m cp hear-*.tar.gz gs://hear2021-private/
 ```
 
+Small open tasks can be put in the cloud as follows:
+```
+gsutil -m cp hear-*dcase2016_task2*small*.tar.gz gs://hear2021/small/
+gsutil -m cp hear-*speech_commands*small*.tar.gz gs://hear2021/small/
+gsutil -m cp hear-*nsynth_pitch*small*.tar.gz gs://hear2021/small/
+```
+
 You can also just run individual tasks:
 ```
 python3 -m hearpreprocess.runner [speech_commands|nsynth_pitch|office_events]
@@ -90,8 +101,8 @@ This repository is not available for participants. If the submodule
 is set up:
 - The aforementioned commands will work for secret tasks as
 well.
-- Running with the `all` option will trigger all the available set
-of open and secret tasks.
+- Running with the task `all` option will trigger all the available
+set of open and secret tasks.
 - To run individual tasks, please use the corresponding `task` name.
 The secret task names are are also hidden and listed in the
 `hear2021-secret-tasks` submodule.
@@ -102,10 +113,10 @@ to the following DAG:
 * ExtractArchive
 * ExtractMetadata: Create splits over the entire corpus and find
 the label metadata for them.
-* SubcorpusSplit (subsample each split) => MonoWavSubcorpus => TrimPadSubcorpus => SubcorpusData (symlinks)
+* SubcorpusSplit (subsample each split) => MonoWavSplit => TrimPadSplit => SubcorpusData (symlinks)
 * SubcorpusData => {SubcorpusMetadata, ResampleSubcorpus}
 * SubcorpusMetadata => MetadataVocabulary
-* FinalCombine => FinalizeCorpus
+* FinalCombine => TarCorpus => FinalizeCorpus
 
 In terms of sampling:
 * We create a 60/20/20 split if train/valid/test does not exist.
@@ -124,23 +135,16 @@ Options:
 Options:
   --num-workers INTEGER  Number of CPU workers to use when running. If not
                          provided all CPUs are used.
-
   --sample-rate INTEGER  Perform resampling only to this sample rate. By
                          default we resample to 16000, 22050, 44100, 48000.
-  
-  --small       FLAG     If passed, the task will run on a small-version of the 
-                         data.
-
-  --work-dir    STRING   Temporary directory to save all the
-                         intermediate tasks (will not be deleted afterwords).
-                         It will require as much disk space as the final output,
-                         if not more.
-                         By default this is set to _workdir in the
-                         module root directory.
-
-  --tasks-dir   STRING   Path to dir to store the final task outputs.
-			             By default this is set to tasks in the
-           			     module root directory
+  --tmp-dir TEXT         Temporary directory to save all the intermediate
+                         tasks (will not be deleted afterwords). (default:
+                         _workdir/)
+  --tasks-dir TEXT       Directory to save the final task output (default:
+                         tasks/)
+  --tar-dir TEXT         Directory to save the tar'ed output (default: .)
+  --mode TEXT            default, all, or small mode for each task.
+  --help                 Show this message and exit.
 ```
 
 To check the stats of an audio directory:
@@ -176,5 +180,5 @@ deterministically with the following command:
 python3 -m hearpreprocess.sampler <taskname>
 ```
 
-**_NOTE_** : The `--small` flag which is used to run the task on a
+**_NOTE_** : `--mode small` is used to run the task on a
 small version of the dataset for development.

@@ -2,10 +2,11 @@
 """
 Pre-processing pipeline for Google speech_commands
 """
+
 import os
 import re
 from pathlib import Path
-from typing import List
+from typing import Any, Dict
 
 import luigi
 import pandas as pd
@@ -14,21 +15,24 @@ from tqdm import tqdm
 
 import hearpreprocess.pipeline as pipeline
 import hearpreprocess.util.luigi as luigi_util
+from hearpreprocess.pipeline import (
+    TRAIN_PERCENTAGE,
+    TRAINVAL_PERCENTAGE,
+    VALIDATION_PERCENTAGE,
+)
 
 WORDS = ["down", "go", "left", "no", "off", "on", "right", "stop", "up", "yes"]
 BACKGROUND_NOISE = "_background_noise_"
 UNKNOWN = "_unknown_"
 SILENCE = "_silence_"
 
-task_config = {
+generic_task_config = {
     "task_name": "speech_commands",
     "version": "v0.0.2",
     "embedding_type": "scene",
     "prediction_type": "multiclass",
     "sample_duration": 1.0,
     "evaluation": ["top1_acc"],
-    # The test set is 1.33 hours, so we use the entire thing
-    "max_task_duration_by_split": {"test": None},
     "download_urls": [
         {
             "split": "train",
@@ -41,20 +45,36 @@ task_config = {
             "md5": "854c580ee90bff80c516491c84544e32",
         },
     ],
-    "small": {
-        "download_urls": [
-            {
-                "split": "train",
-                "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/speech_commands_v0.02-small.zip",  # noqa: E501
-                "md5": "455123a88b8410d1f955c77ad331524f",
-            },
-            {
-                "split": "test",
-                "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/speech_commands_test_set_v0.02-small.zip",  # noqa: E501
-                "md5": "26d08374a7abd13ca2f4a4b8424f41d0",
-            },
-        ],
-        "version": "v0.0.2-small",
+    "default_mode": "5h",
+    # Different modes for preprocessing this dataset
+    # We use all modes EXCEPT small, unless flag "--small" used.
+    "modes": {
+        "5h": {
+            # No more than 5 hours of audio (training + validation)
+            "max_task_duration_by_split": {
+                "train": 3600 * 5 * TRAIN_PERCENTAGE / TRAINVAL_PERCENTAGE,
+                "valid": 3600 * 5 * VALIDATION_PERCENTAGE / TRAINVAL_PERCENTAGE,
+                # The test set is 1.33 hours, so we use the entire thing
+                "test": None,
+            }
+        },
+        "full": {
+            "max_task_duration_by_split": {"test": None, "train": None, "valid": None}
+        },
+        "small": {
+            "download_urls": [
+                {
+                    "split": "train",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/speech_commands_v0.02-small.zip",  # noqa: E501
+                    "md5": "455123a88b8410d1f955c77ad331524f",
+                },
+                {
+                    "split": "test",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/speech_commands_test_set_v0.02-small.zip",  # noqa: E501
+                    "md5": "26d08374a7abd13ca2f4a4b8424f41d0",
+                },
+            ],
+        },
     },
 }
 
@@ -221,35 +241,16 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         return metadata
 
 
-def main(
-    sample_rates: List[int],
-    tmp_dir: str,
-    tasks_dir: str,
-    tar_dir: str,
-    small: bool = False,
-):
-    if small:
-        task_config.update(dict(task_config["small"]))  # type: ignore
-    task_config.update({"tmp_dir": tmp_dir})
-
+def extract_metadata_task(task_config: Dict[str, Any]) -> pipeline.ExtractMetadata:
     # Build the dataset pipeline with the custom metadata configuration task
     download_tasks = pipeline.get_download_and_extract_tasks(task_config)
 
     generate = GenerateTrainDataset(
         train_data=download_tasks["train"], task_config=task_config
     )
-    extract_metadata = ExtractMetadata(
+    return ExtractMetadata(
         train=generate,
         test=download_tasks["test"],
         outfile="process_metadata.csv",
         task_config=task_config,
     )
-
-    final_task = pipeline.FinalizeCorpus(
-        sample_rates=sample_rates,
-        tasks_dir=tasks_dir,
-        tar_dir=tar_dir,
-        metadata_task=extract_metadata,
-        task_config=task_config,
-    )
-    return final_task
