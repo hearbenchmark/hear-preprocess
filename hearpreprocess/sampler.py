@@ -88,22 +88,20 @@ class RandomSampleOriginalDataset(WorkTask):
         shutil.copy2(src, dst)
 
     @staticmethod
-    def trimcopy_audio(src, dst):
+    def trimcopy_audio(src, dst, small_duration):
         """
         Trims and saves the audio file to minimise the size of the generated
         small dataset
         """
-        # Maximum duration of audio file in seconds
-        DURATION = 60
         # Make sure the parent exists
         dst.parent.mkdir(parents=True, exist_ok=True)
-        # Trim the audio if it is greater than the DURATION
+        # Trim the audio if it is greater than the small_duration
         audio_stats = audio_util.get_audio_stats(str(src))
-        if audio_stats is not None and audio_stats["duration"] > DURATION:
+        if audio_stats is not None and audio_stats["duration"] > small_duration:
             try:
                 _ = (
                     ffmpeg.input(str(src))
-                    .filter("atrim", end=DURATION)  # Trim
+                    .filter("atrim", end=small_duration)  # Trim
                     .output(str(dst))
                     .run(quiet=True)
                 )
@@ -147,7 +145,7 @@ class RandomSampleOriginalDataset(WorkTask):
         return (metadata_files + necessary_files, sampled_audio_files)
 
     def run(self):
-        for url_obj in self.task_config["small"]["download_urls"]:
+        for url_obj in self.task_config["modes"]["small"]["download_urls"]:
             # Sample a small subset to copy from all the files
             url_name = Path(urlparse(url_obj["url"]).path).stem
             split = url_obj["split"]
@@ -163,9 +161,15 @@ class RandomSampleOriginalDataset(WorkTask):
             for file in tqdm(copy_files):
                 self.safecopy(src=copy_from.joinpath(file), dst=copy_to.joinpath(file))
 
+            # Save all the audio after trimming them to small sample duration
+            # The small sample duration is specified in the small mode of the
+            # task_config
+            small_duration = self.task_config["small"]["sample_duration"]  # in seconds
             for file in tqdm(copy_audio):
                 self.trimcopy_audio(
-                    src=copy_from.joinpath(file), dst=copy_to.joinpath(file)
+                    src=copy_from.joinpath(file),
+                    dst=copy_to.joinpath(file),
+                    small_duration=small_duration,
                 )
 
             shutil.make_archive(copy_to, "zip", copy_to)
