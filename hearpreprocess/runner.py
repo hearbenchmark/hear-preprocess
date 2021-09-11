@@ -98,8 +98,7 @@ def run(
     mode: str = "default",
 ):
     if num_workers is None:
-        # num_workers = multiprocessing.cpu_count()
-        num_workers = 1
+        num_workers = multiprocessing.cpu_count()
         logger.info(f"Using {num_workers} workers")
 
     if sample_rate is None:

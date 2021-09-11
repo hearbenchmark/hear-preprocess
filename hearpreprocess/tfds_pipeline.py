@@ -3,20 +3,18 @@
 Custom Preprocessing pipeline for tensorflow dataset
 
 Tfds audio datasets can be preprocessed with the hear-preprocess pipeline by defining
-the generic_task_config dict and optionally overriding the extract metadata in this 
+the generic_task_config dict and optionally overriding the extract metadata in this
 file
 See example tfds_speech_commands.py for a sample way to configure this for a tfds data
 
-Tasks in this file helps to download and extract the tfds as wav files, followed 
+Tasks in this file helps to download and extract the tfds as wav files, followed
 by overriding the extract metadata function to consume the extracted audio files and
 labels. This is connected to downstream tasks from the main pipeline.
 
 """
 import logging
-import os
-import re
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Dict, Any
 
 import luigi
 import numpy as np
@@ -65,7 +63,7 @@ class DownloadTFDS(luigi_util.WorkTask):
     def run(self):
         builder = self.get_tfds_builder()
         # Download and prepare the data in the task folder
-        # builder.download_and_prepare() #Uncomment me. only for testing
+        builder.download_and_prepare()
         self.mark_complete()
 
 
@@ -123,16 +121,12 @@ class ExtractTFDS(luigi_util.WorkTask):
             # are allowed in soundfile write function. If int64 type is found,
             # convert to int32
             numpy_audio = example["audio"]
-            numpy_dtype_audio = numpy_audio.dtype
-            if numpy_dtype_audio == np.int64:
+            if numpy_audio.dtype == np.int64:
                 numpy_audio = numpy_audio.astype("int32")
-            assert numpy_dtype_audio in [
-                np.float32,
-                np.float64,
-                np.int16,
-                np.int32,
-            ], f"The audio's numpy array datatype: {numpy.dtype} cannot be saved with "
-            "soundfile"
+            assert numpy_audio.dtype in [np.float32, np.float64, np.int16, np.int32], (
+                f"The audio's numpy array datatype: {numpy_audio.dtype} cannot be "
+                "saved with soundfile"
+            )
 
             # Since the audio name is not available in tfds, the unique tfds_id
             # is used to define the audio filename
@@ -185,7 +179,7 @@ class ExtractTFDS(luigi_util.WorkTask):
         dataset: tf.data.Dataset = self.load_tfds(
             builder, split=split, shuffle_files=False
         )
-        dataset = dataset.take(300)  # Remove me. Only for testing
+        # dataset = dataset.take(300)  # Remove me. Only for testing
         assert isinstance(dataset, tf.data.Dataset)
 
         audio_dir = self.output_path.joinpath("audio")

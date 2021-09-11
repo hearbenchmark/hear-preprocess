@@ -14,3 +14,5 @@ tensorflow-datasets
 pydub   # for tfds
 tqdm
 ffmpeg-python
+note_seq
+pretty_midi

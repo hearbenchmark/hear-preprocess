@@ -39,7 +39,9 @@ setup(
         "pydub",  # for tfds
         "tqdm",
         "scikit-learn>=0.24.2",
-        "ffmpeg-python",
+        "ffmpeg-python", 
+        "note_seq", 
+        "pretty_midi"
     ],
     extras_require={
         "test": [
