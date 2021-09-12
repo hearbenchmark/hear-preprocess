@@ -41,7 +41,8 @@ setup(
         "scikit-learn>=0.24.2",
         "ffmpeg-python", 
         "note_seq", 
-        "pretty_midi"
+        "pretty_midi",
+        "tensorflow"
     ],
     extras_require={
         "test": [

@@ -16,3 +16,4 @@ tqdm
 ffmpeg-python
 note_seq
 pretty_midi
+tensorflow
