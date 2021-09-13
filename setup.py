@@ -7,7 +7,7 @@ import sys
 # Always prefer setuptools over distutils
 from setuptools import find_packages, setup
 
-long_description = open("README.md", "r", encoding="utf-8").read()
+long_description = open("README.md", "r").read()
 
 setup(
     name="hearpreprocess",
