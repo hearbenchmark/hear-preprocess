@@ -38,6 +38,7 @@ setup(
         "tqdm",
         "scikit-learn>=0.24.2",
         "ffmpeg-python",
+        "note_seq",
     ],
     extras_require={
         "test": [

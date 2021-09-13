@@ -533,7 +533,7 @@ class ExtractMetadata(WorkTask):
 
         # Trim the events starting before but extending beyond the sample duration
         events_trimmed = len(trimmed_metadata.loc[lambda df: df["end"] > duration_ms])
-        trimmed_metadata.loc[lambda df: df["end"] > duration_ms] = duration_ms
+        trimmed_metadata.loc[lambda df: df["end"] > duration_ms, "end"] = duration_ms
 
         assert (trimmed_metadata["start"] < duration_ms).all()
         assert (trimmed_metadata["end"] <= duration_ms).all()
