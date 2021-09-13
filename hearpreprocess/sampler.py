@@ -17,7 +17,7 @@ import multiprocessing
 import random
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 from urllib.parse import urlparse
 
 import click
@@ -192,8 +192,9 @@ def main(task: str, num_workers: Optional[int] = None):
     if num_workers is None:
         num_workers = multiprocessing.cpu_count()
     logger.info(f"Using {num_workers} workers")
-    config = configs[task]
-    config["task_config"]["mode"] = config["task_config"]["default_mode"]
+    config: Dict[str, Any] = configs[task]
+    default_config: str = config["task_config"]["default_mode"]
+    config["task_config"]["mode"] = default_config
     sampler = RandomSampleOriginalDataset(
         task_config=config["task_config"],
         audio_sample_size=config["audio_sample_size"],
