@@ -464,6 +464,15 @@ class ExtractMetadata(WorkTask):
             + f"now sampled with split key are: {splits_to_sample}"
         )
 
+        if "split_percentage" in self.task_config:
+            orig_train_percentage = self.task_config["split_percentage"]["train"]
+            orig_valid_percentage = self.task_config["split_percentage"]["valid"]
+            orig_test_percentage = self.task_config["split_percentage"]["test"]
+        else:
+            orig_train_percentage = TRAIN_PERCENTAGE
+            orig_valid_percentage = VALIDATION_PERCENTAGE
+            orig_test_percentage = TEST_PERCENTAGE
+
         train_percentage: float
         valid_percentage: float
         test_percentage: float
@@ -474,20 +483,20 @@ class ExtractMetadata(WorkTask):
         if splits_to_sample == set():
             return metadata
         if splits_to_sample == set(["valid"]):
-            tot = (TRAIN_PERCENTAGE + VALIDATION_PERCENTAGE) / 100
-            train_percentage = TRAIN_PERCENTAGE / tot
-            valid_percentage = VALIDATION_PERCENTAGE / tot
+            tot = (orig_train_percentage + orig_valid_percentage) / 100
+            train_percentage = orig_train_percentage / tot
+            valid_percentage = orig_valid_percentage / tot
             test_percentage = 0
         elif splits_to_sample == set(["test"]):
-            tot = (TRAIN_PERCENTAGE + TEST_PERCENTAGE) / 100
-            train_percentage = TRAIN_PERCENTAGE / tot
+            tot = (orig_train_percentage + orig_test_percentage) / 100
+            train_percentage = orig_train_percentage / tot
             valid_percentage = 0
-            test_percentage = TEST_PERCENTAGE / tot
+            test_percentage = orig_test_percentage / tot
         else:
             assert splits_to_sample == set(["valid", "test"])
-            train_percentage = TRAIN_PERCENTAGE
-            valid_percentage = VALIDATION_PERCENTAGE
-            test_percentage = TEST_PERCENTAGE
+            train_percentage = orig_train_percentage
+            valid_percentage = orig_valid_percentage
+            test_percentage = orig_test_percentage
         assert (
             train_percentage + valid_percentage + test_percentage == 100
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
