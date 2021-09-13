@@ -52,6 +52,7 @@ METADATAFORMATS = [".csv", ".json", ".txt", ".midi"]
 AUDIOFORMATS = [".mp3", ".wav", ".ogg", ".webm"]
 
 
+# Note: Necessary key helps to select audios with the necessary keys in there name
 configs = {
     "dcase2016_task2": {
         "task_config": dcase2016_task2.generic_task_config,
@@ -140,9 +141,11 @@ class RandomSampleOriginalDataset(WorkTask):
 
         rng = random.Random("RandomSampleOriginalDataset")
         rng.shuffle(audio_files_to_sample)
-        sampled_audio_files = audio_files_to_sample[: self.audio_sample_size]
+        sampled_audio_files = audio_files_to_sample[
+            : max(0, self.audio_sample_size - len(necessary_files))
+        ]
 
-        return (metadata_files + necessary_files, sampled_audio_files)
+        return (metadata_files, necessary_files + sampled_audio_files)
 
     def run(self):
         for url_obj in self.task_config["modes"]["small"]["download_urls"]:
@@ -164,14 +167,15 @@ class RandomSampleOriginalDataset(WorkTask):
             # Save all the audio after trimming them to small sample duration
             # The small sample duration is specified in the small mode of the
             # task_config
-            small_duration = self.task_config["small"]["sample_duration"]  # in seconds
+            small_duration = self.task_config["modes"]["small"][
+                "sample_duration"
+            ]  # in seconds
             for file in tqdm(copy_audio):
                 self.trimcopy_audio(
                     src=copy_from.joinpath(file),
                     dst=copy_to.joinpath(file),
                     small_duration=small_duration,
                 )
-
             shutil.make_archive(copy_to, "zip", copy_to)
 
 
@@ -189,6 +193,7 @@ def main(task: str, num_workers: Optional[int] = None):
         num_workers = multiprocessing.cpu_count()
     logger.info(f"Using {num_workers} workers")
     config = configs[task]
+    config["task_config"]["mode"] = config["task_config"]["default_mode"]
     sampler = RandomSampleOriginalDataset(
         task_config=config["task_config"],
         audio_sample_size=config["audio_sample_size"],
