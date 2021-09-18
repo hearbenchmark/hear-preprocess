@@ -734,20 +734,23 @@ class SubsampleSplit(SplitTask):
         # minutes or the timestamp embeddings will explode
         sample_duration = self.task_config["sample_duration"]
 
-        if "max_task_duration_by_split" in self.task_config:
-            assert set(self.task_config["max_task_duration_by_split"].keys()) <= set(
-                SPLITS
-            )
-            if self.split in self.task_config["max_task_duration_by_split"]:
-                max_split_duration = self.task_config["max_task_duration_by_split"][
-                    self.split
-                ]
-        else:
-            max_split_duration = MAX_TASK_DURATION_BY_SPLIT[self.split]
-        if max_split_duration is None:
-            max_files = len(split_filestem_relpaths)
-        else:
+        # If max_task_duration_by_split is not defined in the task config use the
+        # default MAX_TASK_DURATION_BY_SPLIT
+        max_task_duration_by_split = self.task_config.get(
+            "max_task_duration_by_split", MAX_TASK_DURATION_BY_SPLIT
+        )
+        # Assert the keys in the max_task_duration_by_split are a
+        # subset of the SPLITS
+        assert set(max_task_duration_by_split.keys()) <= set(SPLITS)
+
+        if self.split in max_task_duration_by_split:
+            # Set max_files so that the total duration of all the audio
+            # files after subsampling comes around(less than) max_split_duration
+            max_split_duration = max_task_duration_by_split[self.split]
             max_files = int(max_split_duration / sample_duration)
+        else:
+            # If max duration for the split is not defined use the full split
+            max_files = len(split_filestem_relpaths)
 
         diagnostics.info(
             f"{self.longname} "
