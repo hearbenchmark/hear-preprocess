@@ -19,6 +19,7 @@ import shutil
 from pathlib import Path
 from typing import Optional, Dict, Any
 from urllib.parse import urlparse
+import tempfile
 
 import click
 import luigi
@@ -84,38 +85,32 @@ class RandomSampleOriginalDataset(WorkTask):
 
     @staticmethod
     def safecopy(src, dst):
-        # Make sure the parent exists
+        # Make sure the parent destination directory exists
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
     @staticmethod
-    def trimcopy_audio(src, dst, small_duration):
+    def trimcopy_audio(src, tmp_dst, fin_dst, small_duration):
         """
         Trims and saves the audio file to minimise the size of the generated
         small dataset
         """
-        # Make sure the parent exists
-        dst.parent.mkdir(parents=True, exist_ok=True)
+        # Make sure the parent destination directory exists
+        tmp_dst.parent.mkdir(parents=True, exist_ok=True)
+        fin_dst.parent.mkdir(parents=True, exist_ok=True)
+        # Convert the file to wav and store in a temporary folder
+        # so that audio stats determination and audio trimming
+        # can be done accurately. This also converts to mono
+        audio_util.mono_wav(str(src), str(tmp_dst))
         # Trim the audio if it is greater than the small_duration
-        audio_stats = audio_util.get_audio_stats(str(src))
+        audio_stats = audio_util.get_audio_stats(tmp_dst)
         if audio_stats is not None and audio_stats["duration"] > small_duration:
-            try:
-                _ = (
-                    ffmpeg.input(str(src))
-                    .filter("atrim", end=small_duration)  # Trim
-                    .output(str(dst))
-                    .run(quiet=True)
-                )
-            except ffmpeg.Error as e:
-                print(
-                    "Please check the console output for ffmpeg to debug the "
-                    "error in trimcopy_audio: ",
-                    f"Error: {e}",
-                )
-                raise
+            # Only trimming will be done by the trim_pad_wav, as the duration 
+            # of the file is greater than the small duration
+            audio_util.trim_pad_wav(str(tmp_dst), str(fin_dst), small_duration)
         else:
-            # else copy the audio file as it is
-            shutil.copy2(src, dst)
+            # else copy the src audio file as it is
+            shutil.copy2(src, fin_dst)
 
     def sample(self, all_files):
         # All metadata files will be copied without any sampling
@@ -161,21 +156,27 @@ class RandomSampleOriginalDataset(WorkTask):
             if copy_to.exists():
                 shutil.rmtree(copy_to)
 
+            # Copy all the non audio files
             for file in tqdm(copy_files):
                 self.safecopy(src=copy_from.joinpath(file), dst=copy_to.joinpath(file))
 
             # Save all the audio after trimming them to small sample duration
-            # The small sample duration is specified in the small mode of the
-            # task_config
-            small_duration = self.task_config["modes"]["small"][
-                "sample_duration"
-            ]  # in seconds
-            for file in tqdm(copy_audio):
-                self.trimcopy_audio(
-                    src=copy_from.joinpath(file),
-                    dst=copy_to.joinpath(file),
-                    small_duration=small_duration,
-                )
+            # The small sample duration(in seconds) is specified in the small
+            # mode of the task_config
+            small_duration = self.task_config["modes"]["small"]["sample_duration"]
+
+            # Make temporary folder to save the intermediate wav files, before
+            # trimming them. Operations like trimming are accurate on lossless
+            # wav files
+            with tempfile.TemporaryDirectory(dir=self.workdir) as tmp_dir:
+                tmp_dir = Path(tmp_dir)
+                for file in tqdm(copy_audio):
+                    self.trimcopy_audio(
+                        src=copy_from.joinpath(file),
+                        tmp_dst=tmp_dir.joinpath(file.with_suffix(".wav")),
+                        fin_dst=copy_to.joinpath(file.with_suffix(".wav")),
+                        small_duration=small_duration,
+                    )
             shutil.make_archive(copy_to, "zip", copy_to)
 
 

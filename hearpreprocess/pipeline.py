@@ -522,18 +522,23 @@ class ExtractMetadata(WorkTask):
         return metadata
 
     def trim_event_metadata(self, metadata: pd.DataFrame, duration: float):
+        """
+        This modifies the event metadata to
+        retain only events which start before the sample duration
+        and trim them if they extend beyond the sample duration
+        """
         # Since the duration in the task config is in seconds convert to milliseconds
         duration_ms = duration * 1000.0
         assert "start" in metadata.columns
         assert "end" in metadata.columns
 
-        # Drop the events starting after the sample duration
-        trimmed_metadata = metadata.loc[lambda df: df["start"] < duration_ms]
+        # Drop the events starting at or after the sample duration
+        trimmed_metadata = metadata.loc[metadata["start"] < duration_ms]
         events_dropped = len(metadata) - len(trimmed_metadata)
 
         # Trim the events starting before but extending beyond the sample duration
-        events_trimmed = len(trimmed_metadata.loc[lambda df: df["end"] > duration_ms])
-        trimmed_metadata.loc[lambda df: df["end"] > duration_ms, "end"] = duration_ms
+        events_trimmed = len(trimmed_metadata.loc[metadata["end"] > duration_ms])
+        trimmed_metadata.loc[metadata["end"] > duration_ms, "end"] = duration_ms
 
         assert (trimmed_metadata["start"] < duration_ms).all()
         assert (trimmed_metadata["end"] <= duration_ms).all()
