@@ -24,7 +24,6 @@ import tempfile
 import click
 import luigi
 from tqdm import tqdm
-import ffmpeg
 
 import hearpreprocess.pipeline as pipeline
 from hearpreprocess import dcase2016_task2, nsynth_pitch, speech_commands
@@ -105,7 +104,7 @@ class RandomSampleOriginalDataset(WorkTask):
         # Trim the audio if it is greater than the small_duration
         audio_stats = audio_util.get_audio_stats(tmp_dst)
         if audio_stats is not None and audio_stats["duration"] > small_duration:
-            # Only trimming will be done by the trim_pad_wav, as the duration 
+            # Only trimming will be done by the trim_pad_wav, as the duration
             # of the file is greater than the small duration
             audio_util.trim_pad_wav(str(tmp_dst), str(fin_dst), small_duration)
         else:
