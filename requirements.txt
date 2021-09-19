@@ -12,3 +12,4 @@ soundfile
 spotty
 tqdm
 ffmpeg-python
+note_seq

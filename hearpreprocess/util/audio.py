@@ -37,7 +37,7 @@ def mono_wav(in_file: str, out_file: str) -> None:
         out_stats = get_audio_stats(out_file)
         assert (
             out_stats
-            and out_stats["ext"] == "wav"
+            and out_stats["ext"] == ".wav"
             and out_stats["codec"] == "pcm_s16le"
             and out_stats["mono"]
         ), "Unable to get stats for the generated wav file"
