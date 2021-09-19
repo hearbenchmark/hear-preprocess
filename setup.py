@@ -36,13 +36,12 @@ setup(
         "soundfile",
         "spotty",
         "tensorflow-datasets",
-        "pydub",  # for tfds
         "tqdm",
         "scikit-learn>=0.24.2",
         "ffmpeg-python",
         "note_seq",
         "pretty_midi",
-        "tensorflow",
+        "tensorflow>=2.0",
     ],
     extras_require={
         "test": [

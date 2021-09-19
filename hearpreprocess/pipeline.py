@@ -734,26 +734,28 @@ class SubsampleSplit(SplitTask):
         # minutes or the timestamp embeddings will explode
         sample_duration = self.task_config["sample_duration"]
 
-        # If max_task_duration_by_split is not defined in the task config use the
-        # default MAX_TASK_DURATION_BY_SPLIT
-        max_task_duration_by_split = self.task_config.get(
-            "max_task_duration_by_split", MAX_TASK_DURATION_BY_SPLIT
-        )
-        # Assert the keys in the max_task_duration_by_split are a
-        # subset of the SPLITS
-        assert set(max_task_duration_by_split.keys()) <= set(SPLITS)
+        # Get the max split duration from the task config.
+        # If not defined use defaults from MAX_TASK_DURATION_BY_SPLIT
+        if "max_task_duration_by_split" in self.task_config:
+            # Check if all the splits specified in the
+            # max_task_duration_by_split are in SPLITS
+            assert set(max_task_duration_by_split.keys()) <= set(SPLITS)
+            # Get the max_split_duration if defined for the split
+            if self.split in max_split_duration:
+                max_split_duration = max_task_duration_by_split[self.split]
+            else:
+                max_split_duration = None
+        else:
+            # Get the default values for the split
+            max_split_duration = MAX_TASK_DURATION_BY_SPLIT[self.split]
 
-        # If max split for the split is defined and is not None, use it.
-        if (
-            self.split in max_task_duration_by_split
-            and max_task_duration_by_split[self.split] is not None
-        ):
-            # Set max_files so that the total duration of all the audio
-            # files after subsampling comes around(less than) max_split_duration
-            max_split_duration = max_task_duration_by_split[self.split]
+        # If max_split_duration is not None set the max_files so that
+        # the total duration of all the audio files after subsampling
+        # comes around (less than) max_split_duration
+        if max_split_duration is not None:
             max_files = int(max_split_duration / sample_duration)
         else:
-            # If max duration for the split is not defined use the full split
+            # Otherwise set max_files to select all the files in the split
             max_files = len(split_filestem_relpaths)
 
         diagnostics.info(
