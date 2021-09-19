@@ -464,6 +464,15 @@ class ExtractMetadata(WorkTask):
             + f"now sampled with split key are: {splits_to_sample}"
         )
 
+        if "split_percentage" in self.task_config:
+            orig_train_percentage = self.task_config["split_percentage"]["train"]
+            orig_valid_percentage = self.task_config["split_percentage"]["valid"]
+            orig_test_percentage = self.task_config["split_percentage"]["test"]
+        else:
+            orig_train_percentage = TRAIN_PERCENTAGE
+            orig_valid_percentage = VALIDATION_PERCENTAGE
+            orig_test_percentage = TEST_PERCENTAGE
+
         train_percentage: float
         valid_percentage: float
         test_percentage: float
@@ -474,20 +483,20 @@ class ExtractMetadata(WorkTask):
         if splits_to_sample == set():
             return metadata
         if splits_to_sample == set(["valid"]):
-            tot = (TRAIN_PERCENTAGE + VALIDATION_PERCENTAGE) / 100
-            train_percentage = TRAIN_PERCENTAGE / tot
-            valid_percentage = VALIDATION_PERCENTAGE / tot
+            tot = (orig_train_percentage + orig_valid_percentage) / 100
+            train_percentage = orig_train_percentage / tot
+            valid_percentage = orig_valid_percentage / tot
             test_percentage = 0
         elif splits_to_sample == set(["test"]):
-            tot = (TRAIN_PERCENTAGE + TEST_PERCENTAGE) / 100
-            train_percentage = TRAIN_PERCENTAGE / tot
+            tot = (orig_train_percentage + orig_test_percentage) / 100
+            train_percentage = orig_train_percentage / tot
             valid_percentage = 0
-            test_percentage = TEST_PERCENTAGE / tot
+            test_percentage = orig_test_percentage / tot
         else:
             assert splits_to_sample == set(["valid", "test"])
-            train_percentage = TRAIN_PERCENTAGE
-            valid_percentage = VALIDATION_PERCENTAGE
-            test_percentage = TEST_PERCENTAGE
+            train_percentage = orig_train_percentage
+            valid_percentage = orig_valid_percentage
+            test_percentage = orig_test_percentage
         assert (
             train_percentage + valid_percentage + test_percentage == 100
         ), f"{train_percentage + valid_percentage + test_percentage} != 100"
@@ -522,18 +531,23 @@ class ExtractMetadata(WorkTask):
         return metadata
 
     def trim_event_metadata(self, metadata: pd.DataFrame, duration: float):
+        """
+        This modifies the event metadata to
+        retain only events which start before the sample duration
+        and trim them if they extend beyond the sample duration
+        """
         # Since the duration in the task config is in seconds convert to milliseconds
         duration_ms = duration * 1000.0
         assert "start" in metadata.columns
         assert "end" in metadata.columns
 
-        # Drop the events starting after the sample duration
-        trimmed_metadata = metadata.loc[lambda df: df["start"] < duration_ms]
+        # Drop the events starting at or after the sample duration
+        trimmed_metadata = metadata.loc[metadata["start"] < duration_ms]
         events_dropped = len(metadata) - len(trimmed_metadata)
 
         # Trim the events starting before but extending beyond the sample duration
-        events_trimmed = len(trimmed_metadata.loc[lambda df: df["end"] > duration_ms])
-        trimmed_metadata.loc[lambda df: df["end"] > duration_ms] = duration_ms
+        events_trimmed = len(trimmed_metadata.loc[metadata["end"] > duration_ms])
+        trimmed_metadata.loc[metadata["end"] > duration_ms, "end"] = duration_ms
 
         assert (trimmed_metadata["start"] < duration_ms).all()
         assert (trimmed_metadata["end"] <= duration_ms).all()

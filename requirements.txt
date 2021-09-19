@@ -11,9 +11,7 @@ requests
 soundfile
 spotty
 tensorflow-datasets
-pydub   # for tfds
 tqdm
 ffmpeg-python
 note_seq
-pretty_midi
 tensorflow>=2.0
