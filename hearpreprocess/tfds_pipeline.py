@@ -47,14 +47,14 @@ class DownloadTFDS(luigi_util.WorkTask):
     def get_tfds_builder(self):
         """
         Returns the tfds builder which can be used to download and prepare the
-        data (in DownloadTFDS)
-        The tfds builder will also be used to load data for a split (in ExtractTFDS)
+        data (in `DownloadTFDS`)
+        The tfds builder will also be used to load data for a split (in `ExtractTFDS`)
         """
         tf_task_name = self.task_config["tfds_task_name"]
         tf_task_version = self.task_config["tfds_task_version"]
         tfds_path = self.workdir.joinpath("tensorflow-datasets")
 
-        # Define
+        # Define the builder
         builder = tfds.builder(
             name=tf_task_name, version=tf_task_version, data_dir=tfds_path
         )
@@ -72,7 +72,7 @@ class ExtractTFDS(luigi_util.WorkTask):
     Extracts the downloaded tfds dataset for a split
     If a split is not present, data for that split will
     be deterministically sampled from the train split, by the downstream
-    pipeline (Specifically ExtractMetadata.split_train_test_val)
+    pipeline (Specifically `ExtractMetadata.split_train_test_val`)
     """
 
     outdir = luigi.Parameter()
@@ -116,7 +116,7 @@ class ExtractTFDS(luigi_util.WorkTask):
         filename_labels: Dict[str, Any] = {}
         # Track label indices for all the audio files
         all_label_idx: set = set()
-        for file_idx, example in enumerate(tqdm(tfds.as_numpy(dataset))):
+        for example in tqdm(tfds.as_numpy(dataset)):
             # Only these - 'float32', 'float64', 'int16', 'int32' - formats
             # are allowed in soundfile write function. If int64 type is found,
             # convert to int32
@@ -163,9 +163,8 @@ class ExtractTFDS(luigi_util.WorkTask):
 
     def run(self):
         # Get the tfds builder from the download task. Builder also provides info
-        # the label to idx map and the
-        # dataset sample rate
-        # The dataset sample rate will be used to save the file
+        # about the label to idx map and the dataset sample rate
+        # The dataset sample rate will be used to save the audio file
         builder = self.requires()["download"].get_tfds_builder()
         label_idx_map = {
             label_idx: label
@@ -179,8 +178,8 @@ class ExtractTFDS(luigi_util.WorkTask):
         dataset: tf.data.Dataset = self.load_tfds(
             builder, split=split, shuffle_files=False
         )
-        # dataset = dataset.take(300)  # Remove me. Only for testing
         assert isinstance(dataset, tf.data.Dataset)
+        # dataset = dataset.take(300)  # Remove me. Only for testing
 
         audio_dir = self.output_path.joinpath("audio")
         audio_dir.mkdir(exist_ok=True, parents=True)
@@ -211,6 +210,14 @@ def get_download_and_extract_tasks_tfds(
 
 
 class ExtractMetadata(pipeline.ExtractMetadata):
+    """
+    All the splits are present in the tfds data set by default.
+    If not, please override this `ExtractMetadata`, rather than using it
+    as it is to extract metadata for the splits present in the data set.
+    In this case, the not found splits will be automatically sampled from the
+    train set in the `ExtractMetadata.split_train_test_val`.
+    """
+
     train = luigi.TaskParameter()
     test = luigi.TaskParameter()
     valid = luigi.TaskParameter()
