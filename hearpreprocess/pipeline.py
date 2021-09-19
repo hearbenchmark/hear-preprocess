@@ -743,7 +743,11 @@ class SubsampleSplit(SplitTask):
         # subset of the SPLITS
         assert set(max_task_duration_by_split.keys()) <= set(SPLITS)
 
-        if self.split in max_task_duration_by_split:
+        # If max split for the split is defined and is not None, use it.
+        if (
+            self.split in max_task_duration_by_split
+            and max_task_duration_by_split[self.split] is not None
+        ):
             # Set max_files so that the total duration of all the audio
             # files after subsampling comes around(less than) max_split_duration
             max_split_duration = max_task_duration_by_split[self.split]
