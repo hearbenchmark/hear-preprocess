@@ -7,7 +7,7 @@ import sys
 # Always prefer setuptools over distutils
 from setuptools import find_packages, setup
 
-long_description = open("README.md", "r", encoding="utf-8").read()
+long_description = open("README.md", "r").read()
 
 setup(
     name="hearpreprocess",
@@ -40,7 +40,6 @@ setup(
         "scikit-learn>=0.24.2",
         "ffmpeg-python",
         "note_seq",
-        "pretty_midi",
         "tensorflow>=2.0",
     ],
     extras_require={

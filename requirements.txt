@@ -14,5 +14,4 @@ tensorflow-datasets
 tqdm
 ffmpeg-python
 note_seq
-pretty_midi
 tensorflow>=2.0
