@@ -10,6 +10,8 @@ python-slugify
 requests
 soundfile
 spotty
+tensorflow-datasets
 tqdm
 ffmpeg-python
 note_seq
+tensorflow>=2.0

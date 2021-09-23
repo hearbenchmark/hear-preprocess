@@ -5,6 +5,7 @@ Audio utility functions for evaluation task preparation
 import json
 import random
 from collections import Counter, defaultdict
+from glob import glob
 from pathlib import Path
 from typing import List, Optional, Union, Dict, Any
 
@@ -148,12 +149,15 @@ def get_audio_dir_stats(
     if exts is None:
         exts = [".wav", ".mp3", ".ogg", ".webm"]
 
-    # Get all the audio files
+    # Get all the audio files with glob. Path.rglob doesnot recursively
+    # look into symlinked folders. Using glob with recursive True, looks inside
+    # symlinked folders as well
+    all_file_paths = map(Path, glob(str(Path(in_dir).joinpath("**/*")), recursive=True))
     audio_paths = list(
         filter(
             lambda audio_path: audio_path.suffix.lower()
             in map(str.lower, exts),  # type: ignore
-            Path(in_dir).absolute().rglob("*"),
+            all_file_paths,
         )
     )
     rng = random.Random(0)

@@ -35,10 +35,12 @@ setup(
         "requests",
         "soundfile",
         "spotty",
+        "tensorflow-datasets",
         "tqdm",
         "scikit-learn>=0.24.2",
         "ffmpeg-python",
         "note_seq",
+        "tensorflow>=2.0",
     ],
     extras_require={
         "test": [

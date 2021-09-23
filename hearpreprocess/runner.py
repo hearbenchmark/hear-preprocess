@@ -14,6 +14,7 @@ import hearpreprocess.dcase2016_task2 as dcase2016_task2
 import hearpreprocess.nsynth_pitch as nsynth_pitch
 import hearpreprocess.pipeline as pipeline
 import hearpreprocess.speech_commands as speech_commands
+import hearpreprocess.tfds_speech_commands as tfds_speech_commands
 
 logger = logging.getLogger("luigi-interface")
 # Currently the runner is only allowed to run for open tasks
@@ -33,6 +34,7 @@ except ImportError as e:
     secret_tasks = {}
 
 tasks = {
+    "tfds_speech_commands": [tfds_speech_commands],
     "speech_commands": [speech_commands],
     "nsynth_pitch": [nsynth_pitch],
     "dcase2016_task2": [dcase2016_task2],
