@@ -752,14 +752,10 @@ class SubsampleSplit(SplitTask):
         # If not defined use defaults from MAX_TASK_DURATION_BY_SPLIT
         if "max_task_duration_by_split" in self.task_config:
             max_task_duration_by_split = self.task_config["max_task_duration_by_split"]
-            # Check if all the splits specified in the
-            # max_task_duration_by_split are in SPLITS
-            assert set(max_task_duration_by_split.keys()) <= set(SPLITS)
-            # Get the max_split_duration if defined for the split
-            if self.split in max_task_duration_by_split:
-                max_split_duration = max_task_duration_by_split[self.split]
-            else:
-                max_split_duration = None
+            # Check if all the splits are specified in
+            # max_task_duration_by_split
+            assert set(max_task_duration_by_split.keys()) == set(SPLITS)
+            max_split_duration = max_task_duration_by_split[self.split]
         else:
             # Get the default values for the split
             max_split_duration = MAX_TASK_DURATION_BY_SPLIT[self.split]
