@@ -93,13 +93,13 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         "train_eval": "train/eval/dcase2016_task2_test_public/",
     }
 
-    def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
-        logger.info(f"Preparing metadata for {requires_key}")
+    def get_requires_metadata(self, split: str) -> pd.DataFrame:
+        logger.info(f"Preparing metadata for {split}")
 
-        assert requires_key.startswith("train_")
+        assert split.startswith("train_")
 
-        requires_path = Path(self.requires()[requires_key].workdir).joinpath(
-            self.requires_key_to_path_str[requires_key]
+        requires_path = Path(self.requires()[split].workdir).joinpath(
+            self.requires_key_to_path_str[split]
         )
 
         metadatas = []
