@@ -288,7 +288,7 @@ class ExtractMetadata(WorkTask):
         """
         return df["unique_filestem"]
 
-    def get_requires_metadata(self, requires_key: str) -> pd.DataFrame:
+    def get_requires_metadata(self, split: str) -> pd.DataFrame:
         """
         For a particular key in the task requires (e.g. "train", or "train_eval"),
         return a metadata dataframe with the following columns (see above):
