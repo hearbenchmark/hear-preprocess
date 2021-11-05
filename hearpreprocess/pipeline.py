@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 
 import luigi
 import pandas as pd
+import numpy as np
 from slugify import slugify
 from tqdm import tqdm
 
@@ -531,6 +532,32 @@ class ExtractMetadata(WorkTask):
         metadata.loc[metadata["split_key"].isin(test_split_keys), "split"] = "test"
         return metadata
 
+    def split_k_folds(self, metadata: pd.DataFrame):
+        """
+        Deterministically split dataset into k-folds
+        """
+        splits_present = metadata["split"].unique()
+        if len(splits_present) > 1:
+            raise AssertionError(
+                "More than one split found in dataset, there must be only one split "
+                "to create new k-folds from."
+            )
+
+        # Deterministically sort all unique split_keys.
+        split_keys = sorted(metadata["split_key"].unique())
+
+        # Deterministically shuffle all unique split_keys.
+        rng = random.Random("split_k_folds")
+        rng.shuffle(split_keys)
+
+        # Equally split the split_keys into k folds and label accordingly
+        k_folds = self.task_config["nfolds"]
+        folds_keys = np.array_split(split_keys, k_folds)
+        for i, fold in enumerate(folds_keys):
+            metadata.loc[metadata["split_key"].isin(fold), "split"] = f"fold{i:02d}"
+
+        return metadata
+
     def trim_event_metadata(self, metadata: pd.DataFrame, duration: float):
         """
         This modifies the event metadata to
@@ -601,6 +628,7 @@ class ExtractMetadata(WorkTask):
             if set(self.task_config["splits"]) != set(SPLITS):
                 raise AssertionError(f"Splits for trainvaltest mode must be {SPLITS}")
             metadata = self.split_train_test_val(metadata)
+
         elif self.task_config["split_mode"] == "presplit_kfold":
             # Splits are the predefined folds in the dataset
             if set(metadata["split"].unique()) != set(self.task_config["splits"]):
@@ -609,7 +637,20 @@ class ExtractMetadata(WorkTask):
                     f"presplit_kfold dataset. Expected: {self.task_config['splits']}. "
                     f"Received: {metadata['split'].unique()}."
                 )
-            print("Succeeded")
+
+        elif self.task_config["split_mode"] == "new_split_kfold":
+            # Split the dataset into k-folds
+            metadata = self.split_k_folds(metadata)
+            # TODO fix code copy
+            if set(metadata["split"].unique()) != set(self.task_config["splits"]):
+                raise AssertionError(
+                    "Names of splits in metadata don't match the required names for a "
+                    f"presplit_kfold dataset. Expected: {self.task_config['splits']}. "
+                    f"Received: {metadata['split'].unique()}."
+                )
+
+        else:
+            raise ValueError("Unknown split_mode received in task_config")
 
         assert False
 
