@@ -169,7 +169,14 @@ def download_file(url, local_filename, expected_md5):
     with requests.get(url, stream=True, allow_redirects=True) as r:
         r.raise_for_status()
         total_length = r.headers.get("content-length")
-        total_length = int(total_length)
+        if total_length is None:
+            print(
+                f"Content-Length not available in headers. "
+                "No progress bar will be shown. Please wait "
+                "for donwnload to be complete."
+            )
+        else:
+            total_length = int(total_length)
         with open(local_filename, "wb") as f:
             pbar = tqdm(total=total_length)
             chunk_size = 8192
