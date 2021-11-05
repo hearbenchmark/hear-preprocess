@@ -605,6 +605,11 @@ class ExtractMetadata(WorkTask):
             # Split the metadata to create valid and test set from train if they are not
             # created explicitly in get_all_metadata
             metadata = self.split_train_test_val(metadata)
+        else:
+            assert set(metadata["split"].unique()) == set(self.task_config["folds"]), (
+                "Splits present in the metadata and the folds defined in the "
+                "task config donot match"
+            )
 
         # Each split should have unique files and no file should be across splits
         assert (

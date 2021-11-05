@@ -171,7 +171,7 @@ def download_file(url, local_filename, expected_md5):
         total_length = r.headers.get("content-length")
         if total_length is None:
             print(
-                f"Content-Length not available in headers. "
+                "Content-Length not available in headers. "
                 "No progress bar will be shown. Please wait "
                 "for download to be complete."
             )
