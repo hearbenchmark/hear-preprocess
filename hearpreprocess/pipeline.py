@@ -598,8 +598,20 @@ class ExtractMetadata(WorkTask):
         if self.task_config["split_mode"] == "trainvaltest":
             # Split the metadata to create valid and test set from train if
             # they are not created explicitly in get_all_metadata
-            assert set(self.task_config["splits"] == set(SPLITS))
+            if set(self.task_config["splits"]) != set(SPLITS):
+                raise AssertionError(f"Splits for trainvaltest mode must be {SPLITS}")
             metadata = self.split_train_test_val(metadata)
+        elif self.task_config["split_mode"] == "presplit_kfold":
+            # Splits are the predefined folds in the dataset
+            if set(metadata["split"].unique()) != set(self.task_config["splits"]):
+                raise AssertionError(
+                    "Names of splits in metadata don't match the required names for a "
+                    f"presplit_kfold dataset. Expected: {self.task_config['splits']}. "
+                    f"Received: {metadata['split'].unique()}."
+                )
+            print("Succeeded")
+
+        assert False
 
         # Each split should have unique files and no file should be across splits
         assert (
