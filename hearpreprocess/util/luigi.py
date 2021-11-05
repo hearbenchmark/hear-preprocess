@@ -173,7 +173,7 @@ def download_file(url, local_filename, expected_md5):
             print(
                 f"Content-Length not available in headers. "
                 "No progress bar will be shown. Please wait "
-                "for donwnload to be complete."
+                "for download to be complete."
             )
         else:
             total_length = int(total_length)
