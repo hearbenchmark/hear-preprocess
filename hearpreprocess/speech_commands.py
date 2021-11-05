@@ -31,6 +31,7 @@ generic_task_config = {
     "version": "v0.0.2",
     "embedding_type": "scene",
     "prediction_type": "multiclass",
+    "split_mode": "trainvaltest",
     "sample_duration": 1.0,
     "evaluation": ["top1_acc"],
     "download_urls": [

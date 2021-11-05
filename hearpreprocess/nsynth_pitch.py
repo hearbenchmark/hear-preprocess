@@ -27,6 +27,7 @@ generic_task_config = {
     "version": "v2.2.3",
     "embedding_type": "scene",
     "prediction_type": "multiclass",
+    "split_mode": "trainvaltest",
     "sample_duration": 4.0,
     "pitch_range_min": 21,
     "pitch_range_max": 108,

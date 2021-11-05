@@ -143,6 +143,11 @@ def run(
                 n_folds = task_config["nfolds"]
                 assert isinstance(n_folds, int)
                 task_config["splits"] = ["fold{:02d}".format(i) for i in range(n_folds)]
+            else:
+                raise ValueError(
+                    f"Unknown split_mode received: {task_config['split_mode']}, "
+                    "expected 'trainvaltest, 'new_split_kfold', or 'presplit_kfold'"
+                )
 
             metadata_task = task_module.extract_metadata_task(task_config)
             final_task = pipeline.FinalizeCorpus(

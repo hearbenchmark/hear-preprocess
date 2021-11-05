@@ -595,21 +595,11 @@ class ExtractMetadata(WorkTask):
         metadata = self.postprocess_all_metadata(metadata)
         _diagnose_split_labels(self.longname, "postprocessed", metadata)
 
-        # If explicit folds are not defined, `split_train_test_val` will
-        # be called, to ensure all the splits, i.e. train, test and valid
-        # are present (by sampling )
-        if "folds" not in self.task_config:
-            assert set(self.task_config["splits"]) == set(SPLITS), "If folds are not "
-            "defined, the `splits` key in the task configuration should "
-            "be SPLITS i.e. ['train', 'test', 'valid']"
-            # Split the metadata to create valid and test set from train if they are not
-            # created explicitly in get_all_metadata
+        if self.task_config["split_mode"] == "trainvaltest":
+            # Split the metadata to create valid and test set from train if
+            # they are not created explicitly in get_all_metadata
+            assert set(self.task_config["splits"] == set(SPLITS))
             metadata = self.split_train_test_val(metadata)
-        else:
-            assert set(metadata["split"].unique()) == set(self.task_config["folds"]), (
-                "Splits present in the metadata and the folds defined in the "
-                "task config donot match"
-            )
 
         # Each split should have unique files and no file should be across splits
         assert (

@@ -14,6 +14,7 @@ generic_task_config = {
     "version": "0.0.2",
     "embedding_type": "scene",
     "prediction_type": "multiclass",
+    "split_mode": "trainvaltest",
     "sample_duration": 1.0,
     "evaluation": ["top1_acc"],
     # This task uses tfds which doesn't require the download paths,
