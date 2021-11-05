@@ -29,6 +29,7 @@ from hearpreprocess.util.luigi import (
 
 INCLUDE_DATESTR_IN_FINAL_PATHS = False
 
+# Defaults for certain pipeline parameters
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
 # the data in the split and hence is not a part of the data config
@@ -594,9 +595,16 @@ class ExtractMetadata(WorkTask):
         metadata = self.postprocess_all_metadata(metadata)
         _diagnose_split_labels(self.longname, "postprocessed", metadata)
 
-        # Split the metadata to create valid and test set from train if they are not
-        # created explicitly in get_all_metadata
-        metadata = self.split_train_test_val(metadata)
+        # If explicit folds are not defined, `split_train_test_val` will
+        # be called, to ensure all the splits, i.e. train, test and valid
+        # are present (by sampling )
+        if "folds" not in self.task_config:
+            assert set(self.task_config["splits"]) == set(SPLITS), "If folds are not "
+            "defined, the `splits` key in the task configuration should "
+            "be SPLITS i.e. ['train', 'test', 'valid']"
+            # Split the metadata to create valid and test set from train if they are not
+            # created explicitly in get_all_metadata
+            metadata = self.split_train_test_val(metadata)
 
         # Each split should have unique files and no file should be across splits
         assert (
@@ -754,10 +762,16 @@ class SubsampleSplit(SplitTask):
             max_task_duration_by_split = self.task_config["max_task_duration_by_split"]
             # Check if all the splits are specified in
             # max_task_duration_by_split
-            assert set(max_task_duration_by_split.keys()) == set(SPLITS)
+            assert set(max_task_duration_by_split.keys()) == set(
+                self.task_config["splits"]
+            )
             max_split_duration = max_task_duration_by_split[self.split]
         else:
             # Get the default values for the split
+            assert "folds" not in self.task_config, "Default max split duration "
+            "cannot be used for tasks with folds. Please define max_split_duration "
+            "explicitly for each fold. Set each fold's max_split_duration to None if "
+            "the full fold is required"
             max_split_duration = MAX_TASK_DURATION_BY_SPLIT[self.split]
 
         # If max_split_duration is not None set the max_files so that
@@ -889,7 +903,7 @@ class SubcorpusData(MetadataTask):
                 metadata_task=self.metadata_task,
                 task_config=self.task_config,
             )
-            for split in SPLITS
+            for split in self.task_config["splits"]
         }
         return splits
 
@@ -909,7 +923,7 @@ class SubcorpusData(MetadataTask):
             assert self.requires()[key].workdir == self.requires()[key2].workdir
 
         # Output stats for every input directory
-        for split in SPLITS:
+        for split in self.task_config["splits"]:
             stats = audio_util.get_audio_dir_stats(
                 in_dir=self.workdir.joinpath(split),
                 out_file=self.workdir.joinpath(f"{split}_stats.json"),
@@ -937,7 +951,7 @@ class SubcorpusMetadata(MetadataTask):
 
     def run(self):
         split_label_dfs = []
-        for split in SPLITS:
+        for split in self.task_config["splits"]:
             split_path = self.requires()["data"].workdir.joinpath(split)
             audiodf = pd.DataFrame(
                 [(a.stem, a.suffix) for a in list(split_path.glob("*.wav"))],
@@ -1019,7 +1033,7 @@ class MetadataVocabulary(MetadataTask):
     def run(self):
         labelset = set()
         # Save statistics about each subcorpus metadata
-        for split in SPLITS:
+        for split in self.task_config["splits"]:
             labeldf = pd.read_csv(
                 self.requires()["subcorpus_metadata"].workdir.joinpath(f"{split}.csv")
             )
@@ -1099,7 +1113,7 @@ class ResampleSubcorpuses(MetadataTask):
                 task_config=self.task_config,
             )
             for sr in self.sample_rates
-            for split in SPLITS
+            for split in self.task_config["splits"]
         ]
         return resample_splits
 
@@ -1249,7 +1263,7 @@ class TarCorpus(MetadataTask):
 
         # Compute the audio files to be tar'ed
         files = set()
-        for split in SPLITS:
+        for split in self.task_config["splits"]:
             files |= set(
                 json.load(open(os.path.join(source_dir, f"{split}.json"))).keys()
             )
