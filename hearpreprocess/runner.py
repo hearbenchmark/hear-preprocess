@@ -127,6 +127,21 @@ def run(
             task_config["tmp_dir"] = tmp_dir
             task_config["mode"] = task_mode
             del task_config["modes"]
+
+            # The `splits` key has to be initialised outside the pipeline,
+            # since the splits are used in defining the tasks in the pipeline
+            # example `SubcorpusData`
+            if "folds" in task_config:
+                # If predefined folds are present, each data split created
+                # by the pipeline will correspond to one fold
+                task_config["splits"] = task_config["folds"]
+            else:
+                # If no folds are defined, the default data splits - train, test and
+                # valid - will be created by the pipeline. In this option, if the
+                # test or valid is not present, it will be sampled
+                # deterministically from the train by the pipeline
+                task_config["splits"] = pipeline.SPLITS
+
             metadata_task = task_module.extract_metadata_task(task_config)
             final_task = pipeline.FinalizeCorpus(
                 sample_rates=sample_rates,
