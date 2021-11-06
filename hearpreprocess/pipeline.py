@@ -789,9 +789,7 @@ class SubsampleSplit(SplitTask):
 
         # Assert the the correct max durations are present
         if duration_key not in self.task_config:
-            raise AssertionError(
-                f"{duration_key} must be defined in task_config"
-            )
+            raise AssertionError(f"{duration_key} must be defined in task_config")
 
         max_durations = self.task_config[duration_key]
         if set(max_durations.keys()) != set(self.task_config["splits"]):
