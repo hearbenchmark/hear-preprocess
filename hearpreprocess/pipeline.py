@@ -530,7 +530,7 @@ class ExtractMetadata(WorkTask):
         if set(metadata["split"].unique()) != set(self.task_config["splits"]):
             raise AssertionError(
                 "Names of splits in metadata don't match the required names for a "
-                f"presplit_kfold dataset. Expected: {self.task_config['splits']}. "
+                f"kfold dataset. Expected: {self.task_config['splits']}. "
                 f"Received: {metadata['split'].unique()}."
             )
 
