@@ -58,8 +58,11 @@ def validate_generic_task_config(
         if "tfds_task_name" in task_config:
             schema.update(
                 {
+                    # The tfds dataset name
                     "tfds_task_name": str,
+                    # The tfds dataset name
                     "tfds_task_version": str,
+                    # Defines which splits to extract from the tfds dataset source
                     "extract_splits": Schema([Or(*SPLITS)]),
                 }
             )
@@ -98,8 +101,10 @@ def validate_generic_task_config(
                     # nfolds is invalid for this split mode
                     Forbidden(
                         "nfolds",
-                        error=f"nfolds should not be defined for {split_mode} "
-                        "split mode",
+                        error=(
+                            f"nfolds should not be defined for {split_mode} "
+                            "split mode"
+                        ),
                     ): object,
                     # max_task_duration_by_fold is invalid for this split mode.
                     Forbidden(
@@ -110,10 +115,10 @@ def validate_generic_task_config(
                 }
             )
         elif split_mode in ["presplit_kfold", "new_split_kfold"]:
-            assert "tfds_task_name" not in task_config, "Tensorflow dataset can only "
-            "have trainvaltest split mode"
-            assert "nfolds" in task_config, "nfolds should be defined for "
-            "{split_mode} split mode."
+
+            assert (
+                "nfolds" in task_config
+            ), "nfolds should be defined for {split_mode} split mode."
             nfolds: int = task_config["nfolds"]
             schema.update(
                 {
@@ -132,8 +137,10 @@ def validate_generic_task_config(
                     # max_task_duration_by_split is invalid for this mode
                     Forbidden(
                         "max_task_duration_by_split",
-                        error="max_task_duration_by_split should not be defined for "
-                        "{split_mode} split_mode",
+                        error=(
+                            "max_task_duration_by_split should not be defined for "
+                            "{split_mode} split_mode"
+                        ),
                     ): object,
                 }
             )
