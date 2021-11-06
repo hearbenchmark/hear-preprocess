@@ -15,6 +15,7 @@ import hearpreprocess.nsynth_pitch as nsynth_pitch
 import hearpreprocess.pipeline as pipeline
 import hearpreprocess.speech_commands as speech_commands
 import hearpreprocess.tfds_speech_commands as tfds_speech_commands
+from hearpreprocess.util.task_config import validate_generic_task_config
 
 logger = logging.getLogger("luigi-interface")
 # Currently the runner is only allowed to run for open tasks
@@ -108,6 +109,8 @@ def run(
 
     tasks_to_run = []
     for task_module in tasks[task]:
+        # Validate the generic task configuration defined for the task
+        validate_generic_task_config(task_module.generic_task_config)
         if mode == "default":
             task_modes = [task_module.generic_task_config["default_mode"]]
         elif mode == "small":
