@@ -51,8 +51,21 @@ def validate_generic_task_config(
             "sample_duration": Or(float, int),
             "evaluation": Schema([str]),
             "default_mode": Or("5h", "50h", "full"),
+            # ignore_extra_keys is true for the download_urls dict
+            # as the download source might require a different set of keys
+            # and a modified get_download_and_extract_tasks function
+            # to be defined in the pipeline
             "download_urls": Schema(
-                [{"split": str, Optional("name"): str, "url": str, "md5": str}]
+                [
+                    # However a set of optional keys are still defined
+                    {
+                        Optional("split"): str,
+                        Optional("name"): str,
+                        Optional("url"): str,
+                        Optional("md5"): str,
+                    }
+                ],
+                ignore_extra_keys=True,
             ),
         }
         if split_mode == "trainvaltest":
