@@ -40,16 +40,6 @@ TEST_PERCENTAGE = 10
 TRAIN_PERCENTAGE = 100 - VALIDATION_PERCENTAGE - TEST_PERCENTAGE
 TRAINVAL_PERCENTAGE = TRAIN_PERCENTAGE + VALIDATION_PERCENTAGE
 
-# We want no more than 5 hours of audio (training + validation) per task.
-# This can be overriden in the task config.
-# e.g. speech_commands test set.
-# If None, no limit is used.
-MAX_TASK_DURATION_BY_SPLIT = {
-    "train": 3600 * 5 * TRAIN_PERCENTAGE / TRAINVAL_PERCENTAGE,
-    "valid": 3600 * 5 * VALIDATION_PERCENTAGE / TRAINVAL_PERCENTAGE,
-    "test": 3600 * 5 * TEST_PERCENTAGE / TRAINVAL_PERCENTAGE,
-}
-
 
 def _diagnose_split_labels(taskname: str, event_str: str, df: pd.DataFrame):
     """Makes split and label diagnostics"""
@@ -787,6 +777,33 @@ class SubsampleSplit(SplitTask):
             "metadata": self.metadata_task,
         }
 
+    def get_max_split_duration(self):
+        """
+        Returns the max duration for the current split from the task_config
+        """
+        # Key to use to get the max task duration depending on the split mode
+        if self.task_config["split_mode"] == "trainvaltest":
+            duration_key = "max_task_duration_by_split"
+        else:
+            duration_key = "max_task_duration_by_fold"
+
+        # Assert the the correct max durations are present
+        if duration_key not in self.task_config:
+            raise AssertionError(
+                f"{duration_key} must be defined in task_config"
+            )
+
+        max_durations = self.task_config[duration_key]
+        if set(max_durations.keys()) != set(self.task_config["splits"]):
+            raise AssertionError(
+                "Max duration must be specified for all splits/folds in "
+                "task_config, or set to None to use the full length."
+                f"Expected: {set(self.task_config['splits'])}, received:"
+                f"{set(max_durations.keys())}."
+            )
+
+        return max_durations[self.split]
+
     def run(self):
         self.createsplit()
 
@@ -812,24 +829,7 @@ class SubsampleSplit(SplitTask):
         # But we aren't going to use audio that is more than a couple
         # minutes or the timestamp embeddings will explode
         sample_duration = self.task_config["sample_duration"]
-
-        # Get the max split duration from the task config.
-        # If not defined use defaults from MAX_TASK_DURATION_BY_SPLIT
-        if "max_task_duration_by_split" in self.task_config:
-            max_task_duration_by_split = self.task_config["max_task_duration_by_split"]
-            # Check if all the splits are specified in
-            # max_task_duration_by_split
-            assert set(max_task_duration_by_split.keys()) == set(
-                self.task_config["splits"]
-            )
-            max_split_duration = max_task_duration_by_split[self.split]
-        else:
-            # Get the default values for the split
-            assert "folds" not in self.task_config, "Default max split duration "
-            "cannot be used for tasks with folds. Please define max_split_duration "
-            "explicitly for each fold. Set each fold's max_split_duration to None if "
-            "the full fold is required"
-            max_split_duration = MAX_TASK_DURATION_BY_SPLIT[self.split]
+        max_split_duration = self.get_max_split_duration()
 
         # If max_split_duration is not None set the max_files so that
         # the total duration of all the audio files after subsampling
