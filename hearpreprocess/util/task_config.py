@@ -3,7 +3,7 @@ Task Config Validator for hear preprocess tasks
 """
 
 from typing import Dict, Any, List
-from schema import Schema, And, Use, Optional, Or, Forbidden
+from schema import Schema, And, Optional, Or, Forbidden
 import copy
 
 SPLITS = ["train", "test", "valid"]
@@ -13,16 +13,17 @@ def validate_generic_task_config(
     generic_task_config: Dict[str, Any], ignore_extra_keys: bool = True
 ):
     """Validates a task config to be compatible with the hearpreprocess pipeline
-    Keys other than the ones checked below can still be defined to be used
     Args:
         task_config: Task config to be used with the pipeline
-        ignore_extra_keys: Flag for ignoring extra keys in the task configuration
+        ignore_extra_keys: Flag for ignoring extra keys in the task configuration.
+            Defaults to True
     Raises:
-        schema.SchemaError: If the schema doesnot match, this error is raised 
+        schema.SchemaError: If the schema doesnot match, this error is raised
             with the information on what didnot match
     """
     assert "split_mode" in generic_task_config, "split_mode key should be defined"
     split_mode: str = generic_task_config["split_mode"]
+
     assert "modes" in generic_task_config, "modes key should be defined"
     # value against the `modes` key in the task_config should be a dictionary
     Schema(dict).validate(generic_task_config["modes"])
@@ -31,8 +32,8 @@ def validate_generic_task_config(
     # Validate the generic task config for each mode
     for task_mode in task_modes:
         print(
-            f"Validating for '{task_mode}' task mode for the "
-            f"{generic_task_config['task_name']}. "
+            f"Validating for '{task_mode}' mode for the "
+            f"{generic_task_config['task_name']} task. "
             "If an error occurs in the schema please check the value against "
             "the keys in this task mode."
         )
@@ -40,6 +41,7 @@ def validate_generic_task_config(
         task_config: Dict[str, Any] = copy.deepcopy(generic_task_config)
         task_config.update(dict(task_config["modes"][task_mode]))
         del task_config["modes"]
+
         schema: Dict[str, Any] = {
             "task_name": str,
             "version": str,
@@ -62,7 +64,7 @@ def validate_generic_task_config(
                         "extract_splits": Schema([Or(*SPLITS)]),
                     }
                 )
-                # If the task config is for a tfds task, download_urls should not be present
+                # download_urls is invalid for tfds task
                 del schema["download_urls"]
             schema.update(
                 {
@@ -75,13 +77,14 @@ def validate_generic_task_config(
                     # nfolds is invalid for this split mode
                     Forbidden(
                         "nfolds",
-                        error=f"nfolds should not be defined for {split_mode} split mode",
+                        error=f"nfolds should not be defined for {split_mode} "
+                        "split mode",
                     ): object,
                     # max_task_duration_by_fold is invalid for this split mode.
                     Forbidden(
                         "max_task_duration_by_fold",
                         error="max_task_duration_by_fold should not be defined for "
-                        " {split_mode} split mode",
+                        "{split_mode} split mode",
                     ): object,
                 }
             )
@@ -117,4 +120,4 @@ def validate_generic_task_config(
             raise ValueError("Invalid split_mode")
 
         Schema(schema, ignore_extra_keys=ignore_extra_keys).validate(task_config)
-        print(f"Successfully validated for: {task_mode} task mode")
+        print("Successfully validated")
