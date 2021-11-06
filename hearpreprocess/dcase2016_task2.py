@@ -73,6 +73,7 @@ generic_task_config = {
                     "md5": "14539d85dec03cb7ac75eb62dd1dd21e",
                 },
             ],
+            "max_task_duration_by_split": {"train": None, "valid": None, "test": None},
         },
     },
 }
