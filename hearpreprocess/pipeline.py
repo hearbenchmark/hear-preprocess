@@ -532,10 +532,23 @@ class ExtractMetadata(WorkTask):
         metadata.loc[metadata["split_key"].isin(test_split_keys), "split"] = "test"
         return metadata
 
+    def assert_correct_kfolds(self, metadata: pd.DataFrame):
+        """
+        Raises an AssertionError if the set of fold names in task_config doesn't
+        match the set of fold names used for splits in the metadata
+        """
+        if set(metadata["split"].unique()) != set(self.task_config["splits"]):
+            raise AssertionError(
+                "Names of splits in metadata don't match the required names for a "
+                f"presplit_kfold dataset. Expected: {self.task_config['splits']}. "
+                f"Received: {metadata['split'].unique()}."
+            )
+
     def split_k_folds(self, metadata: pd.DataFrame):
         """
         Deterministically split dataset into k-folds
         """
+
         splits_present = metadata["split"].unique()
         if len(splits_present) > 1:
             raise AssertionError(
@@ -555,6 +568,30 @@ class ExtractMetadata(WorkTask):
         folds_keys = np.array_split(split_keys, k_folds)
         for i, fold in enumerate(folds_keys):
             metadata.loc[metadata["split_key"].isin(fold), "split"] = f"fold{i:02d}"
+
+        return metadata
+
+    def create_splits(self, metadata: pd.DataFrame) -> pd.DataFrame:
+        """
+        Splits the dataset based on the split mode in task config.
+        Either train/validation/test split or a k-fold split
+        """
+        if self.task_config["split_mode"] == "trainvaltest":
+            # Split the metadata to create valid and test set from train if
+            # they are not created explicitly in get_all_metadata
+            if set(self.task_config["splits"]) != set(SPLITS):
+                raise AssertionError(f"Splits for trainvaltest mode must be {SPLITS}")
+            metadata = self.split_train_test_val(metadata)
+        elif self.task_config["split_mode"] == "presplit_kfold":
+            # Splits are the predefined folds in the dataset - just make sure the
+            # names are correct
+            self.assert_correct_kfolds(metadata)
+        elif self.task_config["split_mode"] == "new_split_kfold":
+            # Split the dataset into k-folds
+            metadata = self.split_k_folds(metadata)
+            self.assert_correct_kfolds(metadata)
+        else:
+            raise ValueError("Unknown split_mode received in task_config")
 
         return metadata
 
@@ -622,37 +659,9 @@ class ExtractMetadata(WorkTask):
         metadata = self.postprocess_all_metadata(metadata)
         _diagnose_split_labels(self.longname, "postprocessed", metadata)
 
-        if self.task_config["split_mode"] == "trainvaltest":
-            # Split the metadata to create valid and test set from train if
-            # they are not created explicitly in get_all_metadata
-            if set(self.task_config["splits"]) != set(SPLITS):
-                raise AssertionError(f"Splits for trainvaltest mode must be {SPLITS}")
-            metadata = self.split_train_test_val(metadata)
-
-        elif self.task_config["split_mode"] == "presplit_kfold":
-            # Splits are the predefined folds in the dataset
-            if set(metadata["split"].unique()) != set(self.task_config["splits"]):
-                raise AssertionError(
-                    "Names of splits in metadata don't match the required names for a "
-                    f"presplit_kfold dataset. Expected: {self.task_config['splits']}. "
-                    f"Received: {metadata['split'].unique()}."
-                )
-
-        elif self.task_config["split_mode"] == "new_split_kfold":
-            # Split the dataset into k-folds
-            metadata = self.split_k_folds(metadata)
-            # TODO fix code copy
-            if set(metadata["split"].unique()) != set(self.task_config["splits"]):
-                raise AssertionError(
-                    "Names of splits in metadata don't match the required names for a "
-                    f"presplit_kfold dataset. Expected: {self.task_config['splits']}. "
-                    f"Received: {metadata['split'].unique()}."
-                )
-
-        else:
-            raise ValueError("Unknown split_mode received in task_config")
-
-        assert False
+        # Creates splits based on the split_mode for this dataset
+        # Either train/val/test split or a k-fold split strategy
+        metadata = self.create_splits(metadata)
 
         # Each split should have unique files and no file should be across splits
         assert (
