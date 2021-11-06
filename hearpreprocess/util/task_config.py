@@ -42,6 +42,7 @@ def validate_generic_task_config(
         task_config.update(dict(task_config["modes"][task_mode]))
         del task_config["modes"]
 
+        # GENERIC Taks keys
         schema: Dict[str, Any] = {
             "task_name": str,
             "version": str,
@@ -51,34 +52,41 @@ def validate_generic_task_config(
             "sample_duration": Or(float, int),
             "evaluation": Schema([str]),
             "default_mode": Or("5h", "50h", "full"),
+        }
+        # DOWNLOAD Source specific keys
+        # If the source of data for the task is a tensorflow dataset
+        if "tfds_task_name" in task_config:
+            schema.update(
+                {
+                    "tfds_task_name": str,
+                    "tfds_task_version": str,
+                    "extract_splits": Schema([Or(*SPLITS)]),
+                }
+            )
+        # If the source of data for the task is source download urls
+        else:
             # ignore_extra_keys is true for the download_urls dict
             # as the download source might require a different set of keys
             # and a modified get_download_and_extract_tasks function
-            # to be defined in the pipeline
-            "download_urls": Schema(
-                [
-                    # However a set of optional keys are still defined
-                    {
-                        Optional("split"): str,
-                        Optional("name"): str,
-                        Optional("url"): str,
-                        Optional("md5"): str,
-                    }
-                ],
-                ignore_extra_keys=True,
-            ),
-        }
+            # to be defined for the task in task specific scripts
+            schema.update(
+                {
+                    "download_urls": Schema(
+                        [
+                            # A set of optional keys are still defined here
+                            {
+                                Optional("split"): str,
+                                Optional("name"): str,
+                                Optional("url"): str,
+                                Optional("md5"): str,
+                            }
+                        ],
+                        ignore_extra_keys=True,
+                    )
+                }
+            )
+        # SPLIT Mode specific keys
         if split_mode == "trainvaltest":
-            if "tfds_task_name" in task_config:
-                schema.update(
-                    {
-                        "tfds_task_name": str,
-                        "tfds_task_version": str,
-                        "extract_splits": Schema([Or(*SPLITS)]),
-                    }
-                )
-                # download_urls is invalid for tfds task
-                del schema["download_urls"]
             schema.update(
                 {
                     # max_task_duration_by_split duration is optional
