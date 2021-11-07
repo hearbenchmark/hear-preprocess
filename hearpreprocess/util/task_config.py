@@ -27,15 +27,33 @@ def validate_generic_task_config(
             running the pipeline
             These depends on the `split_mode` of the data
             - If the `split_mode` is `presplit_kfold` or `new_split_kfold`,
-            the splits will be like -
-                fold01, fold02, ... fold<nfolds>, where nfolds is the
-                number of folds
+                the splits will be like -
+                    fold01, fold02, ... fold<nfolds>, where nfolds is the
+                    number of folds
             - If the `split_mode` is `trainvaltest`, the splits will be -
                 train, test, valid
 
     Some additional Notes on the behaviour of the task configuration -
+        * `split_mode` can have three possible values:
+            - `trainvaltest` - The pipeline will produce train, test and valid
+                data split. The `ExtractMetadata` should explicitly populate
+                the `split` column in the metadata with `train`, `test` or
+                `valid` values. In case, no rows are marked as `test`
+                or `valid`, the train split will be sampled deterministically
+                to produce the valid (10 percent of train) and the test
+                (10 percent of the test) split.
+            - `presplit_kfold` - The pipeline will produce fold00, fold01, ...
+                and these should be explicitly populated in the `split`
+                columns for each row by the `ExtractMetadata` like
+                the `trainvaltest` mode
+            - `newsplit_kfold` - The pipeline will produce fold00, fold01, ...
+                and these will be produced by deterministically sampling the data
+                into folds. In this case, the `ExtractMetadata` should
+                populate only one value in the `split` column for all the
+                rows.
+
         * `modes` key in the task configuration helps to override the parameters
-            of the task configuration. For example -
+            of the task configuration. For example:
                 - The 5h, 50h, full, small modes override the
                     max_split_duration_<split/fold> to make different
                     duration for each split/fold of the data
