@@ -192,3 +192,13 @@ python3 -m hearpreprocess.sampler <taskname>
 
 **_NOTE_** : `--mode small` is used to run the task on a
 small version of the dataset for development.
+
+### Breaking change for hear-eval
+
+If the open tasks have changed enough to break the downstream CI,
+(for example in the heareval repo), the [Preprocessed Downsampled HEAR Open
+Tasks](https://github.com/turian/hear2021-open-tasks-downsampled/preprocessed)
+should be updated. This can be done by the utility script `update_preprocessed_tasks.bash` 
+and the version should be bumped up in `hearpreprocess/__init__.py`. 
+
+An Examples of a very obvious breaking changes can be modification of the task configuration of the open tasks.
