@@ -198,7 +198,17 @@ small version of the dataset for development.
 If the open tasks have changed enough to break the downstream CI,
 (for example in the heareval repo), the [Preprocessed Downsampled HEAR Open
 Tasks](https://github.com/neuralaudio/hear2021-open-tasks-downsampled/tree/main/preprocessed)
-should be updated. This can be done by the utility script `update_preprocessed_tasks.bash` 
-and the version should be bumped up in `hearpreprocess/__init__.py`. 
+should be updated. 
 
-An Examples of a very obvious breaking changes can be modification of the task configuration of the open tasks.
+The version should be bumped up in `hearpreprocess/__init__.py` and the pipeline should
+be run for the open tasks with `--mode small` flag
+
+Thereafter, the following command can be used to copy the tarred files produced by running the pipeline for the open tasks to the repo( Please clone the repo )
+
+```
+cp hear-{VERSION}-speech_commands-v0.0.2-small-44100.tar.gz ./hear2021-open-tasks-downsampled/preprocessed/
+```
+
+The `LATEST` version should also be pushed
+
+An Example of a very obvious breaking changes can be modification of the configuration of the open task.
