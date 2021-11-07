@@ -27,6 +27,7 @@ generic_task_config = {
     "version": "v2.2.3",
     "embedding_type": "scene",
     "prediction_type": "multiclass",
+    "split_mode": "trainvaltest",
     "sample_duration": 4.0,
     "pitch_range_min": 21,
     "pitch_range_max": 108,
@@ -85,6 +86,7 @@ generic_task_config = {
                     "md5": "9a98e869ed4add8ba9ebb0d7c22becca",
                 },
             ],
+            "max_task_duration_by_split": {"train": None, "valid": None, "test": None},
         },
     },
 }

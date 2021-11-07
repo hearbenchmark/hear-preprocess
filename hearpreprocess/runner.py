@@ -15,6 +15,7 @@ import hearpreprocess.nsynth_pitch as nsynth_pitch
 import hearpreprocess.pipeline as pipeline
 import hearpreprocess.speech_commands as speech_commands
 import hearpreprocess.tfds_speech_commands as tfds_speech_commands
+from hearpreprocess.util.task_config import validate_generic_task_config
 
 logger = logging.getLogger("luigi-interface")
 # Currently the runner is only allowed to run for open tasks
@@ -108,6 +109,8 @@ def run(
 
     tasks_to_run = []
     for task_module in tasks[task]:
+        # Validate the generic task configuration defined for the task
+        validate_generic_task_config(task_module.generic_task_config)
         if mode == "default":
             task_modes = [task_module.generic_task_config["default_mode"]]
         elif mode == "small":
@@ -127,6 +130,28 @@ def run(
             task_config["tmp_dir"] = tmp_dir
             task_config["mode"] = task_mode
             del task_config["modes"]
+
+            # The `splits` key has to be initialised outside the pipeline,
+            # since the splits are used in defining the required tasks
+            # for example, in requires method for ResampleSubcorpuses
+            if "split_mode" not in task_config:
+                raise ValueError("split_mode is a required config for all tasks")
+
+            if task_config["split_mode"] == "trainvaltest":
+                # Dataset will be partitioned into train/validation/test splits
+                task_config["splits"] = pipeline.SPLITS
+            elif task_config["split_mode"] in ["new_split_kfold", "presplit_kfold"]:
+                # Dataset will be partitioned in k-folds, either using predefined folds
+                # or with using folds defined in the pipeline
+                n_folds = task_config["nfolds"]
+                assert isinstance(n_folds, int)
+                task_config["splits"] = ["fold{:02d}".format(i) for i in range(n_folds)]
+            else:
+                raise ValueError(
+                    f"Unknown split_mode received: {task_config['split_mode']}, "
+                    "expected 'trainvaltest, 'new_split_kfold', or 'presplit_kfold'"
+                )
+
             metadata_task = task_module.extract_metadata_task(task_config)
             final_task = pipeline.FinalizeCorpus(
                 sample_rates=sample_rates,
