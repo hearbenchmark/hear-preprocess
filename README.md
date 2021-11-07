@@ -180,7 +180,7 @@ speech_commands-v0.0.2/03-ExtractMetadata/labelcount_valid.json
 
 The small flag runs the preprocessing pipeline on a small version
 of each dataset stored at [Downsampled HEAR Open
-Tasks](https://github.com/turian/hear2021-open-tasks-downsampled). This
+Tasks](https://github.com/neuralaudio/hear2021-open-tasks-downsampled). This
 is used for development and continuous integration tests for the
 pipeline.
 
@@ -192,3 +192,25 @@ python3 -m hearpreprocess.sampler <taskname>
 
 **_NOTE_** : `--mode small` is used to run the task on a
 small version of the dataset for development.
+
+### Breaking change for hear-eval
+
+If the open tasks have changed enough to break the downstream CI,
+(for example in the heareval repo), the [Preprocessed Downsampled HEAR Open
+Tasks](https://github.com/neuralaudio/hear2021-open-tasks-downsampled/tree/main/preprocessed)
+should be updated. An example of an obvious breaking changes can be modification of the task configuration.
+
+The version should be bumped up in `hearpreprocess/__init__.py` and the pipeline should
+be run for the open tasks with `--mode small` flag
+
+Thereafter, the following command can be used to copy the tarred files produced by running the pipeline for the open tasks to the repo( Please clone the repo )
+
+```
+git clone git@github.com:neuralaudio/hear2021-open-tasks-downsampled.git
+cp hear-LATEST-speech_commands-v0.0.2-small-44100.tar.gz ./hear2021-open-tasks-downsampled/preprocessed/
+cp hear-LATEST-nsynth_pitch-v2.2.3-small-44100.tar.gz ./hear2021-open-tasks-downsampled/preprocessed/
+cp hear-LATEST-dcase2016_task2-hear2021-small-44100.tar.gz ./hear2021-open-tasks-downsampled/preprocessed/
+cp hear-2021.0.6-speech_commands-v0.0.2-small-44100.tar.gz ./hear2021-open-tasks-downsampled/preprocessed/
+cp hear-2021.0.6-nsynth_pitch-v2.2.3-small-44100.tar.gz ./hear2021-open-tasks-downsampled/preprocessed/
+cp hear-2021.0.6-dcase2016_task2-hear2021-small-44100.tar.gz ./hear2021-open-tasks-downsampled/preprocessed/
+```
