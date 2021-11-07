@@ -681,8 +681,9 @@ class MetadataTask(WorkTask):
     def metadata(self):
         if self._metadata is None:
             self._metadata = pd.read_csv(
-                self.metadata_task.workdir.joinpath(self.metadata_task.outfile)
-            ).astype(str)
+                self.metadata_task.workdir.joinpath(self.metadata_task.outfile),
+                dtype={"relpath": str, "unique_filestem": str, "split": str},
+            )
         return self._metadata
 
 
