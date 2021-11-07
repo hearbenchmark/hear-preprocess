@@ -49,7 +49,7 @@ def validate_generic_task_config(
             "embedding_type": Or("scene", "event"),
             "prediction_type": Or("multiclass", "multilabel"),
             "split_mode": Or("trainvaltest", "presplit_kfold", "new_split_kfold"),
-            "sample_duration": Or(float, int),
+            "sample_duration": Or(float, int, None),
             "evaluation": Schema([str]),
             "default_mode": Or("5h", "50h", "full"),
         }

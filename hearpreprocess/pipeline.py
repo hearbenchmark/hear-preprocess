@@ -929,6 +929,13 @@ class TrimPadSplit(SplitTask):
 
     def run(self):
         self.createsplit()
+        if self.task_config["sample_duration"] is None:
+            diagnostics.info(
+                f"{self.longname} "
+                "No trimming or padding is being done."
+            )
+            self.mark_complete()
+            return
 
         for audiofile in tqdm(list(self.requires()["corpus"].splitdir.iterdir())):
             newaudiofile = self.splitdir.joinpath(f"{audiofile.stem}.wav")
