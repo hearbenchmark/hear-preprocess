@@ -180,7 +180,7 @@ speech_commands-v0.0.2/03-ExtractMetadata/labelcount_valid.json
 
 The small flag runs the preprocessing pipeline on a small version
 of each dataset stored at [Downsampled HEAR Open
-Tasks](https://github.com/turian/hear2021-open-tasks-downsampled). This
+Tasks](https://github.com/neuralaudio/hear2021-open-tasks-downsampled). This
 is used for development and continuous integration tests for the
 pipeline.
 
@@ -197,7 +197,7 @@ small version of the dataset for development.
 
 If the open tasks have changed enough to break the downstream CI,
 (for example in the heareval repo), the [Preprocessed Downsampled HEAR Open
-Tasks](https://github.com/turian/hear2021-open-tasks-downsampled/preprocessed)
+Tasks](https://github.com/neuralaudio/hear2021-open-tasks-downsampled/tree/main/preprocessed)
 should be updated. This can be done by the utility script `update_preprocessed_tasks.bash` 
 and the version should be bumped up in `hearpreprocess/__init__.py`. 
 
