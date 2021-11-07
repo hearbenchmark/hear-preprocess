@@ -777,30 +777,27 @@ class SubsampleSplit(SplitTask):
             "metadata": self.metadata_task,
         }
 
-    def get_max_split_duration(self):
+    def get_max_split_duration(self) -> Union[float, int, None]:
         """
         Returns the max duration for the current split from the task_config
         """
         # Key to use to get the max task duration depending on the split mode
         if self.task_config["split_mode"] == "trainvaltest":
-            duration_key = "max_task_duration_by_split"
+            assert "max_task_duration_by_split" in self.task_config
+            max_durations = self.task_config["max_task_duration_by_split"]
+            if set(max_durations.keys()) != set(self.task_config["splits"]):
+                raise AssertionError(
+                    "Max duration must be specified for all splits/folds in "
+                    "task_config, or set to None to use the full length."
+                    f"Expected: {set(self.task_config['splits'])}, received:"
+                    f"{set(max_durations.keys())}."
+                )
+            max_split_duration = max_durations[self.split]
         else:
-            duration_key = "max_task_duration_by_fold"
+            assert "max_task_duration_by_fold" in self.task_config
+            max_split_duration = self.task_config["max_task_duration_by_fold"]
 
-        # Assert the the correct max durations are present
-        if duration_key not in self.task_config:
-            raise AssertionError(f"{duration_key} must be defined in task_config")
-
-        max_durations = self.task_config[duration_key]
-        if set(max_durations.keys()) != set(self.task_config["splits"]):
-            raise AssertionError(
-                "Max duration must be specified for all splits/folds in "
-                "task_config, or set to None to use the full length."
-                f"Expected: {set(self.task_config['splits'])}, received:"
-                f"{set(max_durations.keys())}."
-            )
-
-        return max_durations[self.split]
+        return max_split_duration
 
     def run(self):
         self.createsplit()
