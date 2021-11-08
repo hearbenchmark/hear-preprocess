@@ -538,14 +538,6 @@ class ExtractMetadata(WorkTask):
         """
         Deterministically split dataset into k-folds
         """
-
-        splits_present = metadata["split"].unique()
-        if len(splits_present) > 1:
-            raise AssertionError(
-                "More than one split found in dataset, there must be only one split "
-                "to create new k-folds from."
-            )
-
         # Deterministically sort all unique split_keys.
         split_keys = sorted(metadata["split_key"].unique())
 
