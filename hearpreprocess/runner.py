@@ -12,6 +12,7 @@ import click
 
 import hearpreprocess.dcase2016_task2 as dcase2016_task2
 import hearpreprocess.nsynth_pitch as nsynth_pitch
+import hearpreprocess.nsynth_pitch_kfold as nsynth_pitch_kfold
 import hearpreprocess.pipeline as pipeline
 import hearpreprocess.speech_commands as speech_commands
 import hearpreprocess.tfds_speech_commands as tfds_speech_commands
@@ -40,10 +41,23 @@ tasks = {
     "tfds_speech_commands": [tfds_speech_commands],
     "speech_commands": [speech_commands],
     "nsynth_pitch": [nsynth_pitch],
+    "nsynth_pitch_kfold": [nsynth_pitch_kfold],
     "dcase2016_task2": [dcase2016_task2],
     "spoken_digit": [spoken_digit],
-    "open": [speech_commands, nsynth_pitch, dcase2016_task2, spoken_digit],
-    "all": [speech_commands, nsynth_pitch, dcase2016_task2, spoken_digit]
+    "open": [
+        speech_commands,
+        nsynth_pitch,
+        nsynth_pitch_kfold,
+        dcase2016_task2,
+        spoken_digit,
+    ],
+    "all": [
+        speech_commands,
+        nsynth_pitch,
+        nsynth_pitch_kfold,
+        dcase2016_task2,
+        spoken_digit,
+    ]
     + secret_tasks.get("all-secret", []),
     # Add the task config for the secrets task if the secret task config was found.
     # Not available for participants
