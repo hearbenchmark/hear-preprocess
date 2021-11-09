@@ -17,7 +17,7 @@ generic_task_config = {
     "split_mode": "new_split_kfold",
     "nfolds": 5,
     # mean: 0.41s, 75th: 0.47s, 90th: 0.56s, max: 2.28s
-    "sample_duration": 1.0,
+    "sample_duration": 0.56,
     "evaluation": ["top1_acc"],
     "tfds_task_name": "spoken_digit",
     "tfds_task_version": "1.0.9",
