@@ -42,7 +42,8 @@ tasks = {
     "nsynth_pitch": [nsynth_pitch],
     "dcase2016_task2": [dcase2016_task2],
     "spoken_digit": [spoken_digit],
-    "all": [speech_commands, nsynth_pitch, dcase2016_task2]
+    "open": [speech_commands, nsynth_pitch, dcase2016_task2, spoken_digit],
+    "all": [speech_commands, nsynth_pitch, dcase2016_task2, spoken_digit]
     + secret_tasks.get("all-secret", []),
     # Add the task config for the secrets task if the secret task config was found.
     # Not available for participants
@@ -118,6 +119,8 @@ def run(
             task_modes = [task_module.generic_task_config["default_mode"]]
         elif mode == "small":
             task_modes = ["small"]
+        elif mode in task_module.generic_task_config["modes"]:
+            task_modes = [mode]
         elif mode == "all":
             task_modes = [
                 task_mode

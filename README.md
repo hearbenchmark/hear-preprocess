@@ -77,9 +77,9 @@ output 138GB.
 These Luigi pipelines are used to preprocess the evaluation tasks
 into a common format for downstream evaluation.
 
-To run the preprocessing pipeline for all available tasks:
+To run the preprocessing pipeline for all available tasks, with all available modes for each task:
 ```
-python3 -m hearpreprocess.runner all
+python3 -m hearpreprocess.runner all --mode all
 ```
 
 Upload to private bucket:
