@@ -26,7 +26,8 @@ import luigi
 from tqdm import tqdm
 
 import hearpreprocess.pipeline as pipeline
-from hearpreprocess import dcase2016_task2, nsynth_pitch, speech_commands
+import hearpreprocess.tfds_pipeline as tfds_pipeline
+from hearpreprocess import dcase2016_task2, nsynth_pitch, speech_commands, spoken_digit
 from hearpreprocess.util.luigi import WorkTask
 import hearpreprocess.util.audio as audio_util
 
@@ -69,6 +70,11 @@ configs = {
         "audio_sample_size": 100,
         "necessary_keys": [],
     },
+    "spoken_digit": {
+        "task_config": spoken_digit.generic_task_config,
+        "audio_sample_size": 100,
+        "necessary_keys": [],
+    },
     # Add the sampler config for the secrets task if the secret task config was found.
     # Not available for participants
     **secret_config,
@@ -80,6 +86,10 @@ class RandomSampleOriginalDataset(WorkTask):
     audio_sample_size = luigi.IntParameter()
 
     def requires(self):
+        # If this is a TensorFlow dataset then use the tfds pipeline
+        if "tfds_task_name" in self.task_config:
+            return tfds_pipeline.get_download_and_extract_tasks_tfds(self.task_config)
+
         return pipeline.get_download_and_extract_tasks(self.task_config)
 
     @staticmethod

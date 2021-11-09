@@ -1,4 +1,4 @@
-name: Open task integration test
+name: Spoken digit integration test
 
 on: [pull_request]
 
@@ -34,4 +34,4 @@ jobs:
 #        pytest
     - name: Integration test
       run: |
-        LUIGI_CONFIG_PATH=hearpreprocess/luigi.cfg python3 -m hearpreprocess.runner --mode small all
+        LUIGI_CONFIG_PATH=hearpreprocess/luigi.cfg python3 -m hearpreprocess.runner spoken_digit --mode small
