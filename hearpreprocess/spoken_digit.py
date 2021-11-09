@@ -24,9 +24,7 @@ generic_task_config = {
     "extract_splits": ["train"],
     "default_mode": "full",
     "modes": {
-        "full": {
-            "max_task_duration_by_fold": None
-        },
+        "full": {"max_task_duration_by_fold": None},
         "small": {
             "download_urls": [
                 {
@@ -36,8 +34,8 @@ generic_task_config = {
                 }
             ],
             "max_task_duration_by_fold": None,
-        }
-    }
+        },
+    },
 }
 
 
@@ -47,6 +45,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
     Please refer to docstring of `tfds_pipeline.ExtractMetadata` for more
     details.
     """
+
     train = luigi.TaskParameter()
 
     def requires(self):
