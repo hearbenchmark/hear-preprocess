@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Pre-processing pipeline for YesNo dataset
+Pre-processing pipeline for Free Spoken Digit dataset
 """
 from typing import Any, Dict
 
@@ -10,16 +10,17 @@ import hearpreprocess.pipeline as pipeline
 import hearpreprocess.tfds_pipeline as tfds_pipeline
 
 generic_task_config = {
-    "task_name": "yes_no",
+    "task_name": "spoken_digit",
     "version": "1.0.0",
     "embedding_type": "scene",
     "prediction_type": "multiclass",
     "split_mode": "new_split_kfold",
     "nfolds": 5,
-    "sample_duration": 10.0,
+    # mean: 0.41s, 75th: 0.47s, 90th: 0.56s, max: 2.28s
+    "sample_duration": 1.0,
     "evaluation": ["top1_acc"],
-    "tfds_task_name": "yes_no",
-    "tfds_task_version": "1.0.0",
+    "tfds_task_name": "spoken_digit",
+    "tfds_task_version": "1.0.9",
     "extract_splits": ["train"],
     "default_mode": "full",
     "modes": {

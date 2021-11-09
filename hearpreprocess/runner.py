@@ -15,7 +15,7 @@ import hearpreprocess.nsynth_pitch as nsynth_pitch
 import hearpreprocess.pipeline as pipeline
 import hearpreprocess.speech_commands as speech_commands
 import hearpreprocess.tfds_speech_commands as tfds_speech_commands
-import hearpreprocess.yes_no as yes_no
+import hearpreprocess.spoken_digit as spoken_digit
 
 logger = logging.getLogger("luigi-interface")
 # Currently the runner is only allowed to run for open tasks
@@ -39,7 +39,7 @@ tasks = {
     "speech_commands": [speech_commands],
     "nsynth_pitch": [nsynth_pitch],
     "dcase2016_task2": [dcase2016_task2],
-    "yes_no": [yes_no],
+    "spoken_digit": [spoken_digit],
     "all": [speech_commands, nsynth_pitch, dcase2016_task2]
     + secret_tasks.get("all-secret", []),
     # Add the task config for the secrets task if the secret task config was found.
