@@ -5,6 +5,7 @@ Pre-processing pipeline for NSynth pitch detection
 
 from hearpreprocess.nsynth_pitch import *
 
+generic_task_config["task_name"] = "nsynth_pitch_kfold"
 generic_task_config["split_mode"] = "new_split_kfold"
 generic_task_config["nfolds"] = 5
 
