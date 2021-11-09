@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 
 import luigi
 import pandas as pd
+import numpy as np
 from slugify import slugify
 from tqdm import tqdm
 
@@ -29,6 +30,7 @@ from hearpreprocess.util.luigi import (
 
 INCLUDE_DATESTR_IN_FINAL_PATHS = False
 
+# Defaults for certain pipeline parameters
 SPLITS = ["train", "valid", "test"]
 # This percentage should not be changed as this decides
 # the data in the split and hence is not a part of the data config
@@ -37,16 +39,6 @@ VALIDATION_PERCENTAGE = 10
 TEST_PERCENTAGE = 10
 TRAIN_PERCENTAGE = 100 - VALIDATION_PERCENTAGE - TEST_PERCENTAGE
 TRAINVAL_PERCENTAGE = TRAIN_PERCENTAGE + VALIDATION_PERCENTAGE
-
-# We want no more than 5 hours of audio (training + validation) per task.
-# This can be overriden in the task config.
-# e.g. speech_commands test set.
-# If None, no limit is used.
-MAX_TASK_DURATION_BY_SPLIT = {
-    "train": 3600 * 5 * TRAIN_PERCENTAGE / TRAINVAL_PERCENTAGE,
-    "valid": 3600 * 5 * VALIDATION_PERCENTAGE / TRAINVAL_PERCENTAGE,
-    "test": 3600 * 5 * TEST_PERCENTAGE / TRAINVAL_PERCENTAGE,
-}
 
 
 def _diagnose_split_labels(taskname: str, event_str: str, df: pd.DataFrame):
@@ -530,6 +522,69 @@ class ExtractMetadata(WorkTask):
         metadata.loc[metadata["split_key"].isin(test_split_keys), "split"] = "test"
         return metadata
 
+    def assert_correct_kfolds(self, metadata: pd.DataFrame):
+        """
+        Raises an AssertionError if the set of fold names in task_config doesn't
+        match the set of fold names used for splits in the metadata
+        """
+        if set(metadata["split"].unique()) != set(self.task_config["splits"]):
+            raise AssertionError(
+                "Names of splits in metadata don't match the required names for a "
+                f"kfold dataset. Expected: {self.task_config['splits']}. "
+                f"Received: {metadata['split'].unique()}."
+            )
+
+    def split_k_folds(self, metadata: pd.DataFrame):
+        """
+        Deterministically split dataset into k-folds
+        """
+
+        splits_present = metadata["split"].unique()
+        if len(splits_present) > 1:
+            raise AssertionError(
+                "More than one split found in dataset, there must be only one split "
+                "to create new k-folds from."
+            )
+
+        # Deterministically sort all unique split_keys.
+        split_keys = sorted(metadata["split_key"].unique())
+
+        # Deterministically shuffle all unique split_keys.
+        rng = random.Random("split_k_folds")
+        rng.shuffle(split_keys)
+
+        # Equally split the split_keys into k folds and label accordingly
+        k_folds = self.task_config["nfolds"]
+        folds_keys = np.array_split(split_keys, k_folds)
+        for i, fold in enumerate(folds_keys):
+            metadata.loc[metadata["split_key"].isin(fold), "split"] = f"fold{i:02d}"
+
+        return metadata
+
+    def create_splits(self, metadata: pd.DataFrame) -> pd.DataFrame:
+        """
+        Splits the dataset based on the split mode in task config.
+        Either train/validation/test split or a k-fold split
+        """
+        if self.task_config["split_mode"] == "trainvaltest":
+            # Split the metadata to create valid and test set from train if
+            # they are not created explicitly in get_all_metadata
+            if set(self.task_config["splits"]) != set(SPLITS):
+                raise AssertionError(f"Splits for trainvaltest mode must be {SPLITS}")
+            metadata = self.split_train_test_val(metadata)
+        elif self.task_config["split_mode"] == "presplit_kfold":
+            # Splits are the predefined folds in the dataset - just make sure the
+            # names are correct
+            self.assert_correct_kfolds(metadata)
+        elif self.task_config["split_mode"] == "new_split_kfold":
+            # Split the dataset into k-folds
+            metadata = self.split_k_folds(metadata)
+            self.assert_correct_kfolds(metadata)
+        else:
+            raise ValueError("Unknown split_mode received in task_config")
+
+        return metadata
+
     def trim_event_metadata(self, metadata: pd.DataFrame, duration: float):
         """
         This modifies the event metadata to
@@ -594,9 +649,9 @@ class ExtractMetadata(WorkTask):
         metadata = self.postprocess_all_metadata(metadata)
         _diagnose_split_labels(self.longname, "postprocessed", metadata)
 
-        # Split the metadata to create valid and test set from train if they are not
-        # created explicitly in get_all_metadata
-        metadata = self.split_train_test_val(metadata)
+        # Creates splits based on the split_mode for this dataset
+        # Either train/val/test split or a k-fold split strategy
+        metadata = self.create_splits(metadata)
 
         # Each split should have unique files and no file should be across splits
         assert (
@@ -681,8 +736,9 @@ class MetadataTask(WorkTask):
     def metadata(self):
         if self._metadata is None:
             self._metadata = pd.read_csv(
-                self.metadata_task.workdir.joinpath(self.metadata_task.outfile)
-            ).astype(str)
+                self.metadata_task.workdir.joinpath(self.metadata_task.outfile),
+                dtype={"relpath": str, "unique_filestem": str, "split": str},
+            )
         return self._metadata
 
 
@@ -722,6 +778,28 @@ class SubsampleSplit(SplitTask):
             "metadata": self.metadata_task,
         }
 
+    def get_max_split_duration(self) -> Union[float, int, None]:
+        """
+        Returns the max duration for the current split from the task_config
+        """
+        # Key to use to get the max task duration depending on the split mode
+        if self.task_config["split_mode"] == "trainvaltest":
+            assert "max_task_duration_by_split" in self.task_config
+            max_durations = self.task_config["max_task_duration_by_split"]
+            if set(max_durations.keys()) != set(self.task_config["splits"]):
+                raise AssertionError(
+                    "Max duration must be specified for all splits/folds in "
+                    "task_config, or set to None to use the full length."
+                    f"Expected: {set(self.task_config['splits'])}, received:"
+                    f"{set(max_durations.keys())}."
+                )
+            max_split_duration = max_durations[self.split]
+        else:
+            assert "max_task_duration_by_fold" in self.task_config
+            max_split_duration = self.task_config["max_task_duration_by_fold"]
+
+        return max_split_duration
+
     def run(self):
         self.createsplit()
 
@@ -747,18 +825,7 @@ class SubsampleSplit(SplitTask):
         # But we aren't going to use audio that is more than a couple
         # minutes or the timestamp embeddings will explode
         sample_duration = self.task_config["sample_duration"]
-
-        # Get the max split duration from the task config.
-        # If not defined use defaults from MAX_TASK_DURATION_BY_SPLIT
-        if "max_task_duration_by_split" in self.task_config:
-            max_task_duration_by_split = self.task_config["max_task_duration_by_split"]
-            # Check if all the splits are specified in
-            # max_task_duration_by_split
-            assert set(max_task_duration_by_split.keys()) == set(SPLITS)
-            max_split_duration = max_task_duration_by_split[self.split]
-        else:
-            # Get the default values for the split
-            max_split_duration = MAX_TASK_DURATION_BY_SPLIT[self.split]
+        max_split_duration = self.get_max_split_duration()
 
         # If max_split_duration is not None set the max_files so that
         # the total duration of all the audio files after subsampling
@@ -889,7 +956,7 @@ class SubcorpusData(MetadataTask):
                 metadata_task=self.metadata_task,
                 task_config=self.task_config,
             )
-            for split in SPLITS
+            for split in self.task_config["splits"]
         }
         return splits
 
@@ -909,7 +976,7 @@ class SubcorpusData(MetadataTask):
             assert self.requires()[key].workdir == self.requires()[key2].workdir
 
         # Output stats for every input directory
-        for split in SPLITS:
+        for split in self.task_config["splits"]:
             stats = audio_util.get_audio_dir_stats(
                 in_dir=self.workdir.joinpath(split),
                 out_file=self.workdir.joinpath(f"{split}_stats.json"),
@@ -937,7 +1004,7 @@ class SubcorpusMetadata(MetadataTask):
 
     def run(self):
         split_label_dfs = []
-        for split in SPLITS:
+        for split in self.task_config["splits"]:
             split_path = self.requires()["data"].workdir.joinpath(split)
             audiodf = pd.DataFrame(
                 [(a.stem, a.suffix) for a in list(split_path.glob("*.wav"))],
@@ -1019,7 +1086,7 @@ class MetadataVocabulary(MetadataTask):
     def run(self):
         labelset = set()
         # Save statistics about each subcorpus metadata
-        for split in SPLITS:
+        for split in self.task_config["splits"]:
             labeldf = pd.read_csv(
                 self.requires()["subcorpus_metadata"].workdir.joinpath(f"{split}.csv")
             )
@@ -1099,7 +1166,7 @@ class ResampleSubcorpuses(MetadataTask):
                 task_config=self.task_config,
             )
             for sr in self.sample_rates
-            for split in SPLITS
+            for split in self.task_config["splits"]
         ]
         return resample_splits
 
@@ -1249,7 +1316,7 @@ class TarCorpus(MetadataTask):
 
         # Compute the audio files to be tar'ed
         files = set()
-        for split in SPLITS:
+        for split in self.task_config["splits"]:
             files |= set(
                 json.load(open(os.path.join(source_dir, f"{split}.json"))).keys()
             )

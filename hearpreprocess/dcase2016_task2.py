@@ -27,6 +27,7 @@ generic_task_config = {
     "version": "hear2021",
     "embedding_type": "event",
     "prediction_type": "multilabel",
+    "split_mode": "trainvaltest",
     "sample_duration": 120.0,
     # DCASE2016 task 2 used the segment-based total error rate as
     # their main score and then the onset only event based F1 as
@@ -72,6 +73,7 @@ generic_task_config = {
                     "md5": "14539d85dec03cb7ac75eb62dd1dd21e",
                 },
             ],
+            "max_task_duration_by_split": {"train": None, "valid": None, "test": None},
         },
     },
 }

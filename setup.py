@@ -41,6 +41,7 @@ setup(
         "ffmpeg-python",
         "note_seq",
         "tensorflow>=2.0",
+        "schema",
     ],
     extras_require={
         "test": [

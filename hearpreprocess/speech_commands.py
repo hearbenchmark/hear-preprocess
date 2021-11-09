@@ -31,6 +31,7 @@ generic_task_config = {
     "version": "v0.0.2",
     "embedding_type": "scene",
     "prediction_type": "multiclass",
+    "split_mode": "trainvaltest",
     "sample_duration": 1.0,
     "evaluation": ["top1_acc"],
     "download_urls": [
@@ -74,6 +75,7 @@ generic_task_config = {
                     "md5": "26d08374a7abd13ca2f4a4b8424f41d0",
                 },
             ],
+            "max_task_duration_by_split": {"train": None, "valid": None, "test": None},
         },
     },
 }
