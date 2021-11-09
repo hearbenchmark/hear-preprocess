@@ -11,7 +11,7 @@ import hearpreprocess.tfds_pipeline as tfds_pipeline
 
 generic_task_config = {
     "task_name": "spoken_digit",
-    "version": "1.0.0",
+    "version": "1.0.9",
     "embedding_type": "scene",
     "prediction_type": "multiclass",
     "split_mode": "new_split_kfold",
@@ -26,10 +26,18 @@ generic_task_config = {
     "modes": {
         "full": {
             "max_task_duration_by_fold": None
+        },
+        "small": {
+            "download_urls": [
+                {
+                    "split": "train",
+                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/spoken_digit-small.zip",  # noqa: E501
+                    "md5": "69d50c15805ea11beb12d9a4db1d4c2a",
+                }
+            ],
+            "max_task_duration_by_fold": None,
         }
     }
-
-
 }
 
 
@@ -53,7 +61,13 @@ def extract_metadata_task(task_config: Dict[str, Any]) -> pipeline.ExtractMetada
     Receives a task_config dictionary, downloads and extracts the correct files from
     TFDS and prepares the ExtractMetadata task class for the train split
     """
-    download_tasks = tfds_pipeline.get_download_and_extract_tasks_tfds(task_config)
+    if task_config["mode"] == "small":
+        # Small mode uses a sampled version of TF dataset - downloads directly
+        # from a URL as opposed to using the tfds methods.
+        download_tasks = pipeline.get_download_and_extract_tasks(task_config)
+    else:
+        download_tasks = tfds_pipeline.get_download_and_extract_tasks_tfds(task_config)
+
     return ExtractMetadata(
         outfile="process_metadata.csv", task_config=task_config, **download_tasks
     )
