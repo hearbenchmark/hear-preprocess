@@ -160,6 +160,9 @@ def get_audio_dir_stats(
             all_file_paths,
         )
     )
+    if len(audio_paths) == 0:
+        print("No audio files present in the folder")
+        return {}
     rng = random.Random(0)
     rng.shuffle(audio_paths)
 
