@@ -26,6 +26,7 @@ from hearpreprocess.util.luigi import (
     download_file,
     new_basedir,
     str2int,
+    safecopy,
 )
 
 INCLUDE_DATESTR_IN_FINAL_PATHS = False
@@ -665,9 +666,10 @@ class ExtractMetadata(WorkTask):
             # duration
             # sample duration is specified in the task config.
             # The specified sample duration is in seconds
-            metadata = self.trim_event_metadata(
-                metadata, duration=self.task_config["sample_duration"]
-            )
+            if self.task_config["sample_duration"] is not None:
+                metadata = self.trim_event_metadata(
+                    metadata, duration=self.task_config["sample_duration"]
+                )
         else:
             raise ValueError(
                 "%s embedding_type unknown" % self.task_config["embedding_type"]
@@ -818,6 +820,14 @@ class SubsampleSplit(SplitTask):
         # minutes or the timestamp embeddings will explode
         sample_duration = self.task_config["sample_duration"]
         max_split_duration = self.get_max_split_duration()
+        if sample_duration is None:
+            assert max_split_duration is None, (
+                "If the sample duration is set to None i.e. orignal audio files "
+                "are being used without any trimming or padding, then the "
+                "max_split_duration should also be None, so that no "
+                "subsampling is done as the audio file length is not "
+                "consistent."
+            )
 
         # If max_split_duration is not None set the max_files so that
         # the total duration of all the audio files after subsampling
@@ -919,15 +929,18 @@ class TrimPadSplit(SplitTask):
 
     def run(self):
         self.createsplit()
-
         for audiofile in tqdm(list(self.requires()["corpus"].splitdir.iterdir())):
             newaudiofile = self.splitdir.joinpath(f"{audiofile.stem}.wav")
-            audio_util.trim_pad_wav(
-                str(audiofile),
-                str(newaudiofile),
-                duration=self.task_config["sample_duration"],
-            )
-
+            if self.task_config["sample_duration"] is not None:
+                audio_util.trim_pad_wav(
+                    str(audiofile),
+                    str(newaudiofile),
+                    duration=self.task_config["sample_duration"],
+                )
+            else:
+                # If the sample_duration is None, the file will be copied
+                # without any trimming or padding
+                safecopy(src=audiofile, dst=newaudiofile)
         self.mark_complete()
 
 
