@@ -4,6 +4,7 @@ Pre-processing pipeline for NSynth pitch detection, but with 10-fold
 as a way of checking kfold versus 80/10/10 train/val/test split.
 """
 
+# noqa: F401
 from hearpreprocess.nsynth_pitch import (
     ExtractMetadata,
     extract_metadata_task,
@@ -16,8 +17,10 @@ generic_task_config["split_mode"] = "new_split_kfold"
 # train/val/test is 80/10/10, so 10-fold is identical in split proportions
 generic_task_config["nfolds"] = 10
 
-# generic_task_config["modes"]["5h"] = {"max_task_duration_by_fold": 3600 * 5 * TEST_PERCENTAGE / TRAINVAL_PERCENTAGE}
-# generic_task_config["modes"]["50h"] = {"max_task_duration_by_fold": 36000 * 5 * TEST_PERCENTAGE / TRAINVAL_PERCENTAGE}
+# generic_task_config["modes"]["5h"] = \
+#   {"max_task_duration_by_fold": 3600 * 5 * TEST_PERCENTAGE / TRAINVAL_PERCENTAGE}
+# generic_task_config["modes"]["50h"] = \
+#   {"max_task_duration_by_fold": 36000 * 5 * TEST_PERCENTAGE / TRAINVAL_PERCENTAGE}
 # generic_task_config["modes"]["small"]["max_task_duration_by_fold"] = None
 # del generic_task_config["modes"]["small"]["max_task_duration_by_split"]
 
