@@ -16,10 +16,10 @@ import logging
 import multiprocessing
 import random
 import shutil
-from pathlib import Path
-from typing import Optional, Dict, Any
-from urllib.parse import urlparse
 import tempfile
+from pathlib import Path
+from typing import Any, Dict, Optional
+from urllib.parse import urlparse
 
 import click
 import luigi
@@ -27,9 +27,9 @@ from tqdm import tqdm
 
 import hearpreprocess.pipeline as pipeline
 import hearpreprocess.tfds_pipeline as tfds_pipeline
+import hearpreprocess.util.audio as audio_util
 from hearpreprocess import dcase2016_task2, nsynth_pitch, speech_commands, spoken_digit
 from hearpreprocess.util.luigi import WorkTask
-import hearpreprocess.util.audio as audio_util
 
 logger = logging.getLogger("luigi-interface")
 # Currently the sampler is only allowed to run for open tasks

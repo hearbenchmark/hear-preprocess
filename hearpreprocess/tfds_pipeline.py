@@ -14,7 +14,7 @@ labels. This is connected to downstream tasks from the main pipeline.
 """
 import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 import luigi
 import numpy as np

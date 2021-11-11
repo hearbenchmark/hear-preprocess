@@ -4,7 +4,12 @@ Pre-processing pipeline for NSynth pitch detection, but with 10-fold
 as a way of checking kfold versus 80/10/10 train/val/test split.
 """
 
-from hearpreprocess.nsynth_pitch import *
+from hearpreprocess.nsynth_pitch import (
+    ExtractMetadata,
+    extract_metadata_task,
+    generic_task_config,
+    logger,
+)
 
 generic_task_config["task_name"] = "nsynth_pitch_kfold"
 generic_task_config["split_mode"] = "new_split_kfold"
