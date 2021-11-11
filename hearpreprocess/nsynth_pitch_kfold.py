@@ -5,7 +5,7 @@ as a way of checking kfold versus 80/10/10 train/val/test split.
 """
 
 from hearpreprocess.nsynth_pitch import generic_task_config
-from hearpreprocess.nsynth_pitch import *
+from hearpreprocess.nsynth_pitch import *  # noqa: F403, F401
 
 generic_task_config["task_name"] = "nsynth_pitch_kfold"
 generic_task_config["split_mode"] = "new_split_kfold"
