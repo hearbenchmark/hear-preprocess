@@ -17,9 +17,10 @@ import multiprocessing
 import random
 import shutil
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Callable, Optional, Dict, Any
 from urllib.parse import urlparse
 import tempfile
+import copy
 
 import click
 import luigi
@@ -30,6 +31,7 @@ import hearpreprocess.tfds_pipeline as tfds_pipeline
 from hearpreprocess import dcase2016_task2, nsynth_pitch, speech_commands, spoken_digit
 from hearpreprocess.util.luigi import WorkTask
 import hearpreprocess.util.audio as audio_util
+import hearpreprocess.util.luigi as luigi_util
 
 logger = logging.getLogger("luigi-interface")
 # Currently the sampler is only allowed to run for open tasks
@@ -59,21 +61,25 @@ configs = {
         "task_config": dcase2016_task2.generic_task_config,
         "audio_sample_size": 4,
         "necessary_keys": [],
+        "get_download_and_extract_tasks": pipeline.get_download_and_extract_tasks,
     },
     "nsynth_pitch": {
         "task_config": nsynth_pitch.generic_task_config,
         "audio_sample_size": 100,
         "necessary_keys": [],
+        "get_download_and_extract_tasks": pipeline.get_download_and_extract_tasks,
     },
     "speech_commands": {
         "task_config": speech_commands.generic_task_config,
         "audio_sample_size": 100,
         "necessary_keys": [],
+        "get_download_and_extract_tasks": pipeline.get_download_and_extract_tasks,
     },
     "spoken_digit": {
         "task_config": spoken_digit.generic_task_config,
         "audio_sample_size": 100,
         "necessary_keys": [],
+        "get_download_and_extract_tasks": tfds_pipeline.get_download_and_extract_tasks_tfds,
     },
     # Add the sampler config for the secrets task if the secret task config was found.
     # Not available for participants
@@ -81,22 +87,9 @@ configs = {
 }
 
 
-class RandomSampleOriginalDataset(WorkTask):
+class _RandomSampleOriginalDataset(WorkTask):
     necessary_keys = luigi.ListParameter()
     audio_sample_size = luigi.IntParameter()
-
-    def requires(self):
-        # If this is a TensorFlow dataset then use the tfds pipeline
-        if "tfds_task_name" in self.task_config:
-            return tfds_pipeline.get_download_and_extract_tasks_tfds(self.task_config)
-
-        return pipeline.get_download_and_extract_tasks(self.task_config)
-
-    @staticmethod
-    def safecopy(src, dst):
-        # Make sure the parent destination directory exists
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
 
     @staticmethod
     def trimcopy_audio(src, tmp_dst, fin_dst, small_duration):
@@ -167,7 +160,9 @@ class RandomSampleOriginalDataset(WorkTask):
 
             # Copy all the non audio files
             for file in tqdm(copy_files):
-                self.safecopy(src=copy_from.joinpath(file), dst=copy_to.joinpath(file))
+                luigi_util.safecopy(
+                    src=copy_from.joinpath(file), dst=copy_to.joinpath(file)
+                )
 
             # Save all the audio after trimming them to small sample duration
             # The small sample duration(in seconds) is specified in the small
@@ -189,6 +184,29 @@ class RandomSampleOriginalDataset(WorkTask):
             shutil.make_archive(copy_to, "zip", copy_to)
 
 
+def get_sampler_task(sampler_config: Dict[str, Any]) -> _RandomSampleOriginalDataset:
+    """
+    Returns a task to do sampling after downloading the dataset with
+    download and extract tasks from the dataset specific
+    `get_download_and_extract_tasks` function
+    """
+    _task_config: Dict[str, Any] = copy.deepcopy(sampler_config["task_config"])
+    _task_config["mode"] = _task_config["default_mode"]
+    _get_download_and_extract_tasks: Callable = sampler_config[
+        "get_download_and_extract_tasks"
+    ]
+
+    class RandomSampleOriginalDataset(_RandomSampleOriginalDataset):
+        task_config = _task_config
+        audio_sample_size = sampler_config["audio_sample_size"]
+        necessary_keys = sampler_config["necessary_keys"]
+
+        def requires(self):
+            return _get_download_and_extract_tasks(self.task_config)
+
+    return RandomSampleOriginalDataset
+
+
 @click.command()
 @click.argument("task")
 @click.option(
@@ -202,15 +220,10 @@ def main(task: str, num_workers: Optional[int] = None):
     if num_workers is None:
         num_workers = multiprocessing.cpu_count()
     logger.info(f"Using {num_workers} workers")
-    config: Dict[str, Any] = configs[task]
-    default_config: str = config["task_config"]["default_mode"]
-    config["task_config"]["mode"] = default_config
-    sampler = RandomSampleOriginalDataset(
-        task_config=config["task_config"],
-        audio_sample_size=config["audio_sample_size"],
-        necessary_keys=config["necessary_keys"],
-    )
-    pipeline.run(sampler, num_workers=num_workers)
+
+    sampler_config: Dict[str, Any] = configs[task]
+    sampler = get_sampler_task(sampler_config)
+    pipeline.run(sampler(), num_workers=num_workers)
 
 
 if __name__ == "__main__":
