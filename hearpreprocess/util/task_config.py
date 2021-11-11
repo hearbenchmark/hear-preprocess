@@ -113,7 +113,9 @@ def validate_generic_task_config(
             "embedding_type": Or("scene", "event", str),
             "prediction_type": Or("multiclass", "multilabel", str),
             "split_mode": Or("trainvaltest", "presplit_kfold", "new_split_kfold"),
-            "sample_duration": Or(float, int),
+            # When the sample duration is None, the original audio is retained
+            # without any trimming and padding
+            "sample_duration": Or(float, int, None),
             "evaluation": Schema([str]),
             "default_mode": Or("5h", "50h", "full", str),
         }
@@ -177,6 +179,12 @@ def validate_generic_task_config(
                     ): object,
                 }
             )
+            # If the sample duration is set to None, the max_task_duration_by_split
+            # should also be None and no subsampling will be done
+            if task_config["sample_duration"] is None:
+                schema["max_task_duration_by_split"] = Schema(
+                    {split: Or(int, float, None) for split in SPLITS}
+                )
         elif split_mode in ["presplit_kfold", "new_split_kfold"]:
 
             assert (
@@ -203,6 +211,10 @@ def validate_generic_task_config(
                     ): object,
                 }
             )
+            # If the sample duration is set to None, the max_task_duration_by_fold
+            # should also be None and no subsampling will be done
+            if task_config["sample_duration"] is None:
+                schema["max_task_duration_by_fold"] = None
         else:
             raise ValueError("Invalid split_mode")
 
