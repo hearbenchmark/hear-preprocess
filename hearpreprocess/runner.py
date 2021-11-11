@@ -145,6 +145,14 @@ def run(
             raise ValueError(f"mode {mode} unknown")
         for task_mode in task_modes:
             task_config = copy.deepcopy(task_module.generic_task_config)
+            if task_mode == "small" and "small" not in task_config["modes"]:
+                print(
+                    f"No small mode found in {task_config['task_name']} task"
+                    "Skipping the task, Please add the small mode for the task to "
+                    "run it in small mode"
+                )
+                continue
+
             task_config.update(dict(task_config["modes"][task_mode]))
             task_config["tmp_dir"] = tmp_dir
             task_config["mode"] = task_mode
