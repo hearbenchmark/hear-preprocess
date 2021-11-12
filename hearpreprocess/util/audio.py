@@ -207,7 +207,7 @@ def get_audio_dir_stats(
                 # Percentile duration of the audio
                 **{
                     f"{p}th": round(np.percentile(durations, p), 2)
-                    for p in [10, 25, 50, 75, 90]
+                    for p in [10, 25, 50, 75, 90, 95]
                 },
             }
         )

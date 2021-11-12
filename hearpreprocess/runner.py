@@ -12,12 +12,12 @@ import click
 
 import hearpreprocess.dcase2016_task2 as dcase2016_task2
 import hearpreprocess.nsynth_pitch as nsynth_pitch
+import hearpreprocess.nsynth_pitch_kfold as nsynth_pitch_kfold
 import hearpreprocess.pipeline as pipeline
 import hearpreprocess.speech_commands as speech_commands
-import hearpreprocess.tfds_speech_commands as tfds_speech_commands
 import hearpreprocess.spoken_digit as spoken_digit
+import hearpreprocess.tfds_speech_commands as tfds_speech_commands
 from hearpreprocess.util.task_config import validate_generic_task_config
-
 
 logger = logging.getLogger("luigi-interface")
 # Currently the runner is only allowed to run for open tasks
@@ -40,10 +40,23 @@ tasks = {
     "tfds_speech_commands": [tfds_speech_commands],
     "speech_commands": [speech_commands],
     "nsynth_pitch": [nsynth_pitch],
+    "nsynth_pitch_kfold": [nsynth_pitch_kfold],
     "dcase2016_task2": [dcase2016_task2],
     "spoken_digit": [spoken_digit],
-    "open": [speech_commands, nsynth_pitch, dcase2016_task2, spoken_digit],
-    "all": [speech_commands, nsynth_pitch, dcase2016_task2, spoken_digit]
+    "open": [
+        speech_commands,
+        nsynth_pitch,
+        nsynth_pitch_kfold,
+        dcase2016_task2,
+        spoken_digit,
+    ],
+    "all": [
+        speech_commands,
+        nsynth_pitch,
+        nsynth_pitch_kfold,
+        dcase2016_task2,
+        spoken_digit,
+    ]
     + secret_tasks.get("all-secret", []),
     # Add the task config for the secrets task if the secret task config was found.
     # Not available for participants
@@ -132,6 +145,14 @@ def run(
             raise ValueError(f"mode {mode} unknown")
         for task_mode in task_modes:
             task_config = copy.deepcopy(task_module.generic_task_config)
+            if task_mode == "small" and "small" not in task_config["modes"]:
+                print(
+                    f"No small mode found in {task_config['task_name']} task"
+                    "Skipping the task, Please add the small mode for the task to "
+                    "run it in small mode"
+                )
+                continue
+
             task_config.update(dict(task_config["modes"][task_mode]))
             task_config["tmp_dir"] = tmp_dir
             task_config["mode"] = task_mode
