@@ -666,6 +666,13 @@ class ExtractMetadata(WorkTask):
             # duration
             # sample duration is specified in the task config.
             # The specified sample duration is in seconds
+
+            # If the sample duration is set to None, no trimming of events will
+            # be done and the full audio file will be selected. This mode is
+            # only for special tasks and should not be generally used.
+            # Having all the audio files of the same length is more
+            # efficient for downstream pipelines
+
             if self.task_config["sample_duration"] is not None:
                 metadata = self.trim_event_metadata(
                     metadata, duration=self.task_config["sample_duration"]

@@ -73,6 +73,17 @@ def validate_generic_task_config(
             This validator checks if the tfds task configuration is correctly
             defined
 
+        * sample_duration can also be set to `None`, rather than integer or
+            float, in which case, the audio files in the dataset will not
+            be trimmed or padded, rather the original file duration will be
+            retained in the output of the pipeline.
+            In this case, the max split duration should be set to
+            None and no subsampling can be done, as file durations are
+            not consistent.
+            However, this is only for specific tasks and should not be generally
+            used as it is not efficient for downstream pipelines, particularly
+            embedding generation in heareval
+
     Args:
         task_config: Task config to be used with the pipeline
         ignore_extra_keys: Flag for ignoring extra keys in the task configuration.
