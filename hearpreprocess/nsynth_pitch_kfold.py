@@ -7,7 +7,10 @@ as a way of checking kfold versus 80/10/10 train/val/test split.
 import copy
 
 import hearpreprocess.nsynth_pitch as nsynth_pitch
-from hearpreprocess.nsynth_pitch import ExtractMetadata, extract_metadata_task
+from hearpreprocess.nsynth_pitch import (  # noqa: F401
+    ExtractMetadata,
+    extract_metadata_task,
+)
 
 # Copy the regular nsynth_pitch config - updated here for custom k-fold
 generic_task_config = copy.deepcopy(nsynth_pitch.generic_task_config)
