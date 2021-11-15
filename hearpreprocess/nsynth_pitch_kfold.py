@@ -9,7 +9,7 @@ import copy
 import hearpreprocess.nsynth_pitch as nsynth_pitch
 from hearpreprocess.nsynth_pitch import ExtractMetadata, extract_metadata_task
 
-# Copy the regular nsynth_pitch config - updated here from custom k-fold
+# Copy the regular nsynth_pitch config - updated here for custom k-fold
 generic_task_config = copy.deepcopy(nsynth_pitch.generic_task_config)
 
 generic_task_config["task_name"] = "nsynth_pitch_kfold"
