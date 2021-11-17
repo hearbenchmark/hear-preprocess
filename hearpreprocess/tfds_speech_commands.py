@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from typing import Dict, Any
+from typing import Any, Dict
 
 import hearpreprocess.tfds_pipeline as tfds_pipeline
 from hearpreprocess.pipeline import (

@@ -16,6 +16,7 @@ import logging
 import multiprocessing
 import random
 import shutil
+import tempfile
 from pathlib import Path
 from typing import Callable, Optional, Dict, Any
 from urllib.parse import urlparse
@@ -28,6 +29,7 @@ from tqdm import tqdm
 
 import hearpreprocess.pipeline as pipeline
 import hearpreprocess.tfds_pipeline as tfds_pipeline
+import hearpreprocess.util.audio as audio_util
 from hearpreprocess import dcase2016_task2, nsynth_pitch, speech_commands, spoken_digit
 from hearpreprocess.util.luigi import WorkTask
 import hearpreprocess.util.audio as audio_util

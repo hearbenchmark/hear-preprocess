@@ -13,8 +13,8 @@ from typing import Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
 
 import luigi
-import pandas as pd
 import numpy as np
+import pandas as pd
 from slugify import slugify
 from tqdm import tqdm
 

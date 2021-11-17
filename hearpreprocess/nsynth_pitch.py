@@ -22,7 +22,7 @@ from hearpreprocess.pipeline import (
 logger = logging.getLogger("luigi-interface")
 
 
-generic_task_config = {
+generic_task_config: Dict[str, Any] = {
     "task_name": "nsynth_pitch",
     "version": "v2.2.3",
     "embedding_type": "scene",
