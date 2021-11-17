@@ -56,6 +56,10 @@ AUDIOFORMATS = [".mp3", ".wav", ".ogg", ".webm"]
 
 
 # Note: Necessary key helps to select audios with the necessary keys in there name
+# Note: The `get_download_and_extract_tasks` is the task specific function which
+#   returns the tasks to download and extract the dataset for the task. This is
+#   requried here, because the sampling task needs to download and extract the
+#   tasks before actual sampling
 configs = {
     "dcase2016_task2": {
         "task_config": dcase2016_task2.generic_task_config,
@@ -87,7 +91,7 @@ configs = {
 }
 
 
-class _RandomSampleOriginalDataset(WorkTask):
+class RandomSampleOriginalDataset(WorkTask):
     necessary_keys = luigi.ListParameter()
     audio_sample_size = luigi.IntParameter()
 
@@ -184,7 +188,7 @@ class _RandomSampleOriginalDataset(WorkTask):
             shutil.make_archive(copy_to, "zip", copy_to)
 
 
-def get_sampler_task(sampler_config: Dict[str, Any]) -> _RandomSampleOriginalDataset:
+def get_sampler_task(sampler_config: Dict[str, Any]) -> RandomSampleOriginalDataset:
     """
     Returns a task to do sampling after downloading the dataset with
     download and extract tasks from the dataset specific
@@ -196,7 +200,7 @@ def get_sampler_task(sampler_config: Dict[str, Any]) -> _RandomSampleOriginalDat
         "get_download_and_extract_tasks"
     ]
 
-    class RandomSampleOriginalDataset(_RandomSampleOriginalDataset):
+    class _RandomSampleOriginalDataset(RandomSampleOriginalDataset):
         task_config = _task_config
         audio_sample_size = sampler_config["audio_sample_size"]
         necessary_keys = sampler_config["necessary_keys"]
@@ -204,7 +208,7 @@ def get_sampler_task(sampler_config: Dict[str, Any]) -> _RandomSampleOriginalDat
         def requires(self):
             return _get_download_and_extract_tasks(self.task_config)
 
-    return RandomSampleOriginalDataset
+    return _RandomSampleOriginalDataset
 
 
 @click.command()
