@@ -194,7 +194,7 @@ def validate_generic_task_config(
             # should also be None and no subsampling will be done
             if task_config["sample_duration"] is None:
                 schema["max_task_duration_by_split"] = Schema(
-                    {split: Or(int, float, None) for split in SPLITS}
+                    {split: None for split in SPLITS}
                 )
         elif split_mode in ["presplit_kfold", "new_split_kfold"]:
 
