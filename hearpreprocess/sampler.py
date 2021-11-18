@@ -83,7 +83,7 @@ configs = {
         "task_config": spoken_digit.generic_task_config,
         "audio_sample_size": 100,
         "necessary_keys": [],
-        "get_download_and_extract_tasks": tfds_pipeline.get_download_and_extract_tasks_tfds,
+        "get_download_and_extract_tasks": tfds_pipeline.get_download_and_extract_tasks_tfds,  # noqa: E501
     },
     # Add the sampler config for the secrets task if the secret task config was found.
     # Not available for participants
