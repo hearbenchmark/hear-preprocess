@@ -73,6 +73,17 @@ def validate_generic_task_config(
             This validator checks if the tfds task configuration is correctly
             defined
 
+        * sample_duration can also be set to `None`, rather than integer or
+            float, in which case, the audio files in the dataset will not
+            be trimmed or padded, rather the original file duration will be
+            retained in the output of the pipeline.
+            In this case, the max split duration should be set to
+            None and no subsampling can be done, as file durations are
+            not consistent.
+            However, this is only for specific tasks and should not be generally
+            used as it is not efficient for downstream pipelines, particularly
+            embedding generation in heareval
+
     Args:
         task_config: Task config to be used with the pipeline
         ignore_extra_keys: Flag for ignoring extra keys in the task configuration.
@@ -113,7 +124,9 @@ def validate_generic_task_config(
             "embedding_type": Or("scene", "event", str),
             "prediction_type": Or("multiclass", "multilabel", str),
             "split_mode": Or("trainvaltest", "presplit_kfold", "new_split_kfold"),
-            "sample_duration": Or(float, int),
+            # When the sample duration is None, the original audio is retained
+            # without any trimming and padding
+            "sample_duration": Or(float, int, None),
             "evaluation": Schema([str]),
             "default_mode": Or("5h", "50h", "full", str),
         }
@@ -177,6 +190,12 @@ def validate_generic_task_config(
                     ): object,
                 }
             )
+            # If the sample duration is set to None, the max_task_duration_by_split
+            # should also be None and no subsampling will be done
+            if task_config["sample_duration"] is None:
+                schema["max_task_duration_by_split"] = Schema(
+                    {split: None for split in SPLITS}
+                )
         elif split_mode in ["presplit_kfold", "new_split_kfold"]:
 
             assert (
@@ -203,6 +222,10 @@ def validate_generic_task_config(
                     ): object,
                 }
             )
+            # If the sample duration is set to None, the max_task_duration_by_fold
+            # should also be None and no subsampling will be done
+            if task_config["sample_duration"] is None:
+                schema["max_task_duration_by_fold"] = None
         else:
             raise ValueError("Invalid split_mode")
 

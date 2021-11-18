@@ -8,6 +8,7 @@ import os
 import os.path
 from functools import partial
 from pathlib import Path
+import shutil
 
 import luigi
 import requests
@@ -219,3 +220,13 @@ def str2int(s: str) -> int:
     https://stackoverflow.com/a/16008760/82733
     """
     return int(hashlib.sha1(s.encode("utf-8")).hexdigest(), 16) % (2 ** 32 - 1)
+
+
+def safecopy(src, dst):
+    """
+    Copies a file after checking if the parent destination directory exists
+    If the parent doesnot exists, the parent directory will be made and the
+    file will be copied
+    """
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
