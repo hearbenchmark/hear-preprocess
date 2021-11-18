@@ -19,7 +19,7 @@ import random
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Type
 from urllib.parse import urlparse
 
 import click
@@ -188,7 +188,9 @@ class RandomSampleOriginalDataset(WorkTask):
             shutil.make_archive(copy_to, "zip", copy_to)
 
 
-def get_sampler_task(sampler_config: Dict[str, Any]) -> RandomSampleOriginalDataset:
+def get_sampler_task(
+    sampler_config: Dict[str, Any]
+) -> Type[RandomSampleOriginalDataset]:
     """
     Returns a task to do sampling after downloading the dataset with
     download and extract tasks from the dataset specific
