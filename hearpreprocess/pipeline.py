@@ -25,8 +25,8 @@ from hearpreprocess.util.luigi import (
     diagnostics,
     download_file,
     new_basedir,
-    str2int,
     safecopy,
+    str2int,
 )
 
 INCLUDE_DATESTR_IN_FINAL_PATHS = False

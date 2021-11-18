@@ -12,16 +12,15 @@ Also uses the configs defined in the task files for making
 it simple to scale across multiple dataset
 """
 
+import copy
 import logging
 import multiprocessing
 import random
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Callable, Optional, Dict, Any
+from typing import Any, Callable, Dict, Optional
 from urllib.parse import urlparse
-import tempfile
-import copy
 
 import click
 import luigi
@@ -30,10 +29,9 @@ from tqdm import tqdm
 import hearpreprocess.pipeline as pipeline
 import hearpreprocess.tfds_pipeline as tfds_pipeline
 import hearpreprocess.util.audio as audio_util
+import hearpreprocess.util.luigi as luigi_util
 from hearpreprocess import dcase2016_task2, nsynth_pitch, speech_commands, spoken_digit
 from hearpreprocess.util.luigi import WorkTask
-import hearpreprocess.util.audio as audio_util
-import hearpreprocess.util.luigi as luigi_util
 
 logger = logging.getLogger("luigi-interface")
 # Currently the sampler is only allowed to run for open tasks

@@ -7,8 +7,8 @@ as a way of checking kfold versus 80/10/10 train/val/test split.
 import copy
 
 import hearpreprocess.nsynth_pitch as nsynth_pitch
-from hearpreprocess.nsynth_pitch import (  # noqa: F401
-    ExtractMetadata,
+from hearpreprocess.nsynth_pitch import (
+    ExtractMetadata,  # noqa: F401
     extract_metadata_task,
 )
 
