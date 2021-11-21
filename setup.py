@@ -29,7 +29,10 @@ setup(
     install_requires=[
         "click",
         "luigi",
-        "numpy",
+        # One of the requirements pulls in librosa, I believe note_seq
+        # So we need to pin these, otherwise librosa breaks
+        "numpy==1.19.2",
+        "numba==0.48",
         "pandas",
         "python-slugify",
         "requests",
