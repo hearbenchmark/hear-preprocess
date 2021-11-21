@@ -36,7 +36,11 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
     PIP_INSTALL="python3 -m pip --no-cache-dir install --upgrade" && \
     GIT_CLONE="git clone --depth 10" && \
     DEBIAN_FRONTEND=noninteractive $APT_INSTALL \
-        unzip unrar
+        unzip unrar \
+        tmux \
+        screen \
+        bc \
+        openssh-client
 
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections && apt-get install -y -q
 
@@ -113,6 +117,8 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
     GIT_CLONE="git clone --depth 10" && \
     $APT_INSTALL google-cloud-sdk
 #gcloud init
+
+RUN echo 20211120
 
 RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
     PIP_INSTALL="python3 -m pip --no-cache-dir install" && \
