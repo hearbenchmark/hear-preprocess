@@ -96,12 +96,11 @@ def _diagnose_split_labels(
 
     # Confirm that there are examples for all class labels
     # This is a requirement for many metrics
-    if any(split_label_missing[split] for split in splits):
-        # We expect that there will be some missing for small datasets - this is okay
-        if task_config["mode"] == "small":
-            pass
-        # Event multilabel tasks are also an exception (e.g. maestro)
-        elif (
+    if task_config["mode"] != "small" and any(
+        split_label_missing[split] for split in splits
+    ):
+        # Event multilabel tasks are an exception (e.g. maestro)
+        if (
             task_config["embedding_type"] == "event"
             and task_config["prediction_type"] == "multilabel"
         ):
