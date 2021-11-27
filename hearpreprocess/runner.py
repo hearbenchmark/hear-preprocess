@@ -6,7 +6,7 @@ Runs a luigi pipeline to build a dataset
 import copy
 import logging
 import multiprocessing
-from typing import Optional
+from typing import List, Optional
 
 import click
 
@@ -169,8 +169,8 @@ def run(
                     # Dataset will be partitioned into train/validation/test splits
                     task_config["splits"] = pipeline.SPLITS
                 elif task_config["split_mode"] in ["new_split_kfold", "presplit_kfold"]:
-                    # Dataset will be partitioned in k-folds, either using predefined folds
-                    # or with using folds defined in the pipeline
+                    # Dataset will be partitioned in k-folds, either using
+                    # predefined folds or with using folds defined in the pipeline
                     n_folds = task_config["nfolds"]
                     assert isinstance(n_folds, int)
                     task_config["splits"] = [
