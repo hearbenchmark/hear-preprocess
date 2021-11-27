@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 import warnings
 
 import luigi
+import patoolib
 import numpy as np
 import pandas as pd
 from slugify import slugify
@@ -166,8 +167,16 @@ class ExtractArchive(WorkTask):
     def run(self):
         archive_path = self.requires()["download"].workdir.joinpath(self.infile)
         archive_path = archive_path.absolute()
-        shutil.unpack_archive(archive_path, self.output_path)
-
+        # https://stackoverflow.com/questions/17614467/how-can-unrar-a-file-with-python
+        # Requires unrar for rar files - sudo apt install unrar
+        # Also works for types supported by shutil.unpack_archive
+        if self.output_path.exists():
+            shutil.rmtree(self.output_path)
+        self.output_path.mkdir(parents=True, exist_ok=True)
+        print(f"Extracting {self.infile} ..Please wait")
+        patoolib.extract_archive(
+            archive=archive_path, verbosity=0, outdir=self.output_path
+        )
         self.mark_complete()
 
 

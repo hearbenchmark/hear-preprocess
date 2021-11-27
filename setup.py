@@ -45,6 +45,7 @@ setup(
         "note_seq",
         "tensorflow>=2.0",
         "schema",
+        "patoolib",
     ],
     extras_require={
         "test": [
