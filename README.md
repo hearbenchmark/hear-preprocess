@@ -83,8 +83,14 @@ available modes for each task:
 python3 -m hearpreprocess.runner all --mode all
 ```
 
-`all` could instead be a specific single task, or specific multiple
-tasks.
+You can instead just call a specific single task
+```
+python3 -m hearpreprocess.runner task1 --mode all
+```
+or specific multiple tasks:
+```
+python3 -m hearpreprocess.runner task1 task2 --mode all
+```
 
 Upload to private bucket:
 ```
