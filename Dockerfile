@@ -37,6 +37,7 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
     GIT_CLONE="git clone --depth 10" && \
     DEBIAN_FRONTEND=noninteractive $APT_INSTALL \
         unzip unrar \
+        zip \
         tmux \
         screen \
         bc \

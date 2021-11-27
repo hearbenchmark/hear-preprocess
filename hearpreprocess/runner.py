@@ -6,7 +6,7 @@ Runs a luigi pipeline to build a dataset
 import copy
 import logging
 import multiprocessing
-from typing import Optional
+from typing import List, Optional
 
 import click
 
@@ -65,7 +65,7 @@ tasks = {
 
 
 @click.command()
-@click.argument("task")
+@click.argument("tasklist", nargs=-1, required=True)
 @click.option(
     "--num-workers",
     default=None,
@@ -107,7 +107,7 @@ tasks = {
     type=str,
 )
 def run(
-    task: str,
+    tasklist: List[str],
     num_workers: Optional[int] = None,
     sample_rate: Optional[int] = None,
     tmp_dir: Optional[str] = "_workdir",
@@ -125,69 +125,72 @@ def run(
         sample_rates = [sample_rate]
 
     tasks_to_run = []
-    for task_module in tasks[task]:
-        # Validate the generic task configuration defined for the task
-        validate_generic_task_config(task_module.generic_task_config)
-        if mode == "default":
-            task_modes = [task_module.generic_task_config["default_mode"]]
-        elif mode == "small":
-            task_modes = ["small"]
-        elif mode in task_module.generic_task_config["modes"]:
-            task_modes = [mode]
-        elif mode == "all":
-            task_modes = [
-                task_mode
-                for task_mode in task_module.generic_task_config["modes"].keys()
-                if task_mode != "small"
-            ]
-            assert task_modes is not [], f"Task {task} has no modes besides 'small'"
-        else:
-            raise ValueError(f"mode {mode} unknown")
-        for task_mode in task_modes:
-            task_config = copy.deepcopy(task_module.generic_task_config)
-            if task_mode == "small" and "small" not in task_config["modes"]:
-                print(
-                    f"No small mode found in {task_config['task_name']} task"
-                    "Skipping the task, Please add the small mode for the task to "
-                    "run it in small mode"
-                )
-                continue
-
-            task_config.update(dict(task_config["modes"][task_mode]))
-            task_config["tmp_dir"] = tmp_dir
-            task_config["mode"] = task_mode
-            del task_config["modes"]
-
-            # The `splits` key has to be initialised outside the pipeline,
-            # since the splits are used in defining the required tasks
-            # for example, in requires method for ResampleSubcorpuses
-            if "split_mode" not in task_config:
-                raise ValueError("split_mode is a required config for all tasks")
-
-            if task_config["split_mode"] == "trainvaltest":
-                # Dataset will be partitioned into train/validation/test splits
-                task_config["splits"] = pipeline.SPLITS
-            elif task_config["split_mode"] in ["new_split_kfold", "presplit_kfold"]:
-                # Dataset will be partitioned in k-folds, either using predefined folds
-                # or with using folds defined in the pipeline
-                n_folds = task_config["nfolds"]
-                assert isinstance(n_folds, int)
-                task_config["splits"] = ["fold{:02d}".format(i) for i in range(n_folds)]
+    for task in tasklist:
+        for task_module in tasks[task]:
+            # Validate the generic task configuration defined for the task
+            validate_generic_task_config(task_module.generic_task_config)
+            if mode == "default":
+                task_modes = [task_module.generic_task_config["default_mode"]]
+            elif mode == "small":
+                task_modes = ["small"]
+            elif mode in task_module.generic_task_config["modes"]:
+                task_modes = [mode]
+            elif mode == "all":
+                task_modes = [
+                    task_mode
+                    for task_mode in task_module.generic_task_config["modes"].keys()
+                    if task_mode != "small"
+                ]
+                assert task_modes is not [], f"Task {task} has no modes besides 'small'"
             else:
-                raise ValueError(
-                    f"Unknown split_mode received: {task_config['split_mode']}, "
-                    "expected 'trainvaltest, 'new_split_kfold', or 'presplit_kfold'"
-                )
+                raise ValueError(f"mode {mode} unknown")
+            for task_mode in task_modes:
+                task_config = copy.deepcopy(task_module.generic_task_config)
+                if task_mode == "small" and "small" not in task_config["modes"]:
+                    print(
+                        f"No small mode found in {task_config['task_name']} task"
+                        "Skipping the task, Please add the small mode for the task to "
+                        "run it in small mode"
+                    )
+                    continue
 
-            metadata_task = task_module.extract_metadata_task(task_config)
-            final_task = pipeline.FinalizeCorpus(
-                sample_rates=sample_rates,
-                tasks_dir=tasks_dir,
-                tar_dir=tar_dir,
-                metadata_task=metadata_task,
-                task_config=task_config,
-            )
-            tasks_to_run.append(final_task)
+                task_config.update(dict(task_config["modes"][task_mode]))
+                task_config["tmp_dir"] = tmp_dir
+                task_config["mode"] = task_mode
+                del task_config["modes"]
+
+                # The `splits` key has to be initialised outside the pipeline,
+                # since the splits are used in defining the required tasks
+                # for example, in requires method for ResampleSubcorpuses
+                if "split_mode" not in task_config:
+                    raise ValueError("split_mode is a required config for all tasks")
+
+                if task_config["split_mode"] == "trainvaltest":
+                    # Dataset will be partitioned into train/validation/test splits
+                    task_config["splits"] = pipeline.SPLITS
+                elif task_config["split_mode"] in ["new_split_kfold", "presplit_kfold"]:
+                    # Dataset will be partitioned in k-folds, either using
+                    # predefined folds or with using folds defined in the pipeline
+                    n_folds = task_config["nfolds"]
+                    assert isinstance(n_folds, int)
+                    task_config["splits"] = [
+                        "fold{:02d}".format(i) for i in range(n_folds)
+                    ]
+                else:
+                    raise ValueError(
+                        f"Unknown split_mode received: {task_config['split_mode']}, "
+                        "expected 'trainvaltest, 'new_split_kfold', or 'presplit_kfold'"
+                    )
+
+                metadata_task = task_module.extract_metadata_task(task_config)
+                final_task = pipeline.FinalizeCorpus(
+                    sample_rates=sample_rates,
+                    tasks_dir=tasks_dir,
+                    tar_dir=tar_dir,
+                    metadata_task=metadata_task,
+                    task_config=task_config,
+                )
+                tasks_to_run.append(final_task)
 
     pipeline.run(
         tasks_to_run,
