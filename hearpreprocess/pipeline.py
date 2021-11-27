@@ -175,7 +175,7 @@ class ExtractArchive(WorkTask):
         self.output_path.mkdir(parents=True, exist_ok=True)
         print(f"Extracting {self.infile} ..Please wait")
         patoolib.extract_archive(
-            archive=archive_path, verbosity=0, outdir=self.output_path
+            archive=str(archive_path), verbosity=0, outdir=str(self.output_path)
         )
         self.mark_complete()
 
