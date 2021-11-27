@@ -155,9 +155,17 @@ def validate_generic_task_config(
                         [
                             # A set of optional keys are still defined here
                             {
+                                # The split name for which the file is being downloaded
+                                # This is not restricted to being train, valid or test
                                 Optional("split"): str,
+                                # If one split is made up of multiple downloads,
+                                # each download can have separate names with the same
+                                # split name. (Check dcase for example).
+                                # Each such download will be in the same split folder
                                 Optional("name"): str,
+                                # URL for this download
                                 Optional("url"): str,
+                                # Expected MD5 for the download
                                 Optional("md5"): str,
                             }
                         ],
