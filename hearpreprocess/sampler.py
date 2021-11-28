@@ -153,7 +153,13 @@ class RandomSampleOriginalDataset(WorkTask):
             # Sample a small subset to copy from all the files
             url_name = Path(urlparse(url_obj["url"]).path).stem
             split = url_obj["split"]
-            copy_from = self.requires()[split].workdir.joinpath(split)
+            name = url_obj.get("name", None)
+            if name is None:
+                copy_from = self.requires()[split].workdir.joinpath(split)
+            else:
+                copy_from = self.requires()[f"{split}_{name}"].workdir.joinpath(
+                    split, name
+                )
             all_files = [file.relative_to(copy_from) for file in copy_from.rglob("*")]
             copy_files, copy_audio = self.sample(all_files)
 
@@ -161,6 +167,9 @@ class RandomSampleOriginalDataset(WorkTask):
             copy_to = self.workdir.joinpath(url_name)
             if copy_to.exists():
                 shutil.rmtree(copy_to)
+            # There might be no metadata and hence copy_to should be explicitly made
+            # rather than relying on the safecopy function used to copy the metadata
+            copy_to.mkdir(parents=True, exist_ok=True)
 
             # Copy all the non audio files
             for file in tqdm(copy_files):
