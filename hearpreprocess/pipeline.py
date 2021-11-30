@@ -4,6 +4,7 @@ Generic pipelines for datasets
 
 import json
 import os
+import copy
 import random
 import shutil
 import tarfile
@@ -586,12 +587,12 @@ class ExtractMetadata(WorkTask):
         for i, seed in enumerate(seeds):
             # Deterministically shuffle all unique split_keys.
             rng = random.Random(seed)
-            shuffled_split_key = copy.deepcopy(split_keys)
-            rng.shuffle(shuffled_split_key)
+            shuffled_split_keys = copy.deepcopy(split_keys)
+            rng.shuffle(shuffled_split_keys)
 
             # Equally split the split_keys into k folds and label accordingly
             k_folds = self.task_config["nfolds"]
-            folds_keys = np.array_split(shuffled_split_key, k_folds)
+            folds_keys = np.array_split(shuffled_split_keys, k_folds)
             for j, fold in enumerate(folds_keys):
                 metadata.loc[metadata["split_key"].isin(fold), "split"] = f"fold{j:02d}"
 
@@ -692,12 +693,12 @@ class ExtractMetadata(WorkTask):
 
     def run(self):
         # Output stats for every input directory
-        for key, requires in self.requires().items():
-            stats = audio_util.get_audio_dir_stats(
-                in_dir=requires.output_path,
-                out_file=self.workdir.joinpath(f"{key}_stats.json"),
-            )
-            diagnostics.info(f"{self.longname} extractdir {key} stats {stats}")
+        # for key, requires in self.requires().items():
+        #     stats = audio_util.get_audio_dir_stats(
+        #         in_dir=requires.output_path,
+        #         out_file=self.workdir.joinpath(f"{key}_stats.json"),
+        #     )
+        #     diagnostics.info(f"{self.longname} extractdir {key} stats {stats}")
 
         # Get all metadata to be used for the task
         metadata = self.get_all_metadata()
@@ -762,7 +763,7 @@ class ExtractMetadata(WorkTask):
                 indent=True,
             )
 
-        self.mark_complete()
+        # self.mark_complete()
 
     # UNUSED
     def relpath_to_datapath(self, relpath: Path) -> Path:
