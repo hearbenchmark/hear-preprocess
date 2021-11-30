@@ -570,19 +570,53 @@ class ExtractMetadata(WorkTask):
         """
         Deterministically split dataset into k-folds
         """
+        SEED_RETRIES = 1000
         # Deterministically sort all unique split_keys.
         split_keys = sorted(metadata["split_key"].unique())
 
-        # Deterministically shuffle all unique split_keys.
-        rng = random.Random("split_k_folds")
-        rng.shuffle(split_keys)
+        # A set of seeds will be tried to ensure each fold has at least
+        # one example for each label
+        # Since seeds are tried sequentially, this is still deterministic
+        # The first seed remains "split_k_folds" to maintain consistency with
+        # previous versions
+        seeds = ["split_k_folds"] + [
+            f"split_k_folds_retry_{i}" for i in range(SEED_RETRIES - 1)
+        ]
 
-        # Equally split the split_keys into k folds and label accordingly
-        k_folds = self.task_config["nfolds"]
-        folds_keys = np.array_split(split_keys, k_folds)
-        for i, fold in enumerate(folds_keys):
-            metadata.loc[metadata["split_key"].isin(fold), "split"] = f"fold{i:02d}"
+        for i, seed in enumerate(seeds):
+            # Deterministically shuffle all unique split_keys.
+            rng = random.Random(seed)
+            shuffled_split_key = copy.deepcopy(split_keys)
+            rng.shuffle(shuffled_split_key)
 
+            # Equally split the split_keys into k folds and label accordingly
+            k_folds = self.task_config["nfolds"]
+            folds_keys = np.array_split(shuffled_split_key, k_folds)
+            for j, fold in enumerate(folds_keys):
+                metadata.loc[metadata["split_key"].isin(fold), "split"] = f"fold{j:02d}"
+
+            if self.task_config["mode"] == "small" or (
+                self.task_config["embedding_type"] == "event"
+                and self.task_config["prediction_type"] == "multilabel"
+            ):
+                # All labels are not required across all folds for either small
+                # or an event and multilable type task
+                break
+
+            if all(
+                metadata.groupby("split")["label"].nunique()
+                == metadata["label"].nunique()
+            ):
+                diagnostics.info(
+                    f"{self.longname} - Kfold was successful with seed: {seed}"
+                )
+                break
+
+        if i == len(seeds) - 1:
+            raise AssertionError(
+                "All the seeds were tried, but the data couldnot be split into "
+                "folds with at least one example for each label"
+            )
         return metadata
 
     def create_splits(self, metadata: pd.DataFrame) -> pd.DataFrame:
