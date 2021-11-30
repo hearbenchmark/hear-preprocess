@@ -693,12 +693,12 @@ class ExtractMetadata(WorkTask):
 
     def run(self):
         # Output stats for every input directory
-        # for key, requires in self.requires().items():
-        #     stats = audio_util.get_audio_dir_stats(
-        #         in_dir=requires.output_path,
-        #         out_file=self.workdir.joinpath(f"{key}_stats.json"),
-        #     )
-        #     diagnostics.info(f"{self.longname} extractdir {key} stats {stats}")
+        for key, requires in self.requires().items():
+            stats = audio_util.get_audio_dir_stats(
+                in_dir=requires.output_path,
+                out_file=self.workdir.joinpath(f"{key}_stats.json"),
+            )
+            diagnostics.info(f"{self.longname} extractdir {key} stats {stats}")
 
         # Get all metadata to be used for the task
         metadata = self.get_all_metadata()
@@ -763,7 +763,7 @@ class ExtractMetadata(WorkTask):
                 indent=True,
             )
 
-        # self.mark_complete()
+        self.mark_complete()
 
     # UNUSED
     def relpath_to_datapath(self, relpath: Path) -> Path:
