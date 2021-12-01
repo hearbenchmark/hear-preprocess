@@ -215,7 +215,7 @@ def validate_generic_task_config(
                     # nfolds defines the number of folds
                     # If the split_mode is new_split_kfold nfolds is the number of folds
                     # that will be made
-                    "nfolds": And(int, lambda nfolds: nfolds > 3),
+                    "nfolds": And(int, lambda nfolds: nfolds >= 3),
                     # max_task_duration_by_fold (in seconds) should be defined
                     # across folds. It should be set to None if the complete fold
                     # is required
