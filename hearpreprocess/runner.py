@@ -128,24 +128,24 @@ def run(
     for task in tasklist:
         for task_module in tasks[task]:
             # Validate the generic task configuration defined for the task
-            validate_generic_task_config(task_module.generic_task_config)
+            validate_generic_task_config(task_module.generic_task_config)  # type: ignore
             if mode == "default":
-                task_modes = [task_module.generic_task_config["default_mode"]]
+                task_modes = [task_module.generic_task_config["default_mode"]]  # type: ignore
             elif mode == "small":
                 task_modes = ["small"]
-            elif mode in task_module.generic_task_config["modes"]:
+            elif mode in task_module.generic_task_config["modes"]:  # type: ignore
                 task_modes = [mode]
             elif mode == "all":
                 task_modes = [
                     task_mode
-                    for task_mode in task_module.generic_task_config["modes"].keys()
+                    for task_mode in task_module.generic_task_config["modes"].keys()  # type: ignore
                     if task_mode != "small"
                 ]
                 assert task_modes is not [], f"Task {task} has no modes besides 'small'"
             else:
                 raise ValueError(f"mode {mode} unknown")
             for task_mode in task_modes:
-                task_config = copy.deepcopy(task_module.generic_task_config)
+                task_config = copy.deepcopy(task_module.generic_task_config)  # type: ignore
                 if task_mode == "small" and "small" not in task_config["modes"]:
                     print(
                         f"No small mode found in {task_config['task_name']} task"
@@ -182,7 +182,7 @@ def run(
                         "expected 'trainvaltest, 'new_split_kfold', or 'presplit_kfold'"
                     )
 
-                metadata_task = task_module.extract_metadata_task(task_config)
+                metadata_task = task_module.extract_metadata_task(task_config)  # type: ignore
                 final_task = pipeline.FinalizeCorpus(
                     sample_rates=sample_rates,
                     tasks_dir=tasks_dir,
