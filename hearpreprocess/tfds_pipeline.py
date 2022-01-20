@@ -124,8 +124,8 @@ class ExtractTFDS(luigi_util.WorkTask):
             numpy_audio = example["audio"]
             if np.issubdtype(numpy_audio.dtype, np.integer):
                 assert np.max(numpy_audio.abs()) <= 32767, (
-                    f"Was a expecting 16bit audio but the max value found "
-                    f"exceeds the range for int16."
+                    "Was a expecting 16bit audio but audio sample "
+                    "exceeds the range for int16."
                 )
                 numpy_audio = numpy_audio.astype("int16")
 
