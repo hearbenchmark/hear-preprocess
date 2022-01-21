@@ -8,8 +8,11 @@ you won't need this repo. Use
 [hear-eval-kit](https://github.com/neuralaudio/hear-eval-kit/) to
 evaluate your embedding models on these tasks. 
 
-Pre-processed datasets (@48kHz) for all HEAR 2021 tasks are available on 
-[zenodo](https://doi.org/10.5281/zenodo.5802571).
+Pre-processed datasets (at 48000Hz) for all HEAR 2021 tasks are available on
+[zenodo](https://doi.org/10.5281/zenodo.5802571). For other sampling rates
+(16000, 22050, 32000, 44100), please download
+files (requester pays) from Google Storage
+[gs://hear2021-archive/tasks/](https://console.cloud.google.com/storage/browser/hear2021-archive/tasks)
 
 This preprocessing is slow and disk-intensive but safe and careful.
 
