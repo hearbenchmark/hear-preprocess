@@ -6,7 +6,10 @@ Dataset preprocessing code for the HEAR 2021 NeurIPS competition.
 Unless you are a HEAR organizer or want to contribute a task,
 you won't need this repo. Use
 [hear-eval-kit](https://github.com/neuralaudio/hear-eval-kit/) to
-evaluate your embedding models on these tasks.
+evaluate your embedding models on these tasks. 
+
+Pre-processed datasets (@48kHz) for all HEAR 2021 tasks are available on 
+[zenodo](https://doi.org/10.5281/zenodo.5802571).
 
 This preprocessing is slow and disk-intensive but safe and careful.
 
@@ -32,13 +35,6 @@ Clone repo:
 git clone https://github.com/neuralaudio/hear-preprocess
 cd hear-preprocess
 ```
-Add secret task submodule:
-```
-git submodule init
-git submodule update --remote
-```
-**_NOTE_**: Secret tasks are not available to participants. You
-should skip the above step.
 
 Install in development mode:
 ```
@@ -66,14 +62,6 @@ If you want to run preprocessing yourself:
 libsox-fmt-ffmpeg or [installing from
 source](https://github.com/neuralaudio/hear-eval-kit/issues/156#issuecomment-893151305).
 
-When using 'mode --default', this will take about several hours for
-the open tasks.  150 GB free disk space is required while processing.
-Final output is 11 GB.
-
-mode --all (speech_commands full and nsynth 50h), on n1-standard-8,
-16.5 hours.  560GB working disk, including final output.  Final
-output 138GB.
-
 These Luigi pipelines are used to preprocess the evaluation tasks
 into a common format for downstream evaluation.
 
@@ -81,7 +69,7 @@ To run the preprocessing pipeline for all available tasks, with all
 available modes for each task:
 ```
 python3 -m hearpreprocess.runner all --mode all
-```
+``` 
 
 You can instead just call a specific single task
 ```
@@ -92,41 +80,34 @@ or specific multiple tasks:
 python3 -m hearpreprocess.runner task1 task2 --mode all
 ```
 
-Upload to private bucket:
-```
-gsutil -m cp hear-*.tar.gz gs://hear2021-private/
-```
+#### Tasks
+List of available tasks used in HEAR 2021:
 
-Upload to open bucket:
-```
-gsutil -m cp hear-*dcase2016_task2*.tar.gz gs://hear2021/open-tasks/
-gsutil -m cp hear-*speech_commands*.tar.gz gs://hear2021/open-tasks/
-gsutil -m cp hear-*nsynth_pitch*.tar.gz gs://hear2021/open-tasks/
-```
+| Task Name                 | Modes        |
+|---------------------------|--------------|
+| `dcase2016_task2`         | `full`       |
+| `nsynth_pitch`            | `5h`, `50h`  |
+| `speech_commands`         | `5h`, `full` |
+| `beehive_states_fold0`    | `5h`, `full` |
+| `beehive_states_fold1`    | `5h`, `full` |
+| `beijing_opera`           | `full`       |
+| `esc50`                   | `full`       |
+| `fsd50k`                  | `full`       |
+| `gunshot_triangulation`   | `full`       |
+| `libricount`              | `full`       |
+| `maestro`                 | `5h`         |
+| `mridangam_stroke`        | `full`       |
+| `mridangam_tonic`         | `full`       |
+| `tfds_crema_d`            | `full`       |
+| `tfds_gtzan`              | `full`       |
+| `tfds_gtzan_music_speech` | `full`       |
+| `vocal_imitation`         | `full`       |
+| `vox_lingua_top10`        | `full`       |
 
-Small open tasks can be put in the cloud as follows:
-```
-gsutil -m cp hear-*dcase2016_task2*small*.tar.gz gs://hear2021/small/
-gsutil -m cp hear-*speech_commands*small*.tar.gz gs://hear2021/small/
-gsutil -m cp hear-*nsynth_pitch*small*.tar.gz gs://hear2021/small/
-```
 
-You can also just run individual tasks:
-```
-python3 -m hearpreprocess.runner [speech_commands|nsynth_pitch|dcase2016_task2]
-```
-**_NOTE__**: To run the pipeline on secret tasks please ensure to
-initialize, update, and install the `hear2021-secret-tasks` submodule.
-This repository is not available for participants. If the submodule
-is set up:
-- The aforementioned commands will work for secret tasks as
-well.
-- Running with the task `all` option will trigger all the available
-set of open and secret tasks.
-- To run individual tasks, please use the corresponding `task` name.
-The secret task names are are also hidden and listed in the
-`hear2021-secret-tasks` submodule.
 
+
+#### Pipelines
 Each pipeline will download and preprocess each dataset according
 to the following DAG:
 * DownloadCorpus
