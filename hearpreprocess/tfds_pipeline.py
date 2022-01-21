@@ -117,13 +117,20 @@ class ExtractTFDS(luigi_util.WorkTask):
         # Track label indices for all the audio files
         all_label_idx: set = set()
         for example in tqdm(tfds.as_numpy(dataset)):
-            # Only these - 'float32', 'float64', 'int16', 'int32' - formats
-            # are allowed in soundfile write function. If int64 type is found,
-            # convert to int32
+            # If the audio returned by TFDS is an integer type, then convert it to
+            # an int16 type. TFDS returns 16-bit audio in int64, and for these to be
+            # saved correctly by soundfile they need to be cast as int16.
+            # The amplitude will be incorrect otherwise.
             numpy_audio = example["audio"]
-            if numpy_audio.dtype == np.int64:
-                numpy_audio = numpy_audio.astype("int32")
-            assert numpy_audio.dtype in [np.float32, np.float64, np.int16, np.int32], (
+            if np.issubdtype(numpy_audio.dtype, np.integer):
+                assert np.max(np.abs(numpy_audio)) <= 32768, (
+                    "Was a expecting 16bit audio but audio sample "
+                    "exceeds the range for int16."
+                )
+                numpy_audio = numpy_audio.astype("int16")
+
+            # Formats that work for writing in
+            assert numpy_audio.dtype in [np.float32, np.float64, np.int16], (
                 f"The audio's numpy array datatype: {numpy_audio.dtype} cannot be "
                 "saved with soundfile"
             )
