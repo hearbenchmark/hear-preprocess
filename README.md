@@ -85,24 +85,24 @@ List of available tasks used in HEAR 2021:
 
 | Task Name                 | Modes        |
 |---------------------------|--------------|
-| `dcase2016_task2`         | `full`       |
-| `nsynth_pitch`            | `5h`, `50h`  |
-| `speech_commands`         | `5h`, `full` |
-| `beehive_states_fold0`    | `5h`, `full` |
-| `beehive_states_fold1`    | `5h`, `full` |
-| `beijing_opera`           | `full`       |
-| `esc50`                   | `full`       |
-| `fsd50k`                  | `full`       |
-| `gunshot_triangulation`   | `full`       |
-| `libricount`              | `full`       |
-| `maestro`                 | `5h`         |
-| `mridangam_stroke`        | `full`       |
-| `mridangam_tonic`         | `full`       |
-| `tfds_crema_d`            | `full`       |
-| `tfds_gtzan`              | `full`       |
-| `tfds_gtzan_music_speech` | `full`       |
-| `vocal_imitation`         | `full`       |
-| `vox_lingua_top10`        | `full`       |
+| dcase2016_task2         | full       |
+| nsynth_pitch            | 5h, 50h  |
+| speech_commands         | 5h, full |
+| beehive_states_fold0    | 5h, full |
+| beehive_states_fold1    | 5h, full |
+| beijing_opera           | full       |
+| esc50                   | full       |
+| fsd50k                  | full       |
+| gunshot_triangulation   | full       |
+| libricount              | full       |
+| maestro                 | 5h         |
+| mridangam_stroke        | full       |
+| mridangam_tonic         | full       |
+| tfds_crema_d            | full       |
+| tfds_gtzan              | full       |
+| tfds_gtzan_music_speech | full       |
+| vocal_imitation         | full       |
+| vox_lingua_top10        | full       |
 
 
 
