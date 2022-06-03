@@ -29,7 +29,7 @@ generic_task_config = {
             "download_urls": [
                 {
                     "split": "train",
-                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/spoken_digit-small.zip",  # noqa: E501
+                    "url": "https://github.com/hearbenchmark/hear2021-open-tasks-downsampled/raw/main/spoken_digit-small.zip",  # noqa: E501
                     "md5": "69d50c15805ea11beb12d9a4db1d4c2a",
                 }
             ],
