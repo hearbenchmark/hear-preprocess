@@ -1,14 +1,14 @@
-![HEAR2021](https://neuralaudio.ai/assets/img/hear-header-sponsor.jpg)
 # hear-preprocess
 
-Dataset preprocessing code for the HEAR 2021 NeurIPS competition.
+Dataset preprocessing code for the HEAR Benchmark and for all the tasks used during
+the 2021 HEAR NeurIPS challenge. To find out more about HEAR please visit https://hearbenchmark.com.
 
-Unless you are a HEAR organizer or want to contribute a task,
+Unless you need to pre-process HEAR benchmark tasks yourself or want to contribute a task,
 you won't need this repo. Use
-[hear-eval-kit](https://github.com/neuralaudio/hear-eval-kit/) to
+[hear-eval-kit](https://github.com/hearbenchmark/hear-eval-kit/) to
 evaluate your embedding models on these tasks. 
 
-Pre-processed datasets (at 48000Hz) for all HEAR 2021 tasks are available on
+Pre-processed datasets (at 48000Hz) for all HEAR Benchmark tasks are available on
 [zenodo](https://doi.org/10.5281/zenodo.5802571). Other sampling rates
 (16000, 22050, 32000, 44100), are available for download (requester pays) from Google Storage
 [gs://hear2021-archive/tasks/](https://console.cloud.google.com/storage/browser/hear2021-archive/tasks)
@@ -18,7 +18,7 @@ This preprocessing is slow and disk-intensive but safe and careful.
 ## Cloud Usage
 
 See [hear-eval's
-README.spotty](https://github.com/neuralaudio/hear-eval-kit/blob/main/README.spotty.md)
+README.spotty](https://github.com/hearbenchmark/hear-eval-kit/blob/main/README.spotty.md)
 for information on how to use spotty.
 
 ## Installation
@@ -34,7 +34,7 @@ because pip3 installs are very finicky, but it might work.
 
 Clone repo:
 ```
-git clone https://github.com/neuralaudio/hear-preprocess
+git clone https://github.com/hearbenchmark/hear-preprocess
 cd hear-preprocess
 ```
 
@@ -55,14 +55,15 @@ python3 -m pytest
 
 ### Preprocessing
 
-You probably don't need to do this unless you are implementing the
-HEAR challenge.
+You probably don't need to do this unless you can't use the [available pre-processed
+datasets](https://hearbenchmark.com/hear-tasks.html#downloading) and need to preprocess
+the data yourself..
 
 If you want to run preprocessing yourself:
 * You will need `ffmpeg>=4.2` installed (possibly from conda-forge).
 * You will need `soxr` support, which might require package
 libsox-fmt-ffmpeg or [installing from
-source](https://github.com/neuralaudio/hear-eval-kit/issues/156#issuecomment-893151305).
+source](https://github.com/hearbenchmark/hear-eval-kit/issues/156#issuecomment-893151305).
 
 These Luigi pipelines are used to preprocess the evaluation tasks
 into a common format for downstream evaluation.
@@ -173,7 +174,7 @@ speech_commands-v0.0.2/03-ExtractMetadata/labelcount_valid.json
 
 The small flag runs the preprocessing pipeline on a small version
 of each dataset stored at [Downsampled HEAR Open
-Tasks](https://github.com/neuralaudio/hear2021-open-tasks-downsampled). This
+Tasks](https://github.com/hearbenchmark/hear2021-open-tasks-downsampled). This
 is used for development and continuous integration tests for the
 pipeline.
 
@@ -190,7 +191,7 @@ small version of the dataset for development.
 
 If the open tasks have changed enough to break the downstream CI,
 (for example in the heareval repo), the [Preprocessed Downsampled HEAR Open
-Tasks](https://github.com/neuralaudio/hear2021-open-tasks-downsampled/tree/main/preprocessed)
+Tasks](https://github.com/hearbenchmark/hear2021-open-tasks-downsampled/tree/main/preprocessed)
 should be updated. An example of an obvious breaking changes can be modification of the task configuration.
 
 The version should be bumped up in `hearpreprocess/__init__.py` and the pipeline should
@@ -199,7 +200,7 @@ be run for the open tasks with `--mode small` flag
 Thereafter, the following command can be used to copy the tarred files produced by running the pipeline for the open tasks to the repo( Please clone the repo )
 
 ```
-git clone git@github.com:neuralaudio/hear2021-open-tasks-downsampled.git
+git clone git@github.com:hearbenchmark/hear2021-open-tasks-downsampled.git
 cp hear-LATEST-speech_commands-v0.0.2-small-44100.tar.gz ./hear2021-open-tasks-downsampled/preprocessed/
 cp hear-LATEST-nsynth_pitch-v2.2.3-small-44100.tar.gz ./hear2021-open-tasks-downsampled/preprocessed/
 cp hear-LATEST-dcase2016_task2-hear2021-small-44100.tar.gz ./hear2021-open-tasks-downsampled/preprocessed/
