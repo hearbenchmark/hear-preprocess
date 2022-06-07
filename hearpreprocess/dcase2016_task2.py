@@ -63,13 +63,13 @@ generic_task_config = {
                 {
                     "split": "train",
                     "name": "dev",
-                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_train_dev-small.zip",  # noqa: E501
+                    "url": "https://github.com/hearbenchmark/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_train_dev-small.zip",  # noqa: E501
                     "md5": "aa9b43c40e9d496163caab83becf972e",
                 },
                 {
                     "split": "train",
                     "name": "eval",
-                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_test_public-small.zip",  # noqa: E501
+                    "url": "https://github.com/hearbenchmark/hear2021-open-tasks-downsampled/raw/main/dcase2016_task2_test_public-small.zip",  # noqa: E501
                     "md5": "14539d85dec03cb7ac75eb62dd1dd21e",
                 },
             ],

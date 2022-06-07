@@ -32,7 +32,7 @@ generic_task_config = {
     "sample_duration": 10.19,
     # Original Dataset Paper - https://www.nature.com/articles/s41597-021-00937-4.pdf
     # TODO: Implement AUC or other measure?
-    # https://github.com/neuralaudio/hear2021-secret-tasks/issues/16
+    # https://github.com/hearbenchmark/hear2021-secret-tasks/issues/16
     "evaluation": ["top1_acc", "mAP", "d_prime", "aucroc"],
     "download_urls": [
         # test and valid split will be sampled from the train set only
@@ -82,7 +82,7 @@ class ExtractMetadata(pipeline.ExtractMetadata):
         label_map = (
             pd.read_csv(split_path.joinpath("metadata_compiled.csv"))
             # Filter out the data points with null status
-            # TODO: https://github.com/neuralaudio/hear2021-secret-tasks/issues/17
+            # TODO: https://github.com/hearbenchmark/hear2021-secret-tasks/issues/17
             # Select entries with cough detected probability greater than 0.8
             .loc[lambda df: df["cough_detected"] > 0.8]
             # Select entries with self reported status available

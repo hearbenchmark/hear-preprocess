@@ -66,12 +66,12 @@ generic_task_config = {
             "download_urls": [
                 {
                     "split": "train",
-                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/speech_commands_v0.02-small.zip",  # noqa: E501
+                    "url": "https://github.com/hearbenchmark/hear2021-open-tasks-downsampled/raw/main/speech_commands_v0.02-small.zip",  # noqa: E501
                     "md5": "455123a88b8410d1f955c77ad331524f",
                 },
                 {
                     "split": "test",
-                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/speech_commands_test_set_v0.02-small.zip",  # noqa: E501
+                    "url": "https://github.com/hearbenchmark/hear2021-open-tasks-downsampled/raw/main/speech_commands_test_set_v0.02-small.zip",  # noqa: E501
                     "md5": "26d08374a7abd13ca2f4a4b8424f41d0",
                 },
             ],

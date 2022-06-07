@@ -72,17 +72,17 @@ generic_task_config: Dict[str, Any] = {
             "download_urls": [
                 {
                     "split": "train",
-                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-train-small.zip",  # noqa: E501
+                    "url": "https://github.com/hearbenchmark/hear2021-open-tasks-downsampled/raw/main/nsynth-train-small.zip",  # noqa: E501
                     "md5": "c17070e4798655d8bea1231506479ba8",
                 },
                 {
                     "split": "valid",
-                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-valid-small.zip",  # noqa: E501
+                    "url": "https://github.com/hearbenchmark/hear2021-open-tasks-downsampled/raw/main/nsynth-valid-small.zip",  # noqa: E501
                     "md5": "e36722262497977f6b945bb06ab0969d",
                 },
                 {
                     "split": "test",
-                    "url": "https://github.com/neuralaudio/hear2021-open-tasks-downsampled/raw/main/nsynth-test-small.zip",  # noqa: E501
+                    "url": "https://github.com/hearbenchmark/hear2021-open-tasks-downsampled/raw/main/nsynth-test-small.zip",  # noqa: E501
                     "md5": "9a98e869ed4add8ba9ebb0d7c22becca",
                 },
             ],
