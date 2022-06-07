@@ -31,7 +31,7 @@ setup(
         "luigi",
         # One of the requirements pulls in librosa, I believe note_seq
         # So we need to pin these, otherwise librosa breaks
-        "numpy==1.19.2",
+        "numpy==1.21.0",
         "numba==0.48",
         "pandas",
         "python-slugify",
