@@ -2,7 +2,7 @@ black
 luigi
 # One of the requirements pulls in librosa, I believe note_seq
 # So we need to pin these, otherwise librosa breaks
-numpy==1.19.2
+numpy==1.22.2
 numba==0.48
 pandas
 pre-commit
@@ -20,3 +20,4 @@ note_seq
 tensorflow>=2.0
 schema
 patool
+setuptools>=65.5.1 # not directly required, pinned by Snyk to avoid a vulnerability
