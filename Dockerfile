@@ -2,7 +2,7 @@
 # pay, so just run this manually each time you update the Dockerfile:
 # docker build -t turian/hearpreprocess . && docker push turian/hearpreprocess
 
-FROM ubuntu
+FROM ubuntu:kinetic
 
 ENV LANG C.UTF-8
 
