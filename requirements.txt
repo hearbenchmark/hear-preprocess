@@ -20,3 +20,4 @@ note_seq
 tensorflow>=2.0
 schema
 patool
+pillow>=10.0.0 # not directly required, pinned by Snyk to avoid a vulnerability
