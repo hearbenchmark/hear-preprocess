@@ -17,6 +17,6 @@ tensorflow-datasets
 tqdm
 ffmpeg-python
 note_seq
-tensorflow>=2.0
+tensorflow>=2.12.0rc1
 schema
 patool
